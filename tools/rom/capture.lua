@@ -6,7 +6,7 @@
 -- so a later run does not invent a second one.
 --
 -- Usage (illustrative; confirm against the MAME version actually installed):
---   mame coco2 -cart build/rom/daggorath.bin -autoboot_script tools/rom/capture.lua
+--   mame coco -cart build/rom/daggorath.bin -autoboot_script tools/rom/capture.lua
 --
 -- Required environment (set before launch, or edit the locals below):
 --   DOD_SYMBOLS   TSV "symbol<TAB>hex-address" from the lwasm listing
@@ -86,24 +86,32 @@ local function load_script(path)
     return keys
 end
 
--- CoCo keyboard matrix columns as MAME ioport tags. POLCAT scans rows.
--- One injected key is held for a single 60 Hz frame, which is one jiffy.
+-- MAME 0.264 coco_keyboard in src/mame/trs/coco12.cpp. Each entry is the
+-- root ioport tag and the PORT_BIT mask. port:field(mask) selects that bit.
+-- set_value(1) asserts the key; the port is active-low. Checked against that
+-- source. MAME 0.264 ioport_configurer::port_alloc stores owner.subtag(name).
+-- For the root device that is ":row0" .. ":row6". Not executed: MAME exited
+-- before a frame.
+-- MAME 0.264 calls the frame notifier at the end of the frame, not the start.
+-- Keys for jiffy 0 are pressed from the reset notifier, before the first frame.
+-- After each frame is sampled, those keys are released and the next jiffy's
+-- keys are pressed, so they are down while that frame's CPU work runs.
 local KEY_PORT = {
-    ["0"] = { ":row0", "0" }, ["1"] = { ":row0", "1" }, ["2"] = { ":row0", "2" },
-    ["3"] = { ":row0", "3" }, ["4"] = { ":row0", "4" }, ["5"] = { ":row0", "5" },
-    ["6"] = { ":row0", "6" }, ["7"] = { ":row0", "7" },
-    ["8"] = { ":row1", "0" }, ["9"] = { ":row1", "1" },
-    A = { ":row1", "2" }, B = { ":row1", "3" }, C = { ":row1", "4" },
-    D = { ":row1", "5" }, E = { ":row1", "6" }, F = { ":row1", "7" },
-    G = { ":row2", "0" }, H = { ":row2", "1" }, I = { ":row2", "2" },
-    J = { ":row2", "3" }, K = { ":row2", "4" }, L = { ":row2", "5" },
-    M = { ":row2", "6" }, N = { ":row2", "7" },
-    O = { ":row3", "0" }, P = { ":row3", "1" }, Q = { ":row3", "2" },
-    R = { ":row3", "3" }, S = { ":row3", "4" }, T = { ":row3", "5" },
-    U = { ":row3", "6" }, V = { ":row3", "7" },
-    W = { ":row4", "0" }, X = { ":row4", "1" }, Y = { ":row4", "2" },
-    Z = { ":row4", "3" },
-    SPACE = { ":row6", "5" }, CR = { ":row6", "0" }, BS = { ":row5", "6" },
+    ["0"] = { ":row4", 0x01 }, ["1"] = { ":row4", 0x02 }, ["2"] = { ":row4", 0x04 },
+    ["3"] = { ":row4", 0x08 }, ["4"] = { ":row4", 0x10 }, ["5"] = { ":row4", 0x20 },
+    ["6"] = { ":row4", 0x40 }, ["7"] = { ":row4", 0x80 },
+    ["8"] = { ":row5", 0x01 }, ["9"] = { ":row5", 0x02 },
+    A = { ":row0", 0x02 }, B = { ":row0", 0x04 }, C = { ":row0", 0x08 },
+    D = { ":row0", 0x10 }, E = { ":row0", 0x20 }, F = { ":row0", 0x40 },
+    G = { ":row0", 0x80 },
+    H = { ":row1", 0x01 }, I = { ":row1", 0x02 }, J = { ":row1", 0x04 },
+    K = { ":row1", 0x08 }, L = { ":row1", 0x10 }, M = { ":row1", 0x20 },
+    N = { ":row1", 0x40 }, O = { ":row1", 0x80 },
+    P = { ":row2", 0x01 }, Q = { ":row2", 0x02 }, R = { ":row2", 0x04 },
+    S = { ":row2", 0x08 }, T = { ":row2", 0x10 }, U = { ":row2", 0x20 },
+    V = { ":row2", 0x40 }, W = { ":row2", 0x80 },
+    X = { ":row3", 0x01 }, Y = { ":row3", 0x02 }, Z = { ":row3", 0x04 },
+    SPACE = { ":row3", 0x80 }, CR = { ":row6", 0x01 }, BS = { ":row3", 0x20 },
 }
 
 local symbols = load_symbols(symbols_path)
@@ -115,9 +123,15 @@ local script = load_script(script_path)
 if os.getenv("DOD_SELFTEST") == "1" then
     local need = { "A", "Z", "SPACE", "CR", "BS" }
     for _, key in ipairs(need) do
-        if not KEY_PORT[key] then die("KEY_PORT has no entry for " .. key) end
+        local spec = KEY_PORT[key]
+        if not spec or type(spec[2]) ~= "number" or spec[2] < 1 then
+            die("KEY_PORT has no mask for " .. key)
+        end
     end
     if #watches < 1 then die("watchlist produced no rows") end
+    for _, ev in ipairs(script) do
+        if not KEY_PORT[ev.key] then die("no matrix entry for key " .. ev.key) end
+    end
     io.write(string.format("selftest ok symbols=%d watches=%d script_keys=%d\n",
         (function() local n = 0; for _ in pairs(symbols) do n = n + 1 end; return n end)(),
         #watches, #script))
@@ -146,7 +160,7 @@ end
 local function sample()
     local machine = manager.machine
     local cpu = machine.devices[":maincpu"]
-    if not cpu then die("no :maincpu device; start a coco2 or coco3 driver") end
+    if not cpu then die("no :maincpu device; start the coco or coco3 driver") end
     local mem = cpu.spaces["program"]
     local values = {}
     for _, w in ipairs(watches) do
@@ -180,28 +194,63 @@ local function sample()
         emit("TURN", "dir=" .. tostring(tonumber(values.PDIR, 16)))
     end
     for name, hex in pairs(values) do prev[name] = hex end
-
-    while script_at <= #script and script[script_at].jiffy == jiffy do
-        local spec = KEY_PORT[script[script_at].key]
-        if spec then
-            local port = machine.ioport.ports[spec[1]]
-            if port then
-                port:field(spec[2]):set_value(1)
-            else
-                die("ioport " .. spec[1] .. " missing; the key matrix tags are unverified")
-            end
-        else
-            die("no matrix entry for key " .. script[script_at].key)
-        end
-        script_at = script_at + 1
-    end
-    jiffy = jiffy + 1
 end
 
-if emu and emu.register_frame_done then
-    emu.register_frame_done(sample)
-elseif manager.machine.video and manager.machine.video.register_frame then
-    manager.machine.video:register_frame(sample)
+local held = {}
+
+local function release_held()
+    for i = 1, #held do
+        held[i]:clear_value()
+    end
+    held = {}
+end
+
+local jiffy_limit = tonumber(os.getenv("DOD_JIFFIES") or "")
+
+-- Press this jiffy's keys. The caller releases the previous jiffy's keys first
+-- when a frame has already run.
+local function inject()
+    local machine = manager.machine
+    release_held()
+    while script_at <= #script and script[script_at].jiffy == jiffy do
+        local spec = KEY_PORT[script[script_at].key]
+        if not spec then
+            die("no matrix entry for key " .. script[script_at].key)
+        end
+        local port = machine.ioport.ports[spec[1]]
+        if not port then
+            die("ioport " .. spec[1] .. " missing; expected root subtag :rowN")
+        end
+        local field = port:field(spec[2])
+        if not field then
+            die(string.format("ioport %s has no field mask 0x%02X", spec[1], spec[2]))
+        end
+        field:set_value(1)
+        held[#held + 1] = field
+        script_at = script_at + 1
+    end
+end
+
+local function after_frame()
+    sample()
+    release_held()
+    jiffy = jiffy + 1
+    if jiffy_limit and jiffy >= jiffy_limit then
+        raw:flush()
+        trace:flush()
+        manager.machine:exit()
+        return
+    end
+    inject()
+end
+
+-- 0.264: frame notifier is the end of the frame. Reset runs before the first one.
+if emu.add_machine_reset_notifier and emu.add_machine_frame_notifier then
+    emu.add_machine_reset_notifier(inject)
+    emu.add_machine_frame_notifier(after_frame)
+elseif emu.register_start and emu.register_frame then
+    emu.register_start(inject)
+    emu.register_frame(after_frame)
 else
-    die("this MAME build has neither emu.register_frame_done nor video:register_frame")
+    die("this MAME build has no reset notifier and no end-of-frame notifier")
 end
