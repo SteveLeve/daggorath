@@ -91,8 +91,10 @@ end
 -- set_value(1) asserts the key; the port is active-low. Checked against that
 -- source. Not executed: MAME exited before a frame, so the ":rowN" tag
 -- spelling is still unconfirmed on a live machine.
--- Keys for a jiffy are asserted at the start of that frame and cleared at the
--- start of the next one.
+-- MAME 0.264 calls the frame notifier at the end of the frame, not the start.
+-- Keys for jiffy 0 are pressed from the reset notifier, before the first frame.
+-- After each frame is sampled, those keys are released and the next jiffy's
+-- keys are pressed, so they are down while that frame's CPU work runs.
 local KEY_PORT = {
     ["0"] = { ":row4", 0x01 }, ["1"] = { ":row4", 0x02 }, ["2"] = { ":row4", 0x04 },
     ["3"] = { ":row4", 0x08 }, ["4"] = { ":row4", 0x10 }, ["5"] = { ":row4", 0x20 },
@@ -191,7 +193,6 @@ local function sample()
         emit("TURN", "dir=" .. tostring(tonumber(values.PDIR, 16)))
     end
     for name, hex in pairs(values) do prev[name] = hex end
-    jiffy = jiffy + 1
 end
 
 local held = {}
@@ -203,7 +204,10 @@ local function release_held()
     held = {}
 end
 
--- Press this jiffy's keys before the frame runs, and drop them before the next.
+local jiffy_limit = tonumber(os.getenv("DOD_JIFFIES") or "")
+
+-- Press this jiffy's keys. The caller releases the previous jiffy's keys first
+-- when a frame has already run.
 local function inject()
     local machine = manager.machine
     release_held()
@@ -226,9 +230,26 @@ local function inject()
     end
 end
 
-if emu and emu.register_frame and emu.register_frame_done then
-    emu.register_frame(inject)
-    emu.register_frame_done(sample)
+local function after_frame()
+    sample()
+    release_held()
+    jiffy = jiffy + 1
+    if jiffy_limit and jiffy >= jiffy_limit then
+        raw:flush()
+        trace:flush()
+        manager.machine:exit()
+        return
+    end
+    inject()
+end
+
+-- 0.264: frame notifier is the end of the frame. Reset runs before the first one.
+if emu.add_machine_reset_notifier and emu.add_machine_frame_notifier then
+    emu.add_machine_reset_notifier(inject)
+    emu.add_machine_frame_notifier(after_frame)
+elseif emu.register_start and emu.register_frame then
+    emu.register_start(inject)
+    emu.register_frame(after_frame)
 else
-    die("this MAME build has no emu.register_frame / emu.register_frame_done")
+    die("this MAME build has no reset notifier and no end-of-frame notifier")
 end

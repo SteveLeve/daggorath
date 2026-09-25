@@ -34,4 +34,8 @@ The `:rowN` tag spelling has not been confirmed on a running machine. A frame
 capture still needs firmware, recorded in `docs/provenance/rom-diff.md`.
 
 `capture.lua` reads `DOD_SYMBOLS`, `DOD_WATCHES`, `DOD_SCRIPT`, `DOD_TRACE`, and
-`DOD_RAW`. Raw samples stay in the raw file. The trace is the interpretation.
+`DOD_RAW`. `DOD_JIFFIES`, when set, stops MAME after that many sampled frames.
+Raw samples stay in the raw file. The trace is the interpretation. On MAME
+0.264 the frame notifier runs at the end of the frame, so keys for jiffy 0 are
+pressed from the reset notifier and later keys are pressed after the previous
+frame is sampled.
