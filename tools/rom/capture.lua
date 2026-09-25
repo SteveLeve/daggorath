@@ -6,7 +6,7 @@
 -- so a later run does not invent a second one.
 --
 -- Usage (illustrative; confirm against the MAME version actually installed):
---   mame coco2 -cart build/rom/daggorath.bin -autoboot_script tools/rom/capture.lua
+--   mame coco -cart build/rom/daggorath.bin -autoboot_script tools/rom/capture.lua
 --
 -- Required environment (set before launch, or edit the locals below):
 --   DOD_SYMBOLS   TSV "symbol<TAB>hex-address" from the lwasm listing
