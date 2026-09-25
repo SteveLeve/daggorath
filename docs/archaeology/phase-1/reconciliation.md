@@ -7,32 +7,32 @@ performs. Items not investigated stay open.
 **ROM.** LWTOOLS 4.25 assembled the pinned listing to the same 8192 bytes as
 the Tandy catalog 26-3093 image. The diff is in
 [`../../provenance/rom-diff.md`](../../provenance/rom-diff.md). On 2026-09-25
-MAME 0.264 `coco2b` (Color BASIC 1.3, Extended Color BASIC 1.1, matching the
-owner's CoCo 2B; rights basis in the ledger) ran that image and the five
-Phase 0b keystroke scripts. §1 holds those results. Everything else below
-is still resolved against the listing at `a94326f`, not ROM-observed.
+MAME 0.264 `coco2b` ran that image. §1 records the captures. A claim below is
+ROM-observed only where §1 says so. Everything else is still resolved against
+the listing at `a94326f`.
 
 Confidence: **High** = read off the listing and cross-checked by the Python
 extractor and the C++ core; **Medium** = read off the listing, one
-implementation; **Low** = inference.
+implementation; **Low** = inference. ROM rows cite the capture, not a second
+implementation.
 
 ## 1. ROM captures
 
 The harness is `tools/rom/assemble.sh`, `tools/rom/capture.lua`,
 `tools/rom/watchlist.tsv`, `tools/rom/trace_diff.py` and
 `tools/rom/run-capture.sh`. Raw samples and traces are in gitignored
-`captures/`. Two runs of all five scripts gave byte-identical raw files.
+`captures/`. The five Phase 0b scripts were recaptured with the scheduler,
+sound, and population logs. Two earlier runs of those scripts, before the
+task log, were byte-identical; the traces below are the later run.
 
-**Alignment (inferred).** The cartridge boots into the autoplay demo
-(`ONCE.ASM DEMO`). The harness holds SPACE until the demo's `CLOCK` transfers
-to `GAME` (`COMMON.ASM` CLK50 autoplay abort). Jiffy 0 is the first `CLOCK`
-after `GAME50` is fetched, i.e. scheduler entry, where the reference slice
-emits `INIT`. Keys are injected at the PIA ($FF02 strobe, $FF00 rows), so a
-script key for jiffy N is down for interrupt N's `POLCAT` scan. The ROM trace
-reports only state visible in RAM (`PDIR`, `PROW`/`PCOL`, `PDAM`), at the
-jiffy the change is first seen; the reference reports events at dispatch. A
-ROM trace therefore has no `LINE`, `OUTPUT`, `LOOK` or blocked-`MOVE` lines,
-and its `EXERT` lines include recovery ticks the reference does not print.
+**Alignment (inferred).** The cartridge boots into the autoplay demo.
+The harness holds SPACE until the demo's `CLOCK` transfers to `GAME`.
+Jiffy 0 is the first `CLOCK` after `GAME50` is fetched. Keys are injected
+at the PIA. `TASK` and `LINE` are emitted when `SCHED_JSR` (`C208`) and
+`HMAN50` are fetched. Other state lines are still the first sample that
+sees the RAM change, which is the following interrupt. The literal
+`trace_diff.py` result is reported first. `--relative-to-init` is a second
+comparison and is not the gate.
 
 | Capture | First divergence (`trace_diff.py`) |
 |---|---|
@@ -41,58 +41,153 @@ and its `EXERT` lines include recovery ticks the reference does not print.
 | `t3-burst-one-jiffy` | same line and values as t1 |
 | `t4-parser-edges` | same line and values as t1 |
 | `t5-keyboard-overrun` | same line and values as t1 |
-| Level entry at `SECOND` = 0, 1, 7, 30, 59 | not captured: no script yet |
-| Level re-entry | not captured: no script yet |
-| Five-minute `CREGEN` boundary | not captured: no script yet |
-| Simultaneous expirations | not captured: needs the `SCHED_JSR` task log |
-| MOVE/TURN/LOOK timing (D-4) | partial, see below |
-| Blocked MOVE exertion | partial, see below |
-| `SNOISE` and sound duration | not captured: no DAC log yet |
+| Level entry at `SECOND` = 0, 1, 7, 30, 59 | harness-modified, level 1. See below. Maze bytes match the fixture at every value. Post-`DGEN90` seeds differ. `SECOND` = 0 took 256 draws |
+| Level re-entry | none for the maze bytes (level 0 matches `maze-level-0.bin` on entry and on return). Creature placement differs. See below |
+| Five-minute `CREGEN` boundary | the opening increment is the only matrix change through isr 19520 (clock about `0:5:22`). The rescheduled lap did not run. Leave-and-return is the ladder capture, not this idle |
+| Simultaneous expirations | none as a trace diff (no reference script). Executed order is below |
+| MOVE/TURN/LOOK timing (D-4) | measured. The literal trace diff is still the `INIT` line |
+| Blocked MOVE exertion | consistent at one weight (`POBJWT` = 35). Second weight not run: `GET` adds weight only for an object on the current cell, and the opening sword and torch are in the bag |
+| `SNOISE` and sound duration | `THUD` measured. `SNOISE` does not change `SEED`. A creature sound was not separately captured |
 
-Observations past `INIT` (reference jiffy at dispatch → ROM jiffy the state
-changed):
+`--relative-to-init --kinds LINE,TURN,MOVE,EXERT` still diverges, and that
+divergence is reported after the literal one. For `t1` it is reference
+`LINE "T R"` at jiffy 9 versus ROM jiffy 15. For `t2` it is `LINE "M"` at
+jiffy 7 versus 13. The ROM does not reach `SCHED` until about isr 11, so
+early script keys wait. That is later than `INIT` and does not replace it.
 
-| Script | Event | Reference | ROM |
+**Level-0 build and issue #13 (ROM-observed).** `DGEN90` during the build,
+before `GAME50`:
+
+| | Value |
+|---|---|
+| Interrupts, `GAME10` `IRQSYN` to `GAME50` | 377 |
+| Clock at the `INIT` sample | `0:0:6.2.5` |
+| `SECOND` at `DGEN90` entry | 6 |
+| Draws (`DGEN90` fetches) | 6 |
+| `SEED` at entry | `3ACBDC` |
+| `SEED` at the `RTS` after the loop | `8FC8AD` |
+| `SEED` at `NEWLVL` exit / `GAME50` | `0766CB` |
+| Live creatures at `GAME50` | 24 |
+| `CMXLND` level-0 row at `GAME50` | `09 09 04 02 00 00 00 00 00 00 00 00` |
+
+The C++ core's `generate_level(0, 6)` plus `birth_creatures` produces those
+three seeds and the same 24 positions, starting `0:3@28,5`. That comparison
+was a one-off against the existing core. No fixture was changed.
+`population-entry.txt` is still the source-derived `SECOND` = 1 case
+(`cregen 24 24 25 9 25`). On the ROM the opening `CREGEN`, at isr 11 with
+`SEED` `0766CB`, increments type 5. The row becomes
+`09 09 04 02 00 01 00 00 00 00 00 00`, the live count stays 24, and `SEED`
+becomes `C30766`. The core's `cregen_increment` at that seed does the same.
+
+Recommendation, not applied: count the 377 build interrupts, so the clock
+and `DGEN90` see `SECOND` = 6. Keeping `SECOND` = 1 remains a documented
+deviation until the owner decides. The core, the fixtures, and the stored
+traces were not changed.
+
+**Dispatch to state change (ROM-observed).** Times are the `LINE` jiffy at
+`HMAN50` and the jiffy of the later RAM sample.
+
+| Script | Command | Dispatch | State |
 |---|---|---|---|
-| all | level 0 build, `GAME10` IRQSYN to `GAME50` | not modelled | 377 interrupts; clock `0:0:6.2.5` at scheduler entry |
-| t1 | `T R` → `PDIR` E | 9 | 16 |
-| t1 | blocked `M` → `PDAM` 7, `HEARTR` 40 | 32 | 52 (`PDAM` 7, `HEARTR` 40) |
-| t1 | blocked `M` → `PDAM` 14, `HEARTR` 36 | 62 | 82 (`PDAM` 14, `HEARTR` 36) |
-| t1 | `T A` → `PDIR` W | 94 | 95 |
-| t2 | `M` → (15,11), `PDAM` 7, `HEARTR` 40 | 7 | position 20, `PDAM` 24 |
-| t2 | `M` → (14,11) | 42, `PDAM` 14 | position 47, `PDAM` 13 at 50 (recovery tick at 25) |
-| t2 | `M B` → (15,11) | 79, `PDAM` 21 | position 84, `PDAM` 19 at 88 |
-| t4 | `Z`, `MOVEX`, `T` | `???`, no state change | no state change |
-| t4 | `M` → (15,11) | 57 | position 63, `PDAM` 67 |
-| t3, t5 | burst in one jiffy | dispatched | no state change: all keys held at once for one scan |
+| t1 | `T R` | 15 | facing E at 16 |
+| t1 | `T A` | 94 | facing W at 95 |
+| t2 | `M` | 13 | (15,11) at 20 |
+| t2 | `M` | 41 | (14,11) at 47 |
+| t2 | `M B` | 78 | (15,11) at 84 |
+| t1 | blocked `M` | 31 | `PDAM` 7 at 52 |
+| t1 | blocked `M` | 61 | `PDAM` 14 at 82 |
 
-Interpretation, **Low** confidence until the task log exists:
+`POBJWT` stayed `0x0023` (35). `(35 >> 3) + 3` = 7, then 14. One weight only.
 
-- The reference starts the clock at `0:0:1.0.0` at scheduler entry. On the ROM
-  the clock has run through the level-0 build. This is a real difference in
-  initial state, and it shifts the phase of every clock-driven task.
-- Blocked MOVE still adds exertion on the ROM (`PDAM` 7 then 14 with no
-  position change). This matches the source reading and the core.
-- Heart rate and damage values match the reference wherever no recovery tick
-  intervenes. The later `PDAM` differences in t2 are recovery ticks at a
-  different clock phase, not a different exertion formula.
-- The delay between keystroke and state change is 1 jiffy for `T A`, 7 for
-  `T R` and 5 to 13 for `MOVE`. That is the turn sweep and half-step
-  animation cost D-4 leaves open, but dispatch time is not yet observed on the
-  ROM, so these are upper bounds, not durations.
-- §2 and `population-entry.txt` take level 0 as entered at `SECOND = 1`. On the
-  ROM the opening `CREGEN` lap runs at scheduler entry, with `SECOND` = 6, and
-  `DGEN90` runs somewhere inside the 377-interrupt build. Neither value has
-  been checked against `SEED`/`CMXLND` samples yet. No fixture was changed.
-- t3 and t5 are not replayable on the hardware. `POLCAT` returns at most one
-  key per interrupt, so "several keys in one jiffy" is a reference-only input.
+**Sound (ROM-observed).** The least play that triggers a sound is the blocked
+step already in `t1`. `THUD` at `PSTEP`'s `SWI` / `ISOUND`:
 
-D-1 through D-5 are unchanged. D-4 has upper bounds only (above). D-6 is new
-and is a deviation of the core, not a ROM finding.
+| | First | Second |
+|---|---|---|
+| Start isr | 35 | 65 |
+| End isr | 50 | 79 |
+| Interrupts the foreground was inside the sound | 15 | 14 |
+| `SNOISE` calls | 208 | 208 |
+| DAC writes at `$FF20` | 105 | 105 |
+| `SEED` before and after | `C30766` | `C30766` |
 
-The committed Phase 0b traces were replayed with the extended core. They
-match byte for byte, because `CREGEN` does not emit a trace line and `CMOVE`
-is not queued.
+Across 407 `SNOISE` returns in the `t1` capture, `SEED` was unchanged on
+every call. `SNDRND` is a different two-byte state and does change.
+
+**Simultaneous expirations (ROM-observed).** Idle capture
+`cregen-leave-return`. `BURNER` is the minute task (delay 1). `LUKNEW` is
+the tenth task. `PLAYER` is the jiffy task. Same-interrupt order:
+
+| isr | Tasks, in dispatch order |
+|---|---|
+| 3222 | `PLAYER`, `LUKNEW`, `BURNER` |
+| 6822, 10422, 14022, 17622 | `PLAYER`, `BURNER` |
+
+Jiffy, then tenth, then minute, on the interrupt that scanned those queues.
+No hour task ran. No second-queue task expired on these boundaries, so FIFO
+inside one queue was not a multi-task sample. `CREGEN` did not run on any
+of these interrupts.
+
+**Level entry, re-entry, `CREGEN` (ROM-observed, with one labeled poke).**
+The route is `docs/archaeology/phase-1/scripts/descend-early.script`: from
+(16,11) facing north to the ladder at (0,23), derived from
+`maze-level-0.bin` and `vertical-features.json`. The nearer holes are
+down-only (`PCLIMB` accepts an upward ladder). `CLIMB DOWN` then `CLIMB UP`.
+
+| Point | Level | `SECOND` | Live | Maze |
+|---|---|---|---|---|
+| `NEWLVL` exit, build | 0 | 6 | 24 | matches `maze-level-0.bin` |
+| After opening `CREGEN` | 0 | 6 | 24 | unchanged; type 5 count is 1 |
+| `NEWLVL` exit, descent | 1 | 41 | 24 | matches `maze-level-1.bin` |
+| `NEWLVL` exit, return | 0 | 50 | 25 | matches `maze-level-0.bin` again |
+
+Return positions are not the entry positions (first live block `0:3@28,5`
+on entry, `0:5@18,7` on return). The extra creature is born by that
+`NEWLVL`, from the matrix the opening lap already incremented. `SYSTCB`
+runs again on the return, so `CREGEN` runs again immediately and increments
+the level-0 row a second time (`00 01` becomes `00 01 01`) without birthing.
+
+`SECOND` = 0, 1, 7, 30, and 59 were not reachable on unmodified level 0.
+The harness wrote `SECOND` at the `LDB SECOND` immediately before `DGEN90`,
+and only on spin 2 (the descent). Spin 1, the level-0 build, was not
+written. These captures are **harness-modified state**. The level-1 maze
+bytes still match `maze-level-1.bin` at every value. Entry `SEED` of that
+spin was `DFED3B` each time. Draws and the post-loop seed:
+
+| Written `SECOND` | Draws | `SEED` after the loop | First creature at `NEWLVL` exit |
+|---|---|---|---|
+| 0 | 256 | `2A2693` | `0:5@28,6` |
+| 1 | 1 | `55DFED` | `0:5@27,12` |
+| 7 | 7 | `FB0C52` | `0:5@4,30` |
+| 30 | 30 | `F7BB47` | `0:5@31,0` |
+| 59 | 59 | `8C2C8C` | `0:5@1,18` |
+
+The `SECOND` = 0 spin is the 256-draw case. The clock's `SECOND` byte was
+the cell that was written, so the clock after that instruction is not an
+unmodified clock.
+
+**Five-minute window.** From the opening `CREGEN` at isr 11 through isr
+19520, level-0 `CMXLND` stayed `09 09 04 02 00 01 …`. `BURNER` ran on five
+minute boundaries (isr 3222, 6822, 10422, 14022, 17622). `CREGEN` did not.
+The source schedules it `SCHED$ 5,Q.MIN` after the opening lap. Why that
+second lap did not fall on one of those five scans is **unresolved**. The
+idle did get past five minutes: the walk at jiffy 18000 sees clock
+`0:5:6.3.2`. The walk itself did not finish. At isr 19522 the clock reads
+`0:0:0.0.0` and a new level-0 `NEWLVL` follows (fresh row, 24 creatures).
+That is a restart, recorded and not interpreted further. The
+leave-and-return result is the ladder capture above, which is the opening
+increment, not this five-minute reschedule.
+
+**t3 and t5.** Reference-only. `POLCAT` delivers at most one key per
+interrupt, so a one-jiffy burst is not a keyboard replay. No buffer-level
+injection was added.
+
+D-1 and D-2 stay open for the cases named in §13. Their queue order is no
+longer unmeasured. D-4's durations are measured; the core still spends no
+time, so the deviation stays. D-5 and D-6 are unchanged.
+
+The committed Phase 0b traces were not regenerated. `CREGEN` does not emit
+a trace line and `CMOVE` is not queued, so those traces still match the core.
 
 ## 2. How a matrix increment becomes a creature
 
@@ -101,7 +196,7 @@ is not queued.
 | Does `CREGEN` create a control block? | **No.** It increments `CMXLND[LEVEL][(RANDOM & 7) + 2]` when the 8-bit sum of that row is below 32, then reschedules at 5 minutes. | High |
 | When does the extra creature exist? | The next `NEWLVL` for that level. `NEWLVL` zeros the control blocks and calls `CBIRTH` once per current matrix count. The matrix is not recopied from `CMTTAB`. | High |
 | Does this include returning to a level? | Yes. `CMXLND` survives the level change. Time on another level does not increment this row, because `CREGEN` uses `CMXPTR`. | High |
-| Why does one increment happen before five minutes? | `SYSTCB` puts every system task in `Q.SCD` with countdown 0, so the opening lap runs `CREGEN` once. On level 0 at `SECOND = 1` that draw increments type 9. Live count stays 24 until re-entry, which births 25. | High |
+| Why does one increment happen before five minutes? | `SYSTCB` puts every system task in `Q.SCD` with countdown 0, so the opening lap runs `CREGEN` once. On level 0 at `SECOND = 1` that draw increments type 9. Live count stays 24 until re-entry, which births 25. This row is the source-derived `SECOND = 1` case. The ROM opening lap, at `SECOND` = 6, increments type 5 and is §1. | High for the source case. The ROM lap is §1 |
 
 `fixtures/population-entry.txt` records the level-0 case as
 `cregen 24 24 25 9 25`. The C++ test checks those five numbers.
@@ -139,42 +234,50 @@ The canonical copy of this table, together with the Phase 0b rows, is
 
 | Priority | Question | Why it is still open |
 |---|---|---|
-| Closed for bytes | Is the reconstructed listing the same code as catalog 26-3093? | Yes. Zero differing bytes. [`rom-diff.md`](../../provenance/rom-diff.md). Runtime behaviour is still unmeasured. |
-| High | Animation and sound durations, and whether `SNOISE` consumes `SEED` | D-4 has upper bounds from §1; dispatch time and the DAC log are not captured. |
-| High | D-1 and D-2 against a running ROM | Needs the `SCHED_JSR` task log, not yet in `capture.lua`. |
+| Closed for bytes | Is the reconstructed listing the same code as catalog 26-3093? | Yes. Zero differing bytes. [`rom-diff.md`](../../provenance/rom-diff.md). |
+| Open, owner's decision | Does the core count the 377 build interrupts? | Issue #13. §1 has the seeds and positions. The core was not changed. |
+| Unresolved | Why `CREGEN`'s five-minute reschedule did not run during five minute-queue scans | §1. The opening lap and the re-entry lap did run. |
+| Open | D-1 and D-2 for a task that returns `Q.SCD`, and for a task readied by another task in the same pass | The IRQ's own ready order is §1. |
 | High | `CMOVE` priorities and attack | Out of scope for this phase. |
 | High | Combat wrapping, door and shield edge cases, manual `CLIMB` wording | Unchanged from Phase 0b. |
 | Distribution | Rights for the lexicon and tuning tables | Unchanged. `ledger.md` §4. |
 
 ## 6. Gate
 
-The prompt's completion gate is **not met**. Steps 4–6 are done. The cartridge
-byte diff is done and has zero differences. Step 3 is partial: the five scripts
-ran on the ROM and §1 records their first divergences, but seven priority
-captures are still "not captured". Behavioural claims stay source-derived
-except where §1 names a ROM observation.
+Every §1 row has a first divergence, a measured result, or a "not run" reason.
+PR #1 stays a draft: issue #13 is the owner's decision, and the core was not
+changed to absorb the build interrupts.
 
-`make all` on 2026-09-25 exited 0. That run checks the core against its own
-fixtures and traces. It is not ROM evidence.
+ROM-observed, from §1: the 377-interrupt build and `DGEN90` at `SECOND` = 6,
+including seeds and the 24 positions; the opening `CREGEN` increment of type 5
+with no birth; maze bytes identical across the recorded entries; creature
+positions not identical on re-entry; the extra creature born on the return
+`NEWLVL`; turn, half-step, and `THUD` durations; `SNOISE` leaving `SEED`
+alone; blocked `MOVE` adding 7 damage at weight 35; same-interrupt task order
+`PLAYER`, then `LUKNEW` when a tenth task expired, then `BURNER`.
 
-- Listing pin: `a94326f00ebb16a106b540c58bc2ccf5f7b66dac`.
+Still source-derived: `population-entry.txt` at `SECOND` = 1 (type 9);
+the core's clock, which still starts at `0:0:1.0.0`; D-3, D-5, and D-6;
+combat, objects, and movement. The `SECOND` = 0, 1, 7, 30, 59 spins are
+harness-modified and are not unmodified ROM behaviour. t3 and t5 are
+reference-only inputs.
+
+`make all` on 2026-09-25 exited 0. It checks the core against its fixtures and
+stored traces. It is not the ROM evidence; §1 is.
+
 - `ctest`: 2 tests, 0 failures (`conformance`, `trace_diff_identity`).
-- Conformance binary: `PASS: 360 checks, 0 failures`.
 - `make verify`: `OK: 17 fixtures, 0 problems`.
-- Each of the five Phase 0b scripts, replayed through `dcli` for 200 jiffies
-  at `SECOND = 1` and compared with `trace_diff.py` to the stored trace:
-  `no divergence` (446, 442, 435, 442, and 436 lines).
+- Trace targets were already up to date, so `make all` printed no divergence.
+- Listing pin: `a94326f00ebb16a106b540c58bc2ccf5f7b66dac`.
 - Catalog 26-3093 `.ccc` and the LWTOOLS 4.25 image are both 8192 bytes,
   SHA-256 `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571`,
   and `cmp` reports no differing bytes. The `.ccc` is gitignored.
 
 ## 7. Next slice
 
-The cartridge bytes match. A frame capture is still required before any
-source-proven claim is treated as ROM-observed. It is blocked on a legally
-obtained Color BASIC 1.2 and Extended Color BASIC 1.1 image, as recorded in
-[`rom-diff.md`](../../provenance/rom-diff.md).
-
-The next gameplay slice the source supports is creature movement (`CMOVE`
-only, retiring D-6), still without attacks. Attacks need the matrix decrement
-in `PATT40`, which this phase left unread for implementation.
+Do not start creature movement until the owner decides #13. The close-out
+prompt is [`../../prompts/phase-1-apply-issue-13.md`](../../prompts/phase-1-apply-issue-13.md).
+The source-backed slice after that is `CMOVE` only, retiring D-6, still
+without attacks.
+Attacks need the matrix decrement in `PATT40`, which this phase left unread
+for implementation.

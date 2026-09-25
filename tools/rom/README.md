@@ -46,6 +46,21 @@ next frame update). Instead:
   strobe and a read tap on `$FF00` pulls the pressed keys' row bits low.
 
 `DOD_JIFFIES`, when set, stops MAME after that many interrupts past scheduler
-entry. Raw samples stay in the raw file, keyed by interrupt. The trace is the
-interpretation and reports only state visible in RAM. The alignment and its
-limits are written up in `docs/archaeology/phase-1/reconciliation.md` §1.
+entry. `DOD_SECONDS` is the `-seconds_to_run` backstop (default 120).
+Optional arguments are extra keystroke scripts; the default is `t1`–`t5`.
+
+The trace reports RAM changes and, once `SCHED` is running, `TASK` and `LINE`.
+Separate gitignored logs sit next to the raw file: `.task.tsv` (dispatch),
+`.spin.tsv` (`DGEN90` entry and exit), `.sound.tsv` (`SNOISE` and `THUD`),
+`.pop.tsv` (`NEWLVL`, `GAME50`, `CREGEN`). `DOD_POKE_SECOND` together with
+`DOD_POKE_ON_SPIN` writes `SECOND` at the `LDB` before that spin. Those
+captures are harness-modified and the spin log says so.
+
+```sh
+python3 tools/rom/trace_diff.py trace-a trace-b
+python3 tools/rom/trace_diff.py --relative-to-init --kinds LINE,TURN,MOVE trace-a trace-b
+```
+
+The relative comparison is printed after the literal first divergence. It
+skips `INIT` and drops the clock column. The default two-argument invocation
+is unchanged.

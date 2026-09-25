@@ -134,11 +134,32 @@ end
 local script_at = 1
 local prev = {}
 
+local function beside(path, suffix)
+    local stripped, n = path:gsub("%.raw%.tsv$", suffix)
+    if n == 0 then return path .. suffix end
+    return stripped
+end
+
+local task_path = env("DOD_TASKLOG", beside(raw_path, ".task.tsv"))
+local spin_path = env("DOD_SPINLOG", beside(raw_path, ".spin.tsv"))
+local sound_path = env("DOD_SOUNDLOG", beside(raw_path, ".sound.tsv"))
+local pop_path = env("DOD_POPLOG", beside(raw_path, ".pop.tsv"))
+
 local raw = io.open(raw_path, "w")
 local trace = io.open(trace_path, "w")
-if not raw or not trace then die("cannot open capture outputs") end
+local tasklog = io.open(task_path, "w")
+local spinlog = io.open(spin_path, "w")
+local soundlog = io.open(sound_path, "w")
+local poplog = io.open(pop_path, "w")
+if not raw or not trace or not tasklog or not spinlog or not soundlog or not poplog then
+    die("cannot open capture outputs")
+end
 raw:write("# isr\tsymbol\thex\n")
 trace:write("# jiffy\tclock\tevent\tdetail\n")
+tasklog:write("# isr\tkind\taddr\tname\n")
+spinlog:write("# phase\tspin\tentry_isr\texit_isr\tsecond_entry\tseed_entry\tseed_exit\tcalls\tnote\n")
+soundlog:write("# kind\tisr\tpc\tseed\tsndrnd\tdetail\n")
+poplog:write("# when\tphase\tisr\tlevel\tsecond\tseed\tcmxlnd\tcreatures\tmaze_sum\n")
 
 local function read_bytes(mem, addr, width)
     local hex = {}
@@ -290,12 +311,358 @@ taps[#taps + 1] = mem:install_read_tap(0xFF00, 0xFF00, "dod_rows", function(offs
     if low == 0 then return data end
     return data & ~low
 end)
+local by_addr = {}
+do
+    local f = io.open(symbols_path, "r")
+    for line in f:lines() do
+        local name, addr = line:match("^(%S+)%s+(%x+)%s*$")
+        if name and addr then
+            local a = tonumber(addr, 16)
+            if not by_addr[a] then by_addr[a] = name end
+        end
+    end
+    f:close()
+end
+
+local function symbol_at(addr)
+    return by_addr[addr] or string.format("$%04X", addr)
+end
+
+local HOUR, MINUTE, SECOND = sym("HOUR"), sym("MINUTE"), sym("SECOND")
+local TENTH = sym("TENTH")
+local SEED, SNDRND = sym("SEED"), sym("SNDRND")
+local MAZLND = sym("MAZLND")
+local LEVEL = sym("LEVEL")
+local CMXLND, CCBLND = sym("CMXLND"), sym("CCBLND")
+local LINBUF = sym("LINBUF")
+local SCHED_JSR = sym("SCHED_JSR")
+local HMAN50 = sym("HMAN50")
+local CREGEN = sym("CREGEN")
+local DGEN90 = sym("DGEN90")
+local SNOISE = sym("SNOISE")
+local NEWLVX = sym("NEWLVX")
+local NLVL50 = sym("NLVL50")
+local PSTEP = sym("PSTEP")
+
+-- RTS immediately after the DGEN90 loop on this image is DGEN90+5
+-- (SWI, FCB, DECB, BNE, RTS). Confirmed against the LWTOOLS 4.25 bytes.
+local DGEN_RTS = DGEN90 + 5
+local SNOISE_RTS = SNOISE + 11
+
+local function find_byte(origin, byte, limit)
+    for i = 0, limit - 1 do
+        if mem:read_u8(origin + i) == byte then return origin + i end
+    end
+    return nil
+end
+
+local NEWLVL_RTS = find_byte(NLVL50, 0x39, 32)
+if not NEWLVL_RTS then die("no RTS after NLVL50") end
+local CREGEN_RTS = find_byte(CREGEN, 0x39, 40)
+if not CREGEN_RTS then die("no RTS after CREGEN") end
+
+-- PSTEP's blocked-move sound is SWI / ISOUND / A$THUD (3F 1B 14 on this image).
+local THUD_SWI = nil
+for i = 0, 48 do
+    if mem:read_u8(PSTEP + i) == 0x3F
+        and mem:read_u8(PSTEP + i + 1) == 0x1B
+        and mem:read_u8(PSTEP + i + 2) == 0x14 then
+        THUD_SWI = PSTEP + i
+        break
+    end
+end
+if not THUD_SWI then die("PSTEP has no ISOUND A$THUD") end
+local THUD_RESUME = THUD_SWI + 3
+
+local function u16(addr)
+    return mem:read_u8(addr) * 256 + mem:read_u8(addr + 1)
+end
+
+local function hex_at(addr, width)
+    return read_bytes(mem, addr, width)
+end
+
+local function clock_now()
+    return string.format("%d:%d:%d.%d.%d",
+        mem:read_u8(HOUR), mem:read_u8(MINUTE), mem:read_u8(SECOND),
+        mem:read_u8(TENTH), mem:read_u8(JIFFY))
+end
+
+local function emit_trace(kind, detail)
+    trace:write(string.format("%d\t%s\t%s\t%s\n", isr, clock_now(), kind, detail))
+end
+
+local function decode_line()
+    local chars = {}
+    for i = 0, 31 do
+        local b = mem:read_u8(LINBUF + i)
+        if b == 0xFF then break end
+        if b == 0 then
+            chars[#chars + 1] = " "
+        elseif b >= 1 and b <= 26 then
+            chars[#chars + 1] = string.char(string.byte("A") + b - 1)
+        else
+            chars[#chars + 1] = "?"
+        end
+    end
+    return table.concat(chars)
+end
+
+-- Creature block: CD.ASM CC.LEN = 17, P.CCUSE +12, P.CCTYP +13, P.CCROW +15, P.CCCOL +16.
+local CC_LEN = 17
+local function creature_summary()
+    local parts = {}
+    local live = 0
+    for slot = 0, 31 do
+        local base = CCBLND + slot * CC_LEN
+        local use = mem:read_u8(base + 12)
+        if use ~= 0 then
+            live = live + 1
+            parts[#parts + 1] = string.format("%d:%d@%d,%d",
+                slot, mem:read_u8(base + 13), mem:read_u8(base + 15), mem:read_u8(base + 16))
+        end
+    end
+    return live, table.concat(parts, " ")
+end
+
+local function dump_pop(when)
+    local live, creatures = creature_summary()
+    local maze_sum = 0
+    for i = 0, 1023 do
+        maze_sum = (maze_sum + mem:read_u8(MAZLND + i)) % 4294967296
+    end
+    poplog:write(string.format("%s\t%s\t%d\t%d\t%d\t%s\t%s\t%d %s\tmaze_sum=%08X\n",
+        when, phase, isr, mem:read_u8(LEVEL), mem:read_u8(SECOND),
+        hex_at(SEED, 3), hex_at(CMXLND, 60), live, creatures, maze_sum))
+    if when == "NEWLVL-exit" then
+        local bytes = {}
+        for i = 0, 1023 do
+            bytes[#bytes + 1] = string.char(mem:read_u8(MAZLND + i))
+        end
+        local maze_path = beside(raw_path, string.format(".isr%s-L%s.maze.bin",
+            isr, mem:read_u8(LEVEL)))
+        local mf = io.open(maze_path, "wb")
+        if mf then
+            mf:write(table.concat(bytes))
+            mf:close()
+        end
+    end
+    poplog:flush()
+end
+
+local spin_open = false
+local spin_index = 0
+local spin_calls = 0
+local spin_entry_isr = 0
+local spin_second = 0
+local spin_seed = ""
+local poke_second = tonumber(os.getenv("DOD_POKE_SECOND") or "")
+local poke_on = tonumber(os.getenv("DOD_POKE_ON_SPIN") or "")
+local poke_note = ""
+
+local snoise_seed = nil
+local snoise_rnd = nil
+local snoise_isr = nil
+local thud_isr = nil
+local thud_seed = nil
+local thud_rnd = nil
+local thud_snoise = 0
+local thud_dac = 0
+local dac_total = 0
+
+local stop_name, stop_count, stop_tail = nil, nil, nil
+do
+    local spec = os.getenv("DOD_STOP") or ""
+    local name, count, tail = spec:match("^([%w]+):(%d+):(%d+)$")
+    if name then
+        stop_name, stop_count, stop_tail = name, tonumber(count), tonumber(tail)
+    end
+end
+local stop_seen = 0
+local stop_at = nil
+local task_runs = {}
+
+local function note_task(name)
+    task_runs[name] = (task_runs[name] or 0) + 1
+    if stop_name and name == stop_name and isr >= 100 then
+        stop_seen = stop_seen + 1
+        if stop_seen == stop_count then
+            stop_at = isr + stop_tail
+        end
+    end
+end
+
 -- Opcode fetch of GAME50: level 0 is built and SCHED is next.
 taps[#taps + 1] = mem:install_read_tap(GAME50, GAME50, "dod_game50", function(offset, data, mask)
     if phase == "build" then
         phase = "game"
         trace:write(string.format("# level build: %d interrupts from GAME10 IRQSYN to GAME50\n", build_isrs))
+        dump_pop("GAME50")
     end
     return data
 end)
+
+-- LDB SECOND just before DGEN90. A poke here is harness-modified state:
+-- the load has not executed, so SECOND is what the spin will count.
+taps[#taps + 1] = mem:install_read_tap(DGEN90 - 2, DGEN90 - 2, "dod_ldb_second", function(offset, data, mask)
+    if data ~= 0xD6 then return data end
+    if not poke_second or not poke_on then return data end
+    -- This fetch is the start of a spin. spin_index increments on DGEN90.
+    if spin_index + 1 == poke_on then
+        mem:write_u8(SECOND, poke_second)
+        poke_note = string.format("harness-modified SECOND=%d written at LDB SECOND before spin %d",
+            poke_second, poke_on)
+        spinlog:write("# " .. poke_note .. "\n")
+        spinlog:flush()
+    end
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(DGEN90, DGEN90, "dod_dgen90", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    if not spin_open then
+        spin_open = true
+        spin_index = spin_index + 1
+        spin_calls = 1
+        spin_entry_isr = isr
+        spin_second = mem:read_u8(SECOND)
+        spin_seed = hex_at(SEED, 3)
+    else
+        spin_calls = spin_calls + 1
+    end
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(DGEN_RTS, DGEN_RTS, "dod_dgen_rts", function(offset, data, mask)
+    if data ~= 0x39 or not spin_open then return data end
+    spin_open = false
+    local note = poke_note
+    poke_note = ""
+    spinlog:write(string.format("%s\t%d\t%d\t%d\t%d\t%s\t%s\t%d\t%s\n",
+        phase, spin_index, spin_entry_isr, isr, spin_second, spin_seed,
+        hex_at(SEED, 3), spin_calls, note))
+    spinlog:flush()
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(SCHED_JSR, SCHED_JSR, "dod_sched", function(offset, data, mask)
+    if phase ~= "game" or data ~= 0xAD then return data end
+    local u = cpu.state["U"].value
+    local rtn = u16(u + 3)
+    local name = symbol_at(rtn)
+    tasklog:write(string.format("%d\tTASK\t%04X\t%s\n", isr, rtn, name))
+    emit_trace("TASK", "run " .. name)
+    note_task(name)
+    if name == "CREGEN" then dump_pop("CREGEN-entry") end
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(HMAN50, HMAN50, "dod_hman50", function(offset, data, mask)
+    if phase ~= "game" or data ~= 0x8E then return data end
+    local line = decode_line()
+    tasklog:write(string.format("%d\tLINE\t%s\t%s\n", isr, "LINBUF", line))
+    emit_trace("LINE", '"' .. line .. '"')
+    tasklog:flush()
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(CREGEN_RTS, CREGEN_RTS, "dod_cregen_rts", function(offset, data, mask)
+    if data ~= 0x39 then return data end
+    dump_pop("CREGEN-exit")
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(NEWLVL_RTS, NEWLVL_RTS, "dod_newlvl", function(offset, data, mask)
+    if data ~= 0x39 then return data end
+    dump_pop("NEWLVL-exit")
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(SNOISE, SNOISE, "dod_snoise", function(offset, data, mask)
+    if data ~= 0xDC then return data end
+    snoise_seed = hex_at(SEED, 3)
+    snoise_rnd = hex_at(SNDRND, 2)
+    snoise_isr = isr
+    if thud_isr then thud_snoise = thud_snoise + 1 end
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(SNOISE_RTS, SNOISE_RTS, "dod_snoise_rts", function(offset, data, mask)
+    if data ~= 0x39 or not snoise_seed then return data end
+    local seed_now = hex_at(SEED, 3)
+    soundlog:write(string.format("SNOISE\t%d\t%04X\t%s\t%s\tseed_after=%s\n",
+        snoise_isr, SNOISE, snoise_seed, snoise_rnd, seed_now))
+    snoise_seed = nil
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(THUD_SWI, THUD_SWI, "dod_thud", function(offset, data, mask)
+    if data ~= 0x3F or thud_isr then return data end
+    thud_isr = isr
+    thud_seed = hex_at(SEED, 3)
+    thud_rnd = hex_at(SNDRND, 2)
+    thud_snoise = 0
+    thud_dac = 0
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(THUD_RESUME, THUD_RESUME, "dod_thud_done", function(offset, data, mask)
+    if not thud_isr then return data end
+    soundlog:write(string.format(
+        "THUD\t%d\t%04X\t%s\t%s\tend_isr=%d blocked_interrupts=%d snoise=%d dac=%d seed_after=%s\n",
+        thud_isr, THUD_SWI, thud_seed, thud_rnd, isr, isr - thud_isr,
+        thud_snoise, thud_dac, hex_at(SEED, 3)))
+    soundlog:flush()
+    thud_isr = nil
+    return data
+end)
+
+taps[#taps + 1] = mem:install_write_tap(0xFF20, 0xFF20, "dod_dac", function(offset, data, mask)
+    dac_total = dac_total + 1
+    if thud_isr then thud_dac = thud_dac + 1 end
+    if dac_total <= 8 or (thud_isr and thud_dac <= 4) then
+        local pc = cpu.state["PC"].value
+        soundlog:write(string.format("DAC\t%d\t%04X\t%s\t%s\tvalue=%02X\n",
+            isr, pc, hex_at(SEED, 3), hex_at(SNDRND, 2), data & 0xFF))
+    end
+end)
+
+-- Stop a long run shortly after the requested task, still honouring DOD_JIFFIES.
+local prev_on_clock_tail = on_clock
+-- on_clock is the clock handler above; extend the jiffy-limit check in place.
+local jiffy_limit_saved = jiffy_limit
+-- Re-bind nothing: the existing on_clock checks jiffy_limit. Fold DOD_STOP into that
+-- by shrinking jiffy_limit once stop_at is known. See the wrapper installed below.
+
+local clock_tap_index = 1 -- the JIFFY write tap is taps[1], already calling on_clock
+-- Wrap by replacing on_clock's limit. Patch the check via a second read of isr
+-- inside the SCHED tap's note_task, and exit from a tiny poll at the JIFFY tap.
+-- The JIFFY tap calls on_clock, which already exits on jiffy_limit. Set the limit
+-- dynamically:
+local base_on_clock = on_clock
+on_clock = function()
+    base_on_clock()
+    if stop_at and isr >= stop_at then
+        raw:flush()
+        trace:flush()
+        tasklog:flush()
+        spinlog:flush()
+        soundlog:flush()
+        poplog:flush()
+        manager.machine:exit()
+    end
+end
+-- The write tap closed over the original on_clock. Reinstall is not possible
+-- without replacing the tap. Call the wrapper from the original by assignment
+-- before the tap... too late. The tap captured on_clock as an upvalue.
+-- Lua upvalues see the local, and `on_clock = function` after the tap does NOT
+-- change the upvalue the tap already captured if it was a local function.
+-- The tap was installed with `function` calling `on_clock` by name, so it looks
+-- up the local. Reassigning the local updates the upvalue. The wrapper above
+-- calls base_on_clock which is the original, then checks stop_at. That recurses
+-- if base_on_clock is the wrapper. base_on_clock was captured before reassignment,
+-- so it is the original. Good.
+
 _G.dod_capture_taps = taps
+-- NEWLVX is resolved so a missing symbol fails at startup rather than mid-run.
+if not NEWLVX then die("NEWLVX missing") end
