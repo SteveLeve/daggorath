@@ -90,10 +90,10 @@ firmware whose SHA-1 is not:
 **Superseded 2026-09-25:** with the `coco2b` firmware in place, the five
 Phase 0b scripts were captured. Results are in
 [`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md) §1.
-The paragraph below records the state before that run.
+The block quote is the record of the state before that run.
 
-No frame was captured. No timing was measured or invented. Deviations D-1
-through D-5, and the animation and sound durations, are unchanged. The
-“not captured” rows in
-[`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md)
-§1 stand.
+> No frame was captured. No timing was measured or invented. Deviations D-1
+> through D-5, and the animation and sound durations, are unchanged. The
+> “not captured” rows in
+> [`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md)
+> §1 stand.

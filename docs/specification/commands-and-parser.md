@@ -2,8 +2,10 @@
 
 Living specification for the command language the Phase 0b core implements, and
 for the token rules the later commands will share. Labels are source-proven
-unless marked otherwise. Nothing here is ROM-observed; see
-[`../provenance/rom-diff.md`](../provenance/rom-diff.md).
+unless marked otherwise. Token tables and the matching rule are source-proven.
+Dispatch timing for `MOVE` and `TURN` is ROM-observed in
+[`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md) §1
+and is not restated here.
 
 ## 1. Token tables
 

@@ -2,8 +2,11 @@
 
 What Phase 1 establishes about level population and regeneration. Creature
 movement, attacks, damage, and death are named where the listing places them
-and are not specified as implemented behaviour. Nothing here is ROM-observed;
-see [`../provenance/rom-diff.md`](../provenance/rom-diff.md).
+and are not specified as implemented behaviour. The population rules below
+are source-proven. The level-0 opening lap at `SECOND` = 6 (type 5, 24 live,
+25 on the next `NEWLVL`) is ROM-observed in
+[`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md) §1.
+`population-entry.txt` remains the source-derived `SECOND` = 1 comparison.
 
 ## 1. Definition block
 
@@ -107,8 +110,9 @@ Live creatures stay 24. Entering the level again at the same `SECOND` births
 25. That row is the source-derived comparison in `population-entry.txt`
 (`cregen 24 24 25 9 25`). Original Mode level 0 is the ROM entry, `SECOND` = 6
 after 377 build interrupts: the opening lap increments type 5, the live count
-stays 24, and the next `NEWLVL` births 25. The following runs are five
-minute-queue scans apart.
+stays 24, and the next `NEWLVL` births 25. The listing schedules the later
+runs five minute-queue scans apart (`SCHED$ 5,Q.MIN`). The captured window
+did not show that reschedule; why is unresolved in reconciliation §5.
 
 Killing a creature, which is not implemented, is the path that decrements the
 matrix (`PATT40`). The core therefore never lowers a count.

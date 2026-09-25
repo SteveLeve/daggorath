@@ -20,7 +20,7 @@ Decisions that shape more than one phase are recorded as ADRs in
 | Area | State at end of Phase 1 |
 |---|---|
 | Cartridge bytes | Listing at `a94326f` assembles byte-identical to catalog 26-3093 |
-| Runtime evidence | None. No emulator frame: Color BASIC / Extended BASIC ROMs not legally obtained (`provenance/rom-diff.md`) |
+| Runtime evidence | MAME 0.264 `coco2b` captures in [`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md) §1. A claim is ROM-observed only where that section says so |
 | Core | RNG, all five mazes, clock/scheduler, keyboard buffer, line editor, parser, `MOVE`/`TURN`/`LOOK`, heart rate, `NEWLVL` population, `CREGEN` |
 | Deviations | D-1…D-5 open; D-6 (`CMOVE` not queued) waits for creature movement |
 | Everything else | Reports `UNIMPLEMENTED` |
@@ -29,7 +29,7 @@ Decisions that shape more than one phase are recorded as ADRs in
 
 | Phase | Name | Charter step | Depends on | Prompt |
 |---|---|---|---|---|
-| 1 | ROM conformance harness, level population, regeneration | 1–3 | 0b | [`phase-1-…`](../prompts/phase-1-conformance-and-creatures.md) — **open** |
+| 1 | ROM conformance harness, level population, regeneration | 1–3 | 0b | [`phase-1-…`](../prompts/phase-1-conformance-and-creatures.md) — complete |
 | 2 | Creature movement (`CMOVE` without attack), scheduler lap model | 2 | 1 | [`phase-2-creature-movement.md`](../prompts/phase-2-creature-movement.md) |
 | 6a | Core event contract (ADR-0004 core half) | 4 | 2 | [`phase-6a-core-events.md`](../prompts/phase-6a-core-events.md) |
 | 3 | Combat, physiology to death | 2 | 2, 6a | [`phase-3-combat.md`](../prompts/phase-3-combat.md) |
@@ -160,13 +160,13 @@ must pass unchanged with every enhanced mode compiled in.
 
 ## 5. Track R — ROM observation
 
-Phase 1 proved the bytes but captured no frame. Every rule is source-proven at
-best. Track R turns labels into ROM-observed without blocking gameplay phases
-(ADR-0003). It opens when a legal path to the CoCo system ROMs exists (owner's
-own dump from their hardware, a licensed distribution, or a clean-room
-replacement BASIC that the cartridge boots under — each option is recorded in
-the ledger before use). Its backlog is the "not captured" table in
-`archaeology/phase-1/reconciliation.md` §1 plus one capture set per later phase.
+Phase 1 proved the bytes and recorded the captures in
+[`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md) §1.
+A rule is ROM-observed only where that section says so. Track R continues for
+the rows still open in [`capture-backlog.md`](capture-backlog.md), without
+blocking gameplay phases (ADR-0003). Further firmware paths (a dump from the
+owner's hardware, a licensed distribution, or a clean-room replacement BASIC)
+are recorded in the ledger before use.
 
 Each gameplay phase adds its capture requests to the track backlog
 (`docs/planning/capture-backlog.md`) instead of blocking on them.

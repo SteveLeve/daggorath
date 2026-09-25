@@ -30,6 +30,15 @@ gameplay phase on that blocker would stall the project indefinitely.
    durations, lap cost) stays **unresolved** and modelled as documented
    deviations, never as invented numbers.
 
+## Amendment, 2026-09-25 (Phase 1 close-out)
+
+The context sentence "ran no emulator frame" describes the project when this
+ADR was accepted. Phase 1 then ran MAME 0.264 `coco2b` with the owner's
+Color BASIC 1.3 images. Those results are
+[`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md) §1.
+Rules 1–5 are unchanged. Track R still owns every backlog row that section
+does not already record.
+
 ## Consequences
 
 - Deviation IDs accumulate until Track R runs. That is acceptable and visible.

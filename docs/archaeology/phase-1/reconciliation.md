@@ -197,8 +197,12 @@ D-1 and D-2 stay open for the cases named in §13. Their queue order is no
 longer unmeasured. D-4's durations are measured; the core still spends no
 time, so the deviation stays. D-5 and D-6 are unchanged.
 
-The committed Phase 0b traces were not regenerated. `CREGEN` does not emit
-a trace line and `CMOVE` is not queued, so those traces still match the core.
+The committed Phase 0b traces were regenerated after the decision recorded
+above. Each of `t1`–`t5` opens at `0:0:6.2.5` with `second=6`. The ROM
+captures were left as recorded; a divergence in the table that is later
+than `INIT` is still the comparison against the pre-regeneration reference,
+read with `--relative-to-init`. `CREGEN` does not emit a trace line and
+`CMOVE` is not queued.
 
 ## 2. How a matrix increment becomes a creature
 
