@@ -192,6 +192,61 @@ Every incoming file/asset receives `origin URL + pinned commit + original author
 
 Produce a **Phase 0b executable evidence pack**, with no mobile UI: (a) pin source/ROM versions; (b) extract canonical maze hashes for all five levels and decode token, item, and creature tables into machine-readable fixtures; (c) write a jiffy-by-jiffy scheduler/clock specification with simultaneous-event ordering; (d) capture emulator traces for timed spawns, level entry/return, and the blocker questions; (e) update this report from “VERIFY” to proven or explicitly variant-specific behavior. Then implement a minimal headless C++20 slice: original RNG, fixed level-0 generation, timed keyboard parsing, MOVE/TURN/LOOK, and a trace-comparison CLI. Only expand to combat after that slice matches the emulator. [I]
 
+
+---
+
+## 23. Phase 0b reconciliation (added 2026-09-24)
+
+Phase 0b produced an executable evidence pack under
+[`docs/archaeology/phase-0b/`](phase-0b/README.md). The full
+item-by-item reconciliation — evidence, result, confidence and what is still open
+— is in [`reconciliation.md`](phase-0b/reconciliation.md); the
+jiffy-by-jiffy clock and scheduler specification is in
+[`clock-and-scheduler.md`](../specification/clock-and-scheduler.md);
+the pinned hashes, tool versions and rights position are in
+[`ledger.md`](../provenance/ledger.md).
+
+**No claim in that pack, and therefore no claim in this report, is verified
+against a retail ROM.** No ROM image or emulator was obtainable and the listing
+was not assembled with `lwasm`, so Phase 0's first blocker is untouched. Sections
+4–7, 8, 10–13 and 20–22 above should be read together with the reconciliation
+document.
+
+Four statements in this report are contradicted by the listing and should be read
+as corrected:
+
+1. **§4–5.** "`PLAYER` gets at most one buffered character on its turn" is wrong.
+   `PLAY10` loops `KBDGET` until it returns null and processes every buffered
+   character, so a whole command typed inside one jiffy is dispatched in a single
+   `PLAYER` turn. The one-character-per-jiffy limit belongs to the interrupt
+   (`CLK60`), not to the task.
+2. **§8 / §12.** The ring adjective listed as `HOTH` is the `OBJXXX` macro label.
+   The player-facing word in `ADJTAB` — the table `PARSER` searches — is
+   **`RIME`**.
+3. **§8.** `DIRXXX`'s `BACKWARD` is a macro argument name; the packed `DIRTAB`
+   entry is **`BACK`** (4 letters). Prefix matching therefore *rejects*
+   `BACKWARD`, rather than accepting `BACK` as an abbreviation of `BACKWARD`.
+4. **§10–12 / §16.** Starting power is **160**, not zero. `RAMDAT` presets
+   `PPOW = $17A0` and `ONCE.ASM GAME10`'s `CLR PPOW` clears only the high byte of
+   the two-byte field. Starting `POBJWT` is 35 and starting `HEARTR` is 46
+   jiffies.
+
+Also newly resolved from source, with detail in the reconciliation document:
+`ROLTAB` is 6/10/60/60/24; ready work is *not* bounded by the jiffy because
+`SCHED` is an endless lap; ties resolve jiffy → tenth → second → minute → hour and
+FIFO within a queue; the keyboard buffer has no overflow check at all; `RNDCEL`
+draws the **column first**; movement legality tests only bounds and the
+never-carved `$FF` pattern, so doors and wall bits never block a step; `DGEN90`
+spins **256** times when `SECOND` is 0; and the five maze layouts are byte-identical
+across entry times and repeat entries in the source, with SHA-256 hashes recorded
+per level in `fixtures/mazes.json`.
+
+Still open after Phase 0b: ROM equivalence of the reconstructed listing; how a
+`CREGEN` matrix increment becomes a live creature; animation and sound durations;
+whether `SOUNDS:SNOISE` consumes the gameplay seed; the `VFTTAB` group-to-level
+mapping; and every combat, item and magic question, which Phase 0b deliberately
+left out of scope.
+
 ## References
 
 [S]: https://github.com/MichaelSpencerJr/DungeonsOfDaggorath/tree/a94326f00ebb16a106b540c58bc2ccf5f7b66dac

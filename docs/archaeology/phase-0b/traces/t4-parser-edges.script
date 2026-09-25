@@ -1,0 +1,14 @@
+# Z is ambiguous (ZLOAD/ZSAVE) -> ???; MOVEX is longer than the entry -> ???;
+# bare M defaults to forward; TURN with no argument is an error.
+5 Z
+6 CR
+20 M
+21 O
+22 V
+23 E
+24 X
+25 CR
+40 T
+41 CR
+55 M
+56 CR

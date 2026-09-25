@@ -1,0 +1,79 @@
+{
+  "fixtures": [
+    {
+      "file": "clock.json",
+      "sha256": "673765a2897112c44032577dabef397e85f15cd1f0f2009c92c5a733a2a55c4d",
+      "bytes": 1385
+    },
+    {
+      "file": "creatures.json",
+      "sha256": "08e0b2f7e2b601d9a56559dfccb4672e60fd3909b66e233ac202876da2ef014b",
+      "bytes": 4469
+    },
+    {
+      "file": "initial-state.json",
+      "sha256": "d4749356610d9ec418937bd36001339a14ffebf9ee1d5b3dc13c2ed3a9f496ae",
+      "bytes": 1105
+    },
+    {
+      "file": "maze-level-0.bin",
+      "sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+      "bytes": 1024
+    },
+    {
+      "file": "maze-level-1.bin",
+      "sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+      "bytes": 1024
+    },
+    {
+      "file": "maze-level-2.bin",
+      "sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+      "bytes": 1024
+    },
+    {
+      "file": "maze-level-3.bin",
+      "sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+      "bytes": 1024
+    },
+    {
+      "file": "maze-level-4.bin",
+      "sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+      "bytes": 1024
+    },
+    {
+      "file": "mazes.json",
+      "sha256": "d8906f5294cbf869a79575c1b7be677542148bdf2593e335d4cb2e50edcca992",
+      "bytes": 8850
+    },
+    {
+      "file": "objects.json",
+      "sha256": "7e65200ccf36725f97f33332a64a5091a43966f32c5d95d265384ebeba51b7b2",
+      "bytes": 7189
+    },
+    {
+      "file": "parser-prefixes.json",
+      "sha256": "5f1d2255db9f59b8bd73179e654bffbdfc24efc6d2ab6d21b17fc832decc263d",
+      "bytes": 5960
+    },
+    {
+      "file": "rng-vectors.txt",
+      "sha256": "cccc1c07e97c65b3b114f5aaf14ea8d495af606f560ca618bb2180c06a20ceba",
+      "bytes": 265
+    },
+    {
+      "file": "rng.json",
+      "sha256": "0fa6cd06ae29684217fab90446f02c82da657955952f49c53ac02e654bcbcadc",
+      "bytes": 1775
+    },
+    {
+      "file": "tokens.json",
+      "sha256": "205f9951b9fd6fcfc957a09152538156d52bf8eddc0b86b4573806efa4244120",
+      "bytes": 14322
+    },
+    {
+      "file": "vertical-features.json",
+      "sha256": "6a6628483fc14201e20e16e9389a794ce4f27e636be9822778a8581413000e4b",
+      "bytes": 2151
+    }
+  ]
+}

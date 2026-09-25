@@ -1,0 +1,128 @@
+{
+  "description": "VFTTAB vertical feature records grouped by $80 terminators",
+  "source": "COMCRE.ASM:184 VFTTAB",
+  "extraction_method": "FCB bytes read verbatim; $80 (-128) treated as group terminator",
+  "record_format": "kind, row, col ; kind 1 = ladder, 0 = hole (per source comments)",
+  "raw_bytes": [
+    "0x80",
+    "0x01",
+    "0x00",
+    "0x17",
+    "0x00",
+    "0x0F",
+    "0x04",
+    "0x00",
+    "0x14",
+    "0x11",
+    "0x01",
+    "0x1C",
+    "0x1E",
+    "0x80",
+    "0x01",
+    "0x02",
+    "0x03",
+    "0x00",
+    "0x03",
+    "0x1F",
+    "0x00",
+    "0x13",
+    "0x14",
+    "0x00",
+    "0x1F",
+    "0x00",
+    "0x80",
+    "0x80",
+    "0x00",
+    "0x00",
+    "0x1F",
+    "0x00",
+    "0x05",
+    "0x00",
+    "0x00",
+    "0x16",
+    "0x1C",
+    "0x00",
+    "0x1F",
+    "0x10",
+    "0x80",
+    "0x80"
+  ],
+  "groups": [
+    {
+      "group_index": 1,
+      "records": [
+        {
+          "kind": 1,
+          "row": 0,
+          "col": 23
+        },
+        {
+          "kind": 0,
+          "row": 15,
+          "col": 4
+        },
+        {
+          "kind": 0,
+          "row": 20,
+          "col": 17
+        },
+        {
+          "kind": 1,
+          "row": 28,
+          "col": 30
+        }
+      ]
+    },
+    {
+      "group_index": 2,
+      "records": [
+        {
+          "kind": 1,
+          "row": 2,
+          "col": 3
+        },
+        {
+          "kind": 0,
+          "row": 3,
+          "col": 31
+        },
+        {
+          "kind": 0,
+          "row": 19,
+          "col": 20
+        },
+        {
+          "kind": 0,
+          "row": 31,
+          "col": 0
+        }
+      ]
+    },
+    {
+      "group_index": 4,
+      "records": [
+        {
+          "kind": 0,
+          "row": 0,
+          "col": 31
+        },
+        {
+          "kind": 0,
+          "row": 5,
+          "col": 0
+        },
+        {
+          "kind": 0,
+          "row": 22,
+          "col": 28
+        },
+        {
+          "kind": 0,
+          "row": 31,
+          "col": 16
+        }
+      ]
+    }
+  ],
+  "note": "Group-to-level mapping is INFERRED from the source comment columns and is an open item; the byte values are source-proven."
+}

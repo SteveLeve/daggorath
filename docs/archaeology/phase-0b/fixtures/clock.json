@@ -1,0 +1,54 @@
+{
+  "description": "Clock rollover values, queue codes, initial task order",
+  "source": "COMMON.ASM:516 ROLTAB, CLOCK, QUESCN, SCHED; CD.ASM queue codes and TCB layout; COMDAT.ASM TCBDAT; ONCE.ASM SYSTCB",
+  "extraction_method": "FCB values and EQU constants read verbatim",
+  "interrupt_rate_hz": 60,
+  "rollovers": {
+    "jiffy": 6,
+    "tenth": 10,
+    "second": 60,
+    "minute": 60,
+    "hour": 24
+  },
+  "queue_codes": {
+    "Q.NUL": 0,
+    "Q.JIF": 2,
+    "Q.TEN": 4,
+    "Q.SEC": 6,
+    "Q.MIN": 8,
+    "Q.HOU": 10,
+    "Q.SCD": 12
+  },
+  "tcb_layout": {
+    "P.TCPTR": 0,
+    "P.TCTIM": 2,
+    "P.TCRTN": 3,
+    "P.TCDTA": 5,
+    "TC.LEN": 7
+  },
+  "initial_tcb_order_in_scdque": [
+    "PLAYER",
+    "LUKNEW",
+    "HSLOW",
+    "BURNER",
+    "CREGEN"
+  ],
+  "initial_task_queue": "Q.SCD with countdown 0 (ONCE.ASM SYSTCB: LDD #Q.SCD)",
+  "task_reschedules": {
+    "PLAYER": "SCHED$ 1,Q.JIF",
+    "LUKNEW": "SCHED$ 3,Q.TEN",
+    "BURNER": "SCHED$ 1,Q.MIN",
+    "CREGEN": "SCHED$ 5,Q.MIN",
+    "HSLOW": "Q.JIF (countdown computed from heartbeat rate)"
+  },
+  "keyboard_buffer": {
+    "size": 32,
+    "overflow_checked": false,
+    "source": "COMMON.ASM KBDPUT/KBDGET"
+  },
+  "line_buffer": {
+    "size": 32,
+    "source": "CD.ASM:584 LINBUF",
+    "full_buffer_behaviour": "HUMAN falls through from the buffer-full test into the carriage-return path, dispatching the line"
+  }
+}

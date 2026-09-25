@@ -1,0 +1,6 @@
+# A whole command delivered inside a single jiffy: PLAYER drains the entire
+# keyboard buffer on its turn, so the embedded CR dispatches immediately.
+5 T
+5 SPACE
+5 R
+5 CR

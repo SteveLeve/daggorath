@@ -1,0 +1,348 @@
+{
+  "description": "Object definition blocks, generic classes and weights",
+  "source": "DTABAS.ASM GENXXX/OBJXXX/SPCXXX macros (ODBTAB, XXXTAB, OMXTAB, OBJWGT)",
+  "extraction_method": "macro argument lists parsed verbatim from the listing",
+  "generic_classes": [
+    {
+      "name": "FLASK",
+      "symbol": "FLA0",
+      "class": "K.FLAS",
+      "weight": 5
+    },
+    {
+      "name": "RING",
+      "symbol": "RIN0",
+      "class": "K.RING",
+      "weight": 1
+    },
+    {
+      "name": "SCROLL",
+      "symbol": "SCR0",
+      "class": "K.SCRO",
+      "weight": 10
+    },
+    {
+      "name": "SHIELD",
+      "symbol": "SHI0",
+      "class": "K.SHIE",
+      "weight": 25
+    },
+    {
+      "name": "SWORD",
+      "symbol": "SWO0",
+      "class": "K.SWOR",
+      "weight": 25
+    },
+    {
+      "name": "TORCH",
+      "symbol": "TOR0",
+      "class": "K.TORC",
+      "weight": 10
+    }
+  ],
+  "level_objects": [
+    {
+      "name": "SUPREME",
+      "symbol": "RN05",
+      "class": "K.RING",
+      "reveal_requirement": 255,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 4,
+      "count": 1,
+      "special_params": [
+        "3",
+        "T.RN15",
+        "0"
+      ]
+    },
+    {
+      "name": "JOULE",
+      "symbol": "RN01",
+      "class": "K.RING",
+      "reveal_requirement": 170,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 3,
+      "count": 1,
+      "special_params": [
+        "3",
+        "T.RN11",
+        "0"
+      ]
+    },
+    {
+      "name": "ELVISH",
+      "symbol": "SWO1",
+      "class": "K.SWOR",
+      "reveal_requirement": 150,
+      "magic_offense": 64,
+      "physical_offense": 64,
+      "initial_level": 3,
+      "count": 1
+    },
+    {
+      "name": "MITHRIL",
+      "symbol": "SHI1",
+      "class": "K.SHIE",
+      "reveal_requirement": 140,
+      "magic_offense": 13,
+      "physical_offense": 26,
+      "initial_level": 3,
+      "count": 2,
+      "special_params": [
+        "64",
+        "64",
+        "0"
+      ]
+    },
+    {
+      "name": "SEER",
+      "symbol": "SCR1",
+      "class": "K.SCRO",
+      "reveal_requirement": 130,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 2,
+      "count": 3
+    },
+    {
+      "name": "THEWS",
+      "symbol": "FLA1",
+      "class": "K.FLAS",
+      "reveal_requirement": 70,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 2,
+      "count": 3
+    },
+    {
+      "name": "HOTH",
+      "symbol": "RN03",
+      "class": "K.RING",
+      "reveal_requirement": 52,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 1,
+      "count": 1,
+      "special_params": [
+        "3",
+        "T.RN13",
+        "0"
+      ]
+    },
+    {
+      "name": "VISION",
+      "symbol": "SCR2",
+      "class": "K.SCRO",
+      "reveal_requirement": 50,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 1,
+      "count": 3
+    },
+    {
+      "name": "ABYE",
+      "symbol": "FLA3",
+      "class": "K.FLAS",
+      "reveal_requirement": 48,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 1,
+      "count": 6
+    },
+    {
+      "name": "HALE",
+      "symbol": "FLA2",
+      "class": "K.FLAS",
+      "reveal_requirement": 40,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 1,
+      "count": 4
+    },
+    {
+      "name": "SOLAR",
+      "symbol": "TOR1",
+      "class": "K.TORC",
+      "reveal_requirement": 70,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 1,
+      "count": 4,
+      "special_params": [
+        "60",
+        "13",
+        "11"
+      ]
+    },
+    {
+      "name": "BRONZE",
+      "symbol": "SHI3",
+      "class": "K.SHIE",
+      "reveal_requirement": 25,
+      "magic_offense": 0,
+      "physical_offense": 26,
+      "initial_level": 1,
+      "count": 6,
+      "special_params": [
+        "96",
+        "128",
+        "0"
+      ]
+    },
+    {
+      "name": "VULCAN",
+      "symbol": "RN02",
+      "class": "K.RING",
+      "reveal_requirement": 13,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 0,
+      "count": 1,
+      "special_params": [
+        "3",
+        "T.RN12",
+        "0"
+      ]
+    },
+    {
+      "name": "IRON",
+      "symbol": "SW02",
+      "class": "K.SWOR",
+      "reveal_requirement": 13,
+      "magic_offense": 0,
+      "physical_offense": 40,
+      "initial_level": 0,
+      "count": 4
+    },
+    {
+      "name": "LUNAR",
+      "symbol": "TOR2",
+      "class": "K.TORC",
+      "reveal_requirement": 25,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 0,
+      "count": 8,
+      "special_params": [
+        "30",
+        "10",
+        "4"
+      ]
+    },
+    {
+      "name": "PINE",
+      "symbol": "TOR4",
+      "class": "K.TORC",
+      "reveal_requirement": 5,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "initial_level": 0,
+      "count": 8,
+      "special_params": [
+        "15",
+        "7",
+        "0"
+      ]
+    },
+    {
+      "name": "LEATHER",
+      "symbol": "SHI4",
+      "class": "K.SHIE",
+      "reveal_requirement": 5,
+      "magic_offense": 0,
+      "physical_offense": 10,
+      "initial_level": 0,
+      "count": 3,
+      "special_params": [
+        "108",
+        "128",
+        "0"
+      ]
+    },
+    {
+      "name": "WOODEN",
+      "symbol": "SWO3",
+      "class": "K.SWOR",
+      "reveal_requirement": 5,
+      "magic_offense": 0,
+      "physical_offense": 16,
+      "initial_level": 0,
+      "count": 4
+    }
+  ],
+  "special_objects": [
+    {
+      "name": "FINAL",
+      "symbol": "RN15",
+      "class": "K.RING",
+      "reveal_requirement": 0,
+      "magic_offense": 0,
+      "physical_offense": 0,
+      "extra": null
+    },
+    {
+      "name": "ENERGY",
+      "symbol": "RN11",
+      "class": "K.RING",
+      "reveal_requirement": 0,
+      "magic_offense": 255,
+      "physical_offense": 255,
+      "extra": null
+    },
+    {
+      "name": "ICE",
+      "symbol": "RN13",
+      "class": "K.RING",
+      "reveal_requirement": 0,
+      "magic_offense": 255,
+      "physical_offense": 255,
+      "extra": null
+    },
+    {
+      "name": "FIRE",
+      "symbol": "RN12",
+      "class": "K.RING",
+      "reveal_requirement": 0,
+      "magic_offense": 255,
+      "physical_offense": 255,
+      "extra": null
+    },
+    {
+      "name": "GOLD",
+      "symbol": "RN20",
+      "class": "K.RING",
+      "reveal_requirement": 0,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "extra": null
+    },
+    {
+      "name": "EMPTY",
+      "symbol": "FLA4",
+      "class": "K.FLAS",
+      "reveal_requirement": 0,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "extra": null
+    },
+    {
+      "name": "DEAD",
+      "symbol": "TOR5",
+      "class": "K.TORC",
+      "reveal_requirement": 5,
+      "magic_offense": 0,
+      "physical_offense": 5,
+      "extra": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ]
+    }
+  ],
+  "torch_special_params": "for torches: [timer, regular light, magical light]",
+  "shield_special_params": "for shields: [magic defense filter, physical defense filter, unused]"
+}

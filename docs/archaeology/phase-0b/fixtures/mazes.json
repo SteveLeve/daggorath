@@ -1,0 +1,280 @@
+{
+  "description": "Canonical maze layouts for levels 0-4",
+  "source": "DGNGEN.ASM DGNGEN/MAKDOR/DGEN90; CRETUR.ASM STEP/STEPOK; CD.ASM MAZLND",
+  "extraction_method": "transliteration of DGNGEN executed against LVLTAB seeds read from DGNGEN.ASM; 500 carved cells, 70 regular + 45 secret doors",
+  "serialization": "1024 bytes, row-major, index = row*32 + col, one byte per cell; bit pairs low-to-high = North, East, South, West; 00 passage, 01 regular door, 10 secret door, 11 wall; hash = SHA-256 over those 1024 bytes in that order",
+  "levels": [
+    {
+      "level": 0,
+      "lvltab_window": [
+        "0x73",
+        "0xC7",
+        "0x5D"
+      ],
+      "lvltab_source_line": "DGNGEN.ASM:363+0",
+      "maze_sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+      "cleared_cell_count": 500,
+      "rng_state_before_dgen90_spin": [
+        "0x3A",
+        "0xCB",
+        "0xDC"
+      ],
+      "rng_state_after_dgen90_spin_second_1": [
+        "0x73",
+        "0x3A",
+        "0xCB"
+      ],
+      "rng_calls_before_spin": 2128
+    },
+    {
+      "level": 1,
+      "lvltab_window": [
+        "0xC7",
+        "0x5D",
+        "0x97"
+      ],
+      "lvltab_source_line": "DGNGEN.ASM:363+1",
+      "maze_sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+      "cleared_cell_count": 500,
+      "rng_state_before_dgen90_spin": [
+        "0xDF",
+        "0xED",
+        "0x3B"
+      ],
+      "rng_state_after_dgen90_spin_second_1": [
+        "0x55",
+        "0xDF",
+        "0xED"
+      ],
+      "rng_calls_before_spin": 1839
+    },
+    {
+      "level": 2,
+      "lvltab_window": [
+        "0x5D",
+        "0x97",
+        "0xF3"
+      ],
+      "lvltab_source_line": "DGNGEN.ASM:363+2",
+      "maze_sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+      "cleared_cell_count": 500,
+      "rng_state_before_dgen90_spin": [
+        "0x25",
+        "0x87",
+        "0x6E"
+      ],
+      "rng_state_after_dgen90_spin_second_1": [
+        "0x4A",
+        "0x25",
+        "0x87"
+      ],
+      "rng_calls_before_spin": 2235
+    },
+    {
+      "level": 3,
+      "lvltab_window": [
+        "0x97",
+        "0xF3",
+        "0x13"
+      ],
+      "lvltab_source_line": "DGNGEN.ASM:363+3",
+      "maze_sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+      "cleared_cell_count": 500,
+      "rng_state_before_dgen90_spin": [
+        "0x00",
+        "0x0A",
+        "0x8F"
+      ],
+      "rng_state_after_dgen90_spin_second_1": [
+        "0x28",
+        "0x00",
+        "0x0A"
+      ],
+      "rng_calls_before_spin": 2191
+    },
+    {
+      "level": 4,
+      "lvltab_window": [
+        "0xF3",
+        "0x13",
+        "0x87"
+      ],
+      "lvltab_source_line": "DGNGEN.ASM:363+4",
+      "maze_sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+      "cleared_cell_count": 500,
+      "rng_state_before_dgen90_spin": [
+        "0x01",
+        "0xFC",
+        "0x0B"
+      ],
+      "rng_state_after_dgen90_spin_second_1": [
+        "0xCD",
+        "0x01",
+        "0xFC"
+      ],
+      "rng_calls_before_spin": 1961
+    }
+  ],
+  "entry_time_invariance": [
+    {
+      "level": 0,
+      "entries_at_different_seconds": [
+        {
+          "second_at_entry": 0,
+          "maze_sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 1,
+          "maze_sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 7,
+          "maze_sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 30,
+          "maze_sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 59,
+          "maze_sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+          "identical_to_first": true
+        }
+      ],
+      "repeat_entry_same_second_sha256": "f106c1af258e55a2e9f868ba55c3a355383466b0f19fbd3f63aea2339ebfab89",
+      "repeat_matches": true
+    },
+    {
+      "level": 1,
+      "entries_at_different_seconds": [
+        {
+          "second_at_entry": 0,
+          "maze_sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 1,
+          "maze_sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 7,
+          "maze_sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 30,
+          "maze_sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 59,
+          "maze_sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+          "identical_to_first": true
+        }
+      ],
+      "repeat_entry_same_second_sha256": "7c767aec62f2191335510258e1c8894f26eff023db43cb436c0aeb710296eb0f",
+      "repeat_matches": true
+    },
+    {
+      "level": 2,
+      "entries_at_different_seconds": [
+        {
+          "second_at_entry": 0,
+          "maze_sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 1,
+          "maze_sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 7,
+          "maze_sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 30,
+          "maze_sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 59,
+          "maze_sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+          "identical_to_first": true
+        }
+      ],
+      "repeat_entry_same_second_sha256": "391f323f5a68ca330a2a7c0afa343121794c3d2e1f3bb4af9c66190b64cd90c9",
+      "repeat_matches": true
+    },
+    {
+      "level": 3,
+      "entries_at_different_seconds": [
+        {
+          "second_at_entry": 0,
+          "maze_sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 1,
+          "maze_sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 7,
+          "maze_sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 30,
+          "maze_sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 59,
+          "maze_sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+          "identical_to_first": true
+        }
+      ],
+      "repeat_entry_same_second_sha256": "2311c2dfdb0b7ce2d5f6c11c8c2606004ce73bf3a9628a77711dd7cadebed624",
+      "repeat_matches": true
+    },
+    {
+      "level": 4,
+      "entries_at_different_seconds": [
+        {
+          "second_at_entry": 0,
+          "maze_sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 1,
+          "maze_sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 7,
+          "maze_sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 30,
+          "maze_sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+          "identical_to_first": true
+        },
+        {
+          "second_at_entry": 59,
+          "maze_sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+          "identical_to_first": true
+        }
+      ],
+      "repeat_entry_same_second_sha256": "723c3f5ffe65f0a0a555187b20f729ec7de84f284ecbc96c386c5de8ab8ee571",
+      "repeat_matches": true
+    }
+  ]
+}

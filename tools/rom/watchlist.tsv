@@ -1,0 +1,40 @@
+# Symbols to sample every interrupt (60 Hz) during a ROM capture.
+# Resolve addresses from the assembled listing's symbol table for the build under
+# test; CD.ASM declares each one. Widths are bytes.
+# symbol	width	group	why
+JIFFY	1	clock	sub-tenth counter, 0..5
+TENTH	1	clock	rolls at 10
+SECOND	1	clock	feeds DGEN90
+MINUTE	1	clock	BURNER and CREGEN boundaries
+HOUR	1	clock	completeness
+DAY	1	clock	never rolls over
+SEED	3	rng	stream position; compare before/after DGEN90
+MAZLND	1024	world	maze array; dump once per level entry, not per jiffy
+LEVEL	1	world	current level
+PROW	1	player	row
+PCOL	1	player	column
+PDIR	1	player	facing, 0=N 1=E 2=S 3=W
+PPOW	2	player	power; starts at 160, not 0
+PDAM	2	player	accumulated damage
+POBJWT	2	player	carried weight; starts at 35
+HEARTR	1	physiology	heartbeat delay in jiffies
+HEARTC	1	physiology	countdown to the next beat
+HBEATF	1	physiology	audible heartbeat gate
+HEARTF	1	physiology	map-mode flag; gates the glyph only
+FAINT	1	physiology	suspends the keyboard poll entirely
+KBDHDR	1	input	buffer get offset
+KBDTAL	1	input	buffer put offset; equal to head means "empty"
+KBDBUF	32	input	circular buffer contents, for the overrun case
+LINBUF	32	input	line editor; dispatches when full
+LINPTR	2	input	line buffer pointer
+QUEBEG	12	sched	queue head pointers, Q.NUL..Q.SCD
+TCBLND	-	sched	TCB arena; walk links and log P.TCTIM and P.TCRTN per live TCB
+SLEEP	1	sched	suspends every countdown queue
+ZFLAG	1	sched	cassette save/load, tested inside the SCHED lap
+CMXLND	60	creatures	5x12 creature matrix; watch across the CREGEN boundary
+CCBLND	-	creatures	creature control blocks; log row/col/type/active per slot
+UPDATE	1	presentation	display swap request, consumed by the next interrupt
+DSPMOD	2	presentation	active display mode: VIEWER, EXAMIN or MAPPER
+NEWLUK	1	presentation	pending redraw request
+RLIGHT	1	presentation	regular light level
+MLIGHT	1	presentation	magical light level

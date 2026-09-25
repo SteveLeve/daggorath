@@ -1,0 +1,223 @@
+{
+  "description": "Shortest unique prefix per token, derived from PARSER semantics",
+  "source": "PARSER.ASM PARSER/PARS10-PARS30; TOKEN.ASM tables",
+  "extraction_method": "PARSER accepts a token that is a prefix of a table entry and rejects when two entries match; prefixes computed from the decoded tables under that rule",
+  "tables": {
+    "CMDTAB": {
+      "ATTACK": {
+        "shortest_unique_prefix": "A",
+        "exact_word_is_ambiguous": false
+      },
+      "CLIMB": {
+        "shortest_unique_prefix": "C",
+        "exact_word_is_ambiguous": false
+      },
+      "DROP": {
+        "shortest_unique_prefix": "D",
+        "exact_word_is_ambiguous": false
+      },
+      "EXAMINE": {
+        "shortest_unique_prefix": "E",
+        "exact_word_is_ambiguous": false
+      },
+      "GET": {
+        "shortest_unique_prefix": "G",
+        "exact_word_is_ambiguous": false
+      },
+      "INCANT": {
+        "shortest_unique_prefix": "I",
+        "exact_word_is_ambiguous": false
+      },
+      "LOOK": {
+        "shortest_unique_prefix": "L",
+        "exact_word_is_ambiguous": false
+      },
+      "MOVE": {
+        "shortest_unique_prefix": "M",
+        "exact_word_is_ambiguous": false
+      },
+      "PULL": {
+        "shortest_unique_prefix": "P",
+        "exact_word_is_ambiguous": false
+      },
+      "REVEAL": {
+        "shortest_unique_prefix": "R",
+        "exact_word_is_ambiguous": false
+      },
+      "STOW": {
+        "shortest_unique_prefix": "S",
+        "exact_word_is_ambiguous": false
+      },
+      "TURN": {
+        "shortest_unique_prefix": "T",
+        "exact_word_is_ambiguous": false
+      },
+      "USE": {
+        "shortest_unique_prefix": "U",
+        "exact_word_is_ambiguous": false
+      },
+      "ZLOAD": {
+        "shortest_unique_prefix": "ZL",
+        "exact_word_is_ambiguous": false
+      },
+      "ZSAVE": {
+        "shortest_unique_prefix": "ZS",
+        "exact_word_is_ambiguous": false
+      }
+    },
+    "DIRTAB": {
+      "LEFT": {
+        "shortest_unique_prefix": "L",
+        "exact_word_is_ambiguous": false
+      },
+      "RIGHT": {
+        "shortest_unique_prefix": "R",
+        "exact_word_is_ambiguous": false
+      },
+      "BACK": {
+        "shortest_unique_prefix": "B",
+        "exact_word_is_ambiguous": false
+      },
+      "AROUND": {
+        "shortest_unique_prefix": "A",
+        "exact_word_is_ambiguous": false
+      },
+      "UP": {
+        "shortest_unique_prefix": "U",
+        "exact_word_is_ambiguous": false
+      },
+      "DOWN": {
+        "shortest_unique_prefix": "D",
+        "exact_word_is_ambiguous": false
+      }
+    },
+    "ADJTAB": {
+      "SUPREME": {
+        "shortest_unique_prefix": "SU",
+        "exact_word_is_ambiguous": false
+      },
+      "JOULE": {
+        "shortest_unique_prefix": "J",
+        "exact_word_is_ambiguous": false
+      },
+      "ELVISH": {
+        "shortest_unique_prefix": "EL",
+        "exact_word_is_ambiguous": false
+      },
+      "MITHRIL": {
+        "shortest_unique_prefix": "M",
+        "exact_word_is_ambiguous": false
+      },
+      "SEER": {
+        "shortest_unique_prefix": "SE",
+        "exact_word_is_ambiguous": false
+      },
+      "THEWS": {
+        "shortest_unique_prefix": "T",
+        "exact_word_is_ambiguous": false
+      },
+      "RIME": {
+        "shortest_unique_prefix": "R",
+        "exact_word_is_ambiguous": false
+      },
+      "VISION": {
+        "shortest_unique_prefix": "VI",
+        "exact_word_is_ambiguous": false
+      },
+      "ABYE": {
+        "shortest_unique_prefix": "A",
+        "exact_word_is_ambiguous": false
+      },
+      "HALE": {
+        "shortest_unique_prefix": "H",
+        "exact_word_is_ambiguous": false
+      },
+      "SOLAR": {
+        "shortest_unique_prefix": "SO",
+        "exact_word_is_ambiguous": false
+      },
+      "BRONZE": {
+        "shortest_unique_prefix": "B",
+        "exact_word_is_ambiguous": false
+      },
+      "VULCAN": {
+        "shortest_unique_prefix": "VU",
+        "exact_word_is_ambiguous": false
+      },
+      "IRON": {
+        "shortest_unique_prefix": "IR",
+        "exact_word_is_ambiguous": false
+      },
+      "LUNAR": {
+        "shortest_unique_prefix": "LU",
+        "exact_word_is_ambiguous": false
+      },
+      "PINE": {
+        "shortest_unique_prefix": "P",
+        "exact_word_is_ambiguous": false
+      },
+      "LEATHER": {
+        "shortest_unique_prefix": "LE",
+        "exact_word_is_ambiguous": false
+      },
+      "WOODEN": {
+        "shortest_unique_prefix": "W",
+        "exact_word_is_ambiguous": false
+      },
+      "FINAL": {
+        "shortest_unique_prefix": "FIN",
+        "exact_word_is_ambiguous": false
+      },
+      "ENERGY": {
+        "shortest_unique_prefix": "EN",
+        "exact_word_is_ambiguous": false
+      },
+      "ICE": {
+        "shortest_unique_prefix": "IC",
+        "exact_word_is_ambiguous": false
+      },
+      "FIRE": {
+        "shortest_unique_prefix": "FIR",
+        "exact_word_is_ambiguous": false
+      },
+      "GOLD": {
+        "shortest_unique_prefix": "G",
+        "exact_word_is_ambiguous": false
+      },
+      "EMPTY": {
+        "shortest_unique_prefix": "EM",
+        "exact_word_is_ambiguous": false
+      },
+      "DEAD": {
+        "shortest_unique_prefix": "D",
+        "exact_word_is_ambiguous": false
+      }
+    },
+    "GENTAB": {
+      "FLASK": {
+        "shortest_unique_prefix": "F",
+        "exact_word_is_ambiguous": false
+      },
+      "RING": {
+        "shortest_unique_prefix": "R",
+        "exact_word_is_ambiguous": false
+      },
+      "SCROLL": {
+        "shortest_unique_prefix": "SC",
+        "exact_word_is_ambiguous": false
+      },
+      "SHIELD": {
+        "shortest_unique_prefix": "SH",
+        "exact_word_is_ambiguous": false
+      },
+      "SWORD": {
+        "shortest_unique_prefix": "SW",
+        "exact_word_is_ambiguous": false
+      },
+      "TORCH": {
+        "shortest_unique_prefix": "T",
+        "exact_word_is_ambiguous": false
+      }
+    }
+  }
+}

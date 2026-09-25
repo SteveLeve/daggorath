@@ -1,0 +1,22 @@
+{
+  "description": "Game-mode initial player and inventory state",
+  "source": "ONCE.ASM GAME10/GAME20/GAME30; COMDAT.ASM GAMDAT",
+  "extraction_method": "immediate operands read verbatim from ONCE.ASM",
+  "player_row": 16,
+  "player_col": 11,
+  "player_row_col_source": "ONCE.ASM GAME10: LDD #$100B / STD PROW",
+  "player_dir": 0,
+  "player_dir_evidence": "inferred: no explicit initialisation found; RAM is zeroed by SYSTCB/ZERO before GAME10",
+  "level": 0,
+  "initial_bag": [
+    "WOODEN sword (T.SWO3)",
+    "PINE torch (T.TOR4)"
+  ],
+  "ppow_initial": 160,
+  "ppow_evidence": "COMDAT.ASM:87 RAMDAT sets PPOW to $17,$A0; ONCE.ASM GAME10 then executes CLR PPOW, which clears only the HIGH byte of the two-byte field, leaving $00A0 = 160",
+  "pobjwt_initial": 35,
+  "pobjwt_evidence": "COMDAT.ASM:86 RAMDAT sets POBJWT to 30+5; equals the initial bag weight (wooden sword 25 + pine torch 10)",
+  "pdam_initial": 0,
+  "heartr_at_start": 46,
+  "heartr_derivation": "HUPDAX: (160*64)/(160+0) by repeated subtraction yields 65 (the quotient is incremented before the borrow test), minus 19 = 46 jiffies"
+}

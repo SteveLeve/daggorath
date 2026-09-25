@@ -1,0 +1,28 @@
+# Build output
+build/
+build-*/
+out/
+cmake-build-*/
+compile_commands.json
+.cache/
+
+# Evidence checkouts (fetched by tools/fetch_sources.sh, never committed)
+third_party/
+vendor/dod-asm/
+
+# ROM images and emulator captures are never committed: rights unresolved
+*.rom
+*.ccc
+*.bin.rom
+captures/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/

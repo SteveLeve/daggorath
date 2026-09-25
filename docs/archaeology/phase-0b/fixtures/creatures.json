@@ -1,0 +1,220 @@
+{
+  "description": "Creature definition blocks and initial level populations",
+  "source": "DTABAS.ASM CREXXX/CDBTAB; COMDAT.ASM:110 CMTTAB",
+  "extraction_method": "CREXXX macro argument lists parsed verbatim; CMTTAB read as a 5 x 12 matrix (level-major, CTYPES = 12 columns)",
+  "definitions": [
+    {
+      "index": 0,
+      "symbol": "SPIDER",
+      "move_delay_tenths": 23,
+      "attack_delay_tenths": 11,
+      "magic_offense": 0,
+      "magic_defense": 255,
+      "physical_offense": 128,
+      "physical_defense": 255,
+      "power": 32
+    },
+    {
+      "index": 1,
+      "symbol": "VIPER",
+      "move_delay_tenths": 15,
+      "attack_delay_tenths": 7,
+      "magic_offense": 0,
+      "magic_defense": 255,
+      "physical_offense": 80,
+      "physical_defense": 128,
+      "power": 56
+    },
+    {
+      "index": 2,
+      "symbol": "SGINT1",
+      "move_delay_tenths": 29,
+      "attack_delay_tenths": 23,
+      "magic_offense": 0,
+      "magic_defense": 255,
+      "physical_offense": 52,
+      "physical_defense": 192,
+      "power": 200
+    },
+    {
+      "index": 3,
+      "symbol": "BLOB",
+      "move_delay_tenths": 31,
+      "attack_delay_tenths": 31,
+      "magic_offense": 0,
+      "magic_defense": 255,
+      "physical_offense": 96,
+      "physical_defense": 167,
+      "power": 304
+    },
+    {
+      "index": 4,
+      "symbol": "KNIGT1",
+      "move_delay_tenths": 13,
+      "attack_delay_tenths": 7,
+      "magic_offense": 0,
+      "magic_defense": 128,
+      "physical_offense": 96,
+      "physical_defense": 60,
+      "power": 504
+    },
+    {
+      "index": 5,
+      "symbol": "SGINT2",
+      "move_delay_tenths": 17,
+      "attack_delay_tenths": 13,
+      "magic_offense": 0,
+      "magic_defense": 128,
+      "physical_offense": 128,
+      "physical_defense": 48,
+      "power": 704
+    },
+    {
+      "index": 6,
+      "symbol": "SCORP",
+      "move_delay_tenths": 5,
+      "attack_delay_tenths": 4,
+      "magic_offense": 255,
+      "magic_defense": 128,
+      "physical_offense": 255,
+      "physical_defense": 128,
+      "power": 400
+    },
+    {
+      "index": 7,
+      "symbol": "KNIGT2",
+      "move_delay_tenths": 13,
+      "attack_delay_tenths": 7,
+      "magic_offense": 0,
+      "magic_defense": 64,
+      "physical_offense": 255,
+      "physical_defense": 8,
+      "power": 800
+    },
+    {
+      "index": 8,
+      "symbol": "WRAITH",
+      "move_delay_tenths": 3,
+      "attack_delay_tenths": 3,
+      "magic_offense": 192,
+      "magic_defense": 16,
+      "physical_offense": 192,
+      "physical_defense": 8,
+      "power": 800
+    },
+    {
+      "index": 9,
+      "symbol": "BALROG",
+      "move_delay_tenths": 4,
+      "attack_delay_tenths": 3,
+      "magic_offense": 255,
+      "magic_defense": 5,
+      "physical_offense": 255,
+      "physical_defense": 3,
+      "power": 1000
+    },
+    {
+      "index": 10,
+      "symbol": "WIZ0",
+      "move_delay_tenths": 13,
+      "attack_delay_tenths": 7,
+      "magic_offense": 255,
+      "magic_defense": 6,
+      "physical_offense": 255,
+      "physical_defense": 0,
+      "power": 1000
+    },
+    {
+      "index": 11,
+      "symbol": "WIZ1",
+      "move_delay_tenths": 13,
+      "attack_delay_tenths": 7,
+      "magic_offense": 255,
+      "magic_defense": 6,
+      "physical_offense": 255,
+      "physical_defense": 0,
+      "power": 8000
+    }
+  ],
+  "initial_population_matrix": {
+    "layout": "row = level 0..4, column = creature type index 0..11",
+    "rows": [
+      [
+        9,
+        9,
+        4,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        2,
+        4,
+        0,
+        6,
+        6,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        4,
+        0,
+        6,
+        8,
+        4,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        8,
+        6,
+        6,
+        4,
+        0,
+        0
+      ],
+      [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        4,
+        4,
+        8,
+        0,
+        1
+      ]
+    ]
+  },
+  "regeneration": {
+    "task": "CREGEN",
+    "schedule": "SCHED$ 5,Q.MIN  (re-queued every 5 minute ticks)",
+    "rule": "if the sum over all 12 types on the current level is < 32, increment type ((RANDOM & 7) + 2)",
+    "source": "COMCRE.ASM CREGEN"
+  }
+}
