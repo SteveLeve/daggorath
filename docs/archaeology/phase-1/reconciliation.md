@@ -275,7 +275,9 @@ stored traces. It is not the ROM evidence; §1 is.
 
 ## 7. Next slice
 
-Do not start creature movement until the owner decides #13. The source-backed
-slice after that is `CMOVE` only, retiring D-6, still without attacks.
+Do not start creature movement until the owner decides #13. The close-out
+prompt is [`../../prompts/phase-1-apply-issue-13.md`](../../prompts/phase-1-apply-issue-13.md).
+The source-backed slice after that is `CMOVE` only, retiring D-6, still
+without attacks.
 Attacks need the matrix decrement in `PATT40`, which this phase left unread
 for implementation.
