@@ -24,7 +24,8 @@ Work in this order.
    If replacement firmware is used, first show that the cartridge boots and that
    a Phase 0b script produces a trace, and record that validation. Booting is
    not equivalence: every capture under replacement firmware is labelled
-   replacement-firmware-observed, never ROM-observed (ADR-0003 rule 4).
+   replacement-firmware-observed, not ROM-observed, unless a documented
+   equivalence result covers the specific behaviour at stake (ADR-0003 rule 4).
 2. Run `tools/rom/capture.lua`'s frame loop for the backlog items in priority
    order, starting with the five Phase 0b scripts.
 3. For each capture run `tools/rom/trace_diff.py` against the `dcli` trace and
@@ -32,7 +33,8 @@ Work in this order.
    (or `docs/archaeology/track-r/reconciliation.md` if no phase is open).
 4. Promote labels to ROM-observed only for rules a capture under authenticated
    original system ROMs actually exercised; replacement-firmware captures add a
-   replacement-firmware-observed note beside the existing label instead;
+   replacement-firmware-observed note beside the existing label instead,
+   unless a recorded equivalence result covers that rule (ADR-0003 rule 4);
    retire or re-label deviations (D-1, D-2, D-4) with the measurements.
 5. A divergence becomes its own issue and its own change: specification first,
    then core, with a regression test.

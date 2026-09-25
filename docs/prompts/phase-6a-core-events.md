@@ -8,10 +8,6 @@ reconciliation first. Produce working code and tests, not a plan.
 thresholds, effects, routine roles) comes from earlier reports and is a target
 to verify against the listing. Cite the listing, never this prompt.
 
-**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
-thresholds, effects, routine roles) comes from earlier reports and is a target
-to verify against the listing. Cite the listing, never this prompt.
-
 **Preservation requirement.** Adding the event stream changes no simulation
 behaviour: no RNG draw, task order, countdown or trace line other than the ones
 this phase deliberately renames changes. Blocking durations stay 0 with
