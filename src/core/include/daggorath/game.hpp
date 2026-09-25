@@ -44,10 +44,21 @@ struct KeyEvent {
     std::uint8_t ch = 0;
 };
 
+// Interrupts from GAME10's IRQSYN to the fetch of GAME50, measured on
+// MAME 0.264 coco2b running catalog 26-3093. Isolated so a later cycle-cost
+// derivation can replace the count. See clock-and-scheduler.md §13.
+inline constexpr std::uint32_t kLevel0BuildInterrupts = 377;
+
 class Game {
 public:
-    // `second_at_entry` feeds DGEN90 for the level-0 maze.
-    explicit Game(std::uint8_t second_at_entry = 1, int level = 0);
+    // Original Mode. Counts `kLevel0BuildInterrupts` before DGEN90, so the
+    // scheduler entry clock is 0:0:6.2.5 and SECOND is 6.
+    Game();
+
+    // Harness clock: set SECOND and leave the other counters at 0. This is the
+    // source-derived population comparison and the harness-modified spins. It
+    // is not the ROM level-0 entry.
+    explicit Game(std::uint8_t second_at_entry, int level = 0);
 
     void load_script(std::vector<KeyEvent> keys) { script_ = std::move(keys); }
 
@@ -94,6 +105,7 @@ private:
     void emit(const std::string& kind, const std::string& detail);
     TaskResult task_cregen();
     void build_level(int level, std::uint8_t second);
+    void start(bool rom_build, std::uint8_t second_at_entry, int level);
 
     std::array<std::array<std::uint8_t, kCreatureTypes>, 5> matrix_{};
     std::array<Ccb, kCcbSlots> ccbs_{};

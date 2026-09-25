@@ -104,7 +104,11 @@ System tasks are created in `Q.SCD` with countdown 0 (`ONCE.ASM SYSTCB`), so
 the first `CREGEN` runs on the opening scheduler lap, not after five minutes.
 On level 0 at `SECOND = 1` that draw increments type 9 (balrog) from 0 to 1.
 Live creatures stay 24. Entering the level again at the same `SECOND` births
-25. The following runs are five minute-queue scans apart.
+25. That row is the source-derived comparison in `population-entry.txt`
+(`cregen 24 24 25 9 25`). Original Mode level 0 is the ROM entry, `SECOND` = 6
+after 377 build interrupts: the opening lap increments type 5, the live count
+stays 24, and the next `NEWLVL` births 25. The following runs are five
+minute-queue scans apart.
 
 Killing a creature, which is not implemented, is the path that decrements the
 matrix (`PATT40`). The core therefore never lowers a count.

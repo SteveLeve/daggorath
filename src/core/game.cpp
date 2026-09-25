@@ -38,13 +38,28 @@ std::string TraceEvent::to_line() const {
     return os.str();
 }
 
+Game::Game() { start(true, 0, 0); }
+
 Game::Game(std::uint8_t second_at_entry, int level) {
+    start(false, second_at_entry, level);
+}
+
+void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     // The clock is already running when NEWLVL builds the maze, so the SECOND
     // counter at level entry is an input to DGEN90, not to the maze itself.
+    // Original Mode applies the measured build interrupts first. SECOND is
+    // already 6 at DGEN90 and still 6 at GAME50, so the whole count lands
+    // before the maze spin. Foreground tasks are added after that, because
+    // SCHED has not started and the capture's matrix is still the CMTTAB row.
     matrix_ = kCmtTab;
     objects_ = create_dungeon_objects();
-    sched_.counters().second = second_at_entry;
-    build_level(level, second_at_entry);
+    if (rom_build) {
+        sched_.advance_clock_counters(kLevel0BuildInterrupts);
+    } else {
+        sched_.counters().second = second_at_entry;
+    }
+    const std::uint8_t second_now = sched_.counters().second;
+    build_level(level, second_now);
     // GAME30 runs after NEWLVL, so these two are absent from the first attachment.
     for (const std::uint8_t type : {std::uint8_t{17}, std::uint8_t{15}}) {  // WOODEN, PINE
         Ocb bag = birth_player_object(type, 0);
@@ -75,7 +90,7 @@ Game::Game(std::uint8_t second_at_entry, int level) {
     emit("INIT", "level=" + std::to_string(level) + " row=" +
                      std::to_string(player_.row) + " col=" +
                      std::to_string(player_.col) + " dir=" + dir_name(player_.dir) +
-                     " second=" + std::to_string(static_cast<int>(second_at_entry)));
+                     " second=" + std::to_string(static_cast<int>(second_now)));
 }
 
 void Game::build_level(int level, std::uint8_t second) {

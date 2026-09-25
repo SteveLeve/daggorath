@@ -15,7 +15,8 @@ Every rule carries one label:
 | **[INF]** | inferred: a reading the listing supports but does not state |
 | **[OPEN]** | unresolved: needs ROM tracing or further source work |
 
-No rule in this document is currently labelled **[ROM]**.
+§13 records the ROM-observed scheduler-entry clock. The rules in §§1–12 keep the
+labels they carried when this document was source-only.
 
 ---
 
@@ -316,3 +317,35 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-4 | Animation and sound cost no simulated time | The core still spends none. The ROM durations are now measured (reconciliation §1): a turn's facing change is visible 1 jiffy after dispatch; a half-step changes position 6 or 7 jiffies after dispatch; the blocked-move `THUD` holds the foreground for 14 or 15 interrupts. `SNOISE` does not modify `SEED`. |
 | D-5 | The trace samples the clock counters when an event is emitted | Interrupt-phase events can therefore print a pre-bump counter value. |
 | D-6 | `CBIRTH` does not queue `CMOVE` | The control block is filled and the movement delay is stored, and the task is not inserted into `Q.TEN`. Queuing an inert `CMOVE` would change the foreground order while movement itself is still unspecified, and would tangle D-1 and D-2 with creatures. Retire this when creature movement is implemented. |
+
+### Initial clock (applied)
+
+Original Mode's scheduler entry, the trace line this project calls jiffy 0, is
+`0:0:6.2.5` with `SECOND` = 6. **[ROM]** MAME 0.264 `coco2b` (Color BASIC 1.3,
+Extended Color BASIC 1.1, 64K, MC6809E), catalog 26-3093. The count is 377
+interrupts from `GAME10`'s `IRQSYN` to the fetch of `GAME50`. The observation
+points are reconciliation §1: `DGEN90` entry and the `RTS` after its loop,
+`NEWLVL` exit, and the opening `CREGEN` at isr 11.
+
+The core applies that count in one step, `kLevel0BuildInterrupts`, through
+`Scheduler::advance_clock_counters`, before `DGEN90` and before system tasks
+are queued. The step advances the counter chain only. It does not scan queues,
+poll the keyboard, or increment the trace jiffy. `SECOND` is already 6 when
+`DGEN90` runs and still 6 at `GAME50` (`0:0:6.2.5`), so placing the whole count
+before the spin matches both samples. It is not a cycle-by-cycle placement of
+`DGEN90` inside the 377. The constant is this ROM and machine configuration,
+kept in one place so a later cycle-cost derivation can replace it.
+
+Those interrupts do not change the state this core models beyond the clock.
+Foreground `SCHED` has not started, and the system tasks are created in
+`Q.SCD` rather than a countdown queue. The capture agrees: at `GAME50` the
+level-0 matrix is still the `CMTTAB` row, 24 creatures are alive, and `SEED`
+is `0766CB`. `CREGEN`, `HSLOW`, and `BURNER` run on the opening scheduler lap,
+after the 377. `DGEN90` draws 6 times from entry seed `3ACBDC` (`8FC8AD` at
+the loop's `RTS`). The opening `CREGEN` increments type 5, leaves 24 creatures
+alive, and the next `NEWLVL` for level 0 births 25.
+
+A harness `Game(second, level)` sets only `SECOND` and leaves the other
+counters at 0. `population-entry.txt` is that source-derived comparison,
+including the `SECOND` = 1 row `cregen 24 24 25 9 25`. The `SECOND` = 0, 1,
+7, 30, 59 spins are the same harness path. Neither is Original Mode.

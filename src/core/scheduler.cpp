@@ -38,13 +38,8 @@ void Scheduler::scan_queue(Queue q) {
     }
 }
 
-void Scheduler::interrupt(const std::vector<std::uint8_t>& keys_this_jiffy) {
-    ++counters_.total_jiffies;
-
-    scan_queue(Queue::Jiffy);                     // CLK40: always the jiffy queue
-
-    // CLK42: bump JIFFY, then each higher counter on rollover, scanning that
-    // counter's queue as it rolls.
+void Scheduler::bump_counters(bool scan_rollover_queues) {
+    // CLK42: bump JIFFY, then each higher counter on rollover.
     std::uint8_t* const c[5] = {&counters_.jiffy, &counters_.tenth, &counters_.second,
                                 &counters_.minute, &counters_.hour};
     const Queue qs[5] = {Queue::Tenth, Queue::Second, Queue::Minute, Queue::Hour,
@@ -54,8 +49,19 @@ void Scheduler::interrupt(const std::vector<std::uint8_t>& keys_this_jiffy) {
         if (*c[level] < kRolTab[static_cast<std::size_t>(level)]) break;
         *c[level] = 0;
         if (level == 4) { ++counters_.day; break; }
-        scan_queue(qs[level]);
+        if (scan_rollover_queues) scan_queue(qs[level]);
     }
+}
+
+void Scheduler::advance_clock_counters(std::uint32_t n) {
+    for (std::uint32_t i = 0; i < n; ++i) bump_counters(false);
+}
+
+void Scheduler::interrupt(const std::vector<std::uint8_t>& keys_this_jiffy) {
+    ++counters_.total_jiffies;
+
+    scan_queue(Queue::Jiffy);                     // CLK40: always the jiffy queue
+    bump_counters(true);
 
     // CLK50: keyboard polling is skipped entirely while fainted.
     if (!faint_) {

@@ -34,7 +34,14 @@ sees the RAM change, which is the following interrupt. The literal
 `trace_diff.py` result is reported first. `--relative-to-init` is a second
 comparison and is not the gate.
 
-| Capture | First divergence (`trace_diff.py`) |
+The rows below are the comparison against the reference that still started at
+`0:0:1.0.0`. The owner then decided to count the 377 interrupts, and the
+reference `INIT` line is now the ROM sample `0	0:0:6.2.5	INIT	level=0 row=16 col=11 dir=N second=6`.
+The old baseline's first divergence, before that regeneration, is the line
+this table names. The captures were not re-run. Divergences already measured
+after skipping `INIT` stay the `--relative-to-init` paragraph under the table.
+
+| Capture | First divergence (`trace_diff.py`, pre-decision reference) |
 |---|---|
 | `t1-move-turn-look` | line 1, jiffy 0: `INIT` clock `0:0:1.0.0` (reference) vs `0:0:6.2.5` (ROM) |
 | `t2-forward-corridor` | same line and values as t1 |
@@ -70,19 +77,23 @@ before `GAME50`:
 | Live creatures at `GAME50` | 24 |
 | `CMXLND` level-0 row at `GAME50` | `09 09 04 02 00 00 00 00 00 00 00 00` |
 
-The C++ core's `generate_level(0, 6)` plus `birth_creatures` produces those
-three seeds and the same 24 positions, starting `0:3@28,5`. That comparison
-was a one-off against the existing core. No fixture was changed.
-`population-entry.txt` is still the source-derived `SECOND` = 1 case
-(`cregen 24 24 25 9 25`). On the ROM the opening `CREGEN`, at isr 11 with
-`SEED` `0766CB`, increments type 5. The row becomes
+The C++ core's Original Mode entry applies those 377 interrupts before
+`DGEN90`, then `birth_creatures`. It produces the three seeds and the same 24
+positions, starting `0:3@28,5`. On the ROM the opening `CREGEN`, at isr 11
+with `SEED` `0766CB`, increments type 5. The row becomes
 `09 09 04 02 00 01 00 00 00 00 00 00`, the live count stays 24, and `SEED`
-becomes `C30766`. The core's `cregen_increment` at that seed does the same.
+becomes `C30766`. The core's opening lap does the same. The next level-0
+`NEWLVL` births 25.
 
-Recommendation, not applied: count the 377 build interrupts, so the clock
-and `DGEN90` see `SECOND` = 6. Keeping `SECOND` = 1 remains a documented
-deviation until the owner decides. The core, the fixtures, and the stored
-traces were not changed.
+**Applied (owner, 2026-09-25).** Count the 377 build interrupts. This is the
+reason for the reference-trace regeneration that follows: the old baseline's
+first divergence is jiffy 0, `INIT` clock `0:0:1.0.0` versus the ROM's
+`0:0:6.2.5`. `population-entry.txt` stays the source-derived comparison,
+including `SECOND` = 1 and `cregen 24 24 25 9 25`. It is not the ROM level-0
+entry. The ROM-observed entry is the core's Original Mode constructor
+(`SECOND` = 6), checked against the table above. No fixture hash was changed
+to absorb this decision. The stored traces are regenerated only after this
+paragraph.
 
 **Dispatch to state change (ROM-observed).** Times are the `LINE` jiffy at
 `HMAN50` and the jiffy of the later RAM sample.
@@ -235,7 +246,7 @@ The canonical copy of this table, together with the Phase 0b rows, is
 | Priority | Question | Why it is still open |
 |---|---|---|
 | Closed for bytes | Is the reconstructed listing the same code as catalog 26-3093? | Yes. Zero differing bytes. [`rom-diff.md`](../../provenance/rom-diff.md). |
-| Open, owner's decision | Does the core count the 377 build interrupts? | Issue #13. §1 has the seeds and positions. The core was not changed. |
+| Closed | Does the core count the 377 build interrupts? | Yes. The owner decided on 2026-09-25, for fidelity. Original Mode's scheduler entry is `0:0:6.2.5`. |
 | Unresolved | Why `CREGEN`'s five-minute reschedule did not run during five minute-queue scans | §1. The opening lap and the re-entry lap did run. |
 | Open | D-1 and D-2 for a task that returns `Q.SCD`, and for a task readied by another task in the same pass | The IRQ's own ready order is §1. |
 | High | `CMOVE` priorities and attack | Out of scope for this phase. |
@@ -245,8 +256,8 @@ The canonical copy of this table, together with the Phase 0b rows, is
 ## 6. Gate
 
 Every §1 row has a first divergence, a measured result, or a "not run" reason.
-PR #1 stays a draft: issue #13 is the owner's decision, and the core was not
-changed to absorb the build interrupts.
+Issue #13 is decided: Original Mode counts the 377 build interrupts. The core
+does that. The decision is not waiting.
 
 ROM-observed, from §1: the 377-interrupt build and `DGEN90` at `SECOND` = 6,
 including seeds and the 24 positions; the opening `CREGEN` increment of type 5
@@ -256,11 +267,15 @@ positions not identical on re-entry; the extra creature born on the return
 alone; blocked `MOVE` adding 7 damage at weight 35; same-interrupt task order
 `PLAYER`, then `LUKNEW` when a tenth task expired, then `BURNER`.
 
-Still source-derived: `population-entry.txt` at `SECOND` = 1 (type 9);
-the core's clock, which still starts at `0:0:1.0.0`; D-3, D-5, and D-6;
-combat, objects, and movement. The `SECOND` = 0, 1, 7, 30, 59 spins are
-harness-modified and are not unmodified ROM behaviour. t3 and t5 are
-reference-only inputs.
+`population-entry.txt` is the source-derived file: every row is a chosen
+`SECOND`, and the `cregen` line is level 0 at `SECOND` = 1 (type 9, then 25
+on re-entry). The ROM-observed level-0 entry is not that file. It is Original
+Mode, `SECOND` = 6, clock `0:0:6.2.5`, opening type 5.
+
+Still source-derived: the harness clock (`Game(second)`), including
+`population-entry.txt`; D-3, D-5, and D-6; combat, objects, and movement.
+The `SECOND` = 0, 1, 7, 30, 59 spins are harness-modified and are not
+unmodified ROM behaviour. t3 and t5 are reference-only inputs.
 
 `make all` on 2026-09-25 exited 0. It checks the core against its fixtures and
 stored traces. It is not the ROM evidence; §1 is.
@@ -275,9 +290,8 @@ stored traces. It is not the ROM evidence; §1 is.
 
 ## 7. Next slice
 
-Do not start creature movement until the owner decides #13. The close-out
-prompt is [`../../prompts/phase-1-apply-issue-13.md`](../../prompts/phase-1-apply-issue-13.md).
-The source-backed slice after that is `CMOVE` only, retiring D-6, still
-without attacks.
+Issue #13 is applied. The source-backed slice after Phase 1 is `CMOVE` only,
+retiring D-6, still without attacks. This close-out does not implement it.
+The prompt was [`../../prompts/phase-1-apply-issue-13.md`](../../prompts/phase-1-apply-issue-13.md).
 Attacks need the matrix decrement in `PATT40`, which this phase left unread
 for implementation.

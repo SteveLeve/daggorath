@@ -249,7 +249,76 @@ void test_parser() {
 }
 
 // ------------------------------------------------------- clock / tasks
+int live_count(const dag::Game& game);
+int matrix_sum(const dag::Game& game);
+
+bool seed_eq(const dag::Rng::Seed& s, std::uint8_t a, std::uint8_t b, std::uint8_t c) {
+    return s[0] == a && s[1] == b && s[2] == c;
+}
+
+void test_rom_level0_entry() {
+    // Harness path stays at SECOND=1 so population-entry.txt remains the
+    // source-derived comparison. Original Mode is the no-argument constructor.
+    {
+        dag::Game harness(1, 0);
+        check(harness.counters().to_string() == "0:0:1.0.0",
+              "harness Game(1) still starts at 0:0:1.0.0");
+        check(harness.counters().total_jiffies == 0, "harness trace jiffy starts at 0");
+    }
+
+    dag::Scheduler clock;
+    clock.advance_clock_counters(dag::kLevel0BuildInterrupts);
+    check(clock.counters().to_string() == "0:0:6.2.5",
+          "377 counter bumps land on 0:0:6.2.5",
+          clock.counters().to_string());
+    check(clock.counters().total_jiffies == 0,
+          "build interrupts are not scheduler-entry jiffies");
+
+    dag::Scheduler scanned;
+    for (std::uint32_t i = 0; i < dag::kLevel0BuildInterrupts; ++i) scanned.interrupt({});
+    check(scanned.counters().jiffy == clock.counters().jiffy &&
+              scanned.counters().tenth == clock.counters().tenth &&
+              scanned.counters().second == clock.counters().second &&
+              scanned.counters().minute == clock.counters().minute &&
+              scanned.counters().hour == clock.counters().hour,
+          "empty-queue interrupts match the counter-only build step");
+
+    dag::Game game;
+    check(game.counters().to_string() == "0:0:6.2.5",
+          "Original Mode scheduler entry is 0:0:6.2.5",
+          game.counters().to_string());
+    check(game.counters().total_jiffies == 0, "INIT stays at trace jiffy 0");
+    check(game.counters().second == 6, "DGEN90 sees SECOND = 6");
+    check(game.level().spin_count == 6, "level-0 DGEN90 draws 6 times");
+    check(seed_eq(game.level().rng_before_spin, 0x3A, 0xCB, 0xDC),
+          "DGEN90 entry seed is 3ACBDC");
+    check(seed_eq(game.level().rng_after_spin, 0x8F, 0xC8, 0xAD),
+          "DGEN90 exit seed is 8FC8AD");
+    check(seed_eq(game.level().rng.seed(), 0x07, 0x66, 0xCB),
+          "NEWLVL exit seed is 0766CB");
+    check(live_count(game) == 24, "GAME50 has 24 live creatures");
+    const dag::Ccb& first = game.creatures()[0];
+    check(first.in_use && first.type == 3 && first.row == 28 && first.col == 5,
+          "first live block is 0:3@28,5");
+    const std::uint8_t row_at_entry[] = {9, 9, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0};
+    bool row_ok = true;
+    for (int i = 0; i < 12; ++i) {
+        if (game.matrix_row()[static_cast<std::size_t>(i)] != row_at_entry[i]) row_ok = false;
+    }
+    check(row_ok, "build interrupts leave the CMTTAB row unchanged");
+
+    game.advance_jiffies(1);
+    check(live_count(game) == 24, "opening CREGEN does not birth");
+    check(game.matrix_row()[5] == 1, "opening CREGEN increments type 5");
+    check(matrix_sum(game) == 25, "opening CREGEN raises the matrix sum to 25");
+    check(seed_eq(game.level().rng.seed(), 0xC3, 0x07, 0x66),
+          "opening CREGEN leaves seed C30766");
+    game.enter_level(0);
+    check(live_count(game) == 25, "the next level-0 NEWLVL births 25");
+}
+
 void test_clock_rollovers() {
+    // Harness clock, not the ROM build. Six jiffies from 0:0:1.0.0 roll a tenth.
     dag::Game game(1, 0);
     game.advance_jiffies(6);
     check(game.counters().tenth == 1, "6 jiffies make one tenth",
@@ -442,6 +511,7 @@ int main() {
     test_entry_time_invariance();
     test_movement_rule();
     test_parser();
+    test_rom_level0_entry();
     test_clock_rollovers();
     test_turn_and_move();
     test_keystroke_burst_in_one_jiffy();
