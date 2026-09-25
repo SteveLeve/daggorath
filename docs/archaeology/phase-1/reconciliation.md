@@ -4,8 +4,9 @@ Phase 1's questions were the ROM equivalence of the pinned listing, the
 `CREGEN` birth blocker, and the population behaviour `NEWLVL` actually
 performs. Items not investigated stay open.
 
-**ROM.** No retail image, no `lwasm`, and no CoCo emulator were available.
-The single record is [`../../provenance/rom-diff.md`](../../provenance/rom-diff.md).
+**ROM.** The pinned listing assembles with LWTOOLS 4.25. No retail image was
+diffed, and no CoCo emulator ran a frame. The single record is
+[`../../provenance/rom-diff.md`](../../provenance/rom-diff.md).
 Nothing below is ROM-observed. "Resolved" means resolved against the listing
 at `a94326f`.
 
@@ -16,9 +17,10 @@ implementation; **Low** = inference.
 ## 1. ROM captures
 
 The harness is `tools/rom/assemble.sh`, `tools/rom/capture.lua`,
-`tools/rom/watchlist.tsv`, and `tools/rom/trace_diff.py`. `capture.lua` was
-not run. `trace_diff.py` was run only against a trace compared with itself
-(`no divergence`).
+`tools/rom/watchlist.tsv`, and `tools/rom/trace_diff.py`. `assemble.sh` produced
+an 8192-byte image; see `rom-diff.md`. `capture.lua` was run only as
+`DOD_SELFTEST=1` (parsers and key table). Its frame loop has not run.
+`trace_diff.py` was run against `dcli` traces, not against a ROM trace.
 
 | Capture | First divergence |
 |---|---|
@@ -72,6 +74,9 @@ additions. No baseline was regenerated to hide a mismatch.
 
 ## 4. Quirks recorded this phase
 
+The canonical copy of this table, together with the Phase 0b rows, is
+[`../../specification/quirks.md`](../../specification/quirks.md).
+
 | Observation | Classification | Original Mode |
 |---|---|---|
 | `CREGEN` increments a count and does not birth | source behaviour | preserve; the creature appears on the next `NEWLVL` |
@@ -110,7 +115,9 @@ fixtures and traces. It is not ROM evidence.
 - Each of the five Phase 0b scripts, replayed through `dcli` for 200 jiffies
   at `SECOND = 1` and compared with `trace_diff.py` to the stored trace:
   `no divergence` (446, 442, 435, 442, and 436 lines).
-- `tools/rom/assemble.sh` exited 2: `lwasm` is not installed.
+- `tools/rom/assemble.sh` with LWTOOLS 4.25 exited 0: 8192 bytes,
+  SHA-256 `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571`.
+  No retail image was supplied, so the script printed `retail_rom absent`.
 
 ## 7. Next slice
 

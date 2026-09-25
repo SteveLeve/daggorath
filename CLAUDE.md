@@ -35,7 +35,7 @@ because a plausible-looking guess is worse than an admitted gap.
 - Input reaches the simulation as timestamped keystrokes or parsed commands, never
   by a side door.
 - Preserve original quirks. Do not "fix" a mechanic because it looks primitive;
-  classify it in the quirks ledger and decide deliberately.
+  classify it in `docs/specification/quirks.md` and decide deliberately.
 - Keep changes small and independently testable, with a regression test for each
   discovered historical behaviour.
 - Document deviations from the original explicitly, in

@@ -1,5 +1,7 @@
 #include "daggorath/population.hpp"
 
+#include <cassert>
+
 namespace dag {
 namespace {
 
@@ -121,12 +123,18 @@ Ocb birth_player_object(std::uint8_t type, std::uint8_t level) {
 
 void birth_creatures(int level, const std::array<std::uint8_t, kCreatureTypes>& row,
                      Rng& rng, const Maze& maze, std::array<Ccb, kCcbSlots>& ccbs) {
-    (void)level;
+    // CMXLND has five rows. A count past 32 would walk off CCBLND; CREGEN
+    // refuses to increment a row whose sum is already 32, which is also the
+    // number of slots.
+    assert(level >= 0 && level < 5);
+    if (level < 0 || level > 4) return;
     ccbs = {};
     for (int type = kCreatureTypes - 1; type >= 0; --type) {
         for (int n = 0; n < row[static_cast<std::size_t>(type)]; ++n) {
             int slot = 0;
-            while (ccbs[static_cast<std::size_t>(slot)].in_use) ++slot;
+            while (slot < kCcbSlots && ccbs[static_cast<std::size_t>(slot)].in_use) ++slot;
+            assert(slot < kCcbSlots);
+            if (slot >= kCcbSlots) return;
             Ccb& c = ccbs[static_cast<std::size_t>(slot)];
             const CreatureDef& d = kCreatureDefs[static_cast<std::size_t>(type)];
             c.in_use = 0xFF;        // DEC of a zeroed byte, before placement
@@ -160,12 +168,9 @@ void attach_objects(int level, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb
     for (Ccb& c : ccbs) c.object_head = -1;
     int u = -1;
     int idx = -1;
-    bool started = false;
+    // NEWLVL NLVL42 keeps scanning until P.CCUSE is set. With no live creature
+    // the original never returns; this loop does the same. See quirks.md.
     for (;;) {
-        if (!started) {
-            idx = -1;
-            started = true;
-        }
         int found = -1;
         for (int j = idx + 1; j < static_cast<int>(objects.size()); ++j) {
             if (objects[static_cast<std::size_t>(j)].level == level) {

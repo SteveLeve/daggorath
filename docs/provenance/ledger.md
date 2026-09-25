@@ -11,8 +11,8 @@ SHA-256 unless stated.
 | g++ | 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) | reference slice |
 | CMake | 3.28.3 | reference slice build |
 | Platform | Linux 6.18.44 x86_64 | build and test host |
-| `lwasm` | **absent** (2026-09-25). No version, because it is not installed | absence record only; see [`rom-diff.md`](rom-diff.md). Not an evidence row |
-| Emulator | **absent** (2026-09-25). No name, version, or machine configuration | absence record only. `capture.lua` was not executed |
+| `lwasm` | LWTOOLS 4.25, built 2026-09-25 from the upstream tarball. Not installed on `PATH` | assembled the pinned listing; length and SHA-256 are in [`rom-diff.md`](rom-diff.md). Not a retail comparison |
+| Emulator | **absent**. No MAME or XRoar version, no machine configuration | `capture.lua` file parsers were self-tested under Lua 5.4.7. No frame was captured |
 | Retail ROM | **absent**. No filename, length, SHA-256, or rights basis | none was held or fetched. Do not cite this row as a capture |
 
 ## 2. Primary evidence — reconstructed assembly listing

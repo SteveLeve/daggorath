@@ -4,19 +4,38 @@ This is the only record of the Phase 1 attempt to assemble the pinned listing
 and diff it against a retail cartridge. Other documents point here. They do not
 restate the obstacle.
 
-**Result: not measured.** No claim in this repository is ROM-verified.
+**Result: the pinned listing assembles. It has not been diffed against a retail ROM.** No claim in this repository is ROM-verified.
 
-## What was available
+## What was measured
 
-| Requirement | Result on 2026-09-25 |
+On 2026-09-25, `lwasm` from LWTOOLS 4.25 (source tarball
+`https://www.lwtools.ca/releases/lwtools/lwtools-4.25.tar.gz`, built locally,
+not installed system-wide) assembled `third_party/dod-asm` at
+`a94326f00ebb16a106b540c58bc2ccf5f7b66dac` through `tools/rom/assemble.sh`.
+
+| Image | Bytes | SHA-256 |
+|---|---|---|
+| Assembled cartridge (`--format=raw`) | 8192 | `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571` |
+| Retail ROM | none held | not computed |
+
+The listing file produced 11701 lines. The assembled image is the size of an
+8 KiB cartridge. That size is not a comparison with a retail image. No retail
+bytes were read, so there is no differing-byte list and no claim here changes
+from source-proven to ROM-observed.
+
+`tools/rom/capture.lua` was run with `DOD_SELFTEST=1` under Lua 5.4.7. That
+checked the watchlist parser, the symbol table, and the key table
+(`selftest ok symbols=36 watches=36 script_keys=14` against
+`t1-move-turn-look.script`). A missing symbol exits 1. The frame loop was not
+entered. MAME and XRoar are not installed, and no CoCo ROM set was used. The
+ioport tags in `capture.lua` are still unverified.
+
+## What is still absent
+
+| Requirement | Result |
 |---|---|
-| Pinned listing `a94326f` | Present after `make sources`, under `third_party/dod-asm` (not committed) |
-| `lwasm` | Not installed. `command -v lwasm` is empty. `apt-get` is present and `apt-cache search lwtools` returns no package |
-| CoCo emulator (`mame`, `xroar`) | Not installed. No `coco` binary on `PATH` |
-| Retail ROM | No image on the machine. None was fetched. Rights to hold one were not established, so none was added to the ledger as evidence |
-
-`tools/rom/assemble.sh` exits 2 while `lwasm` is missing and does not invent a
-cartridge hash. `tools/rom/capture.lua` was not executed.
+| CoCo emulator | Not installed. No frame capture |
+| Retail ROM | No image on the machine. None was fetched. No filename, hash, or rights basis |
 
 ## What this means for `reconciliation.md`
 
@@ -27,14 +46,15 @@ deviations D-1 through D-5 in `clock-and-scheduler.md` §13 are unchanged by
 capture, because there was no capture. Animation and sound durations stay open
 for the same reason.
 
-A later run that does obtain `lwasm` and a ROM records, in this file only:
+A later run that obtains a retail image records, in this file only:
 
-1. `lwasm` version and the MAME or XRoar version and machine configuration.
+1. The MAME or XRoar version and machine configuration.
 2. The retail image's filename, byte length, SHA-256, and the rights basis for
    holding it. That row is added to `ledger.md` §1 **before** the image is used
    as evidence.
-3. The assembled image's length and SHA-256.
-4. Every differing byte, and what the difference does to a specific claim.
+3. Every byte that differs from the assembled image above, and what the
+   difference does to a specific claim.
 
-Until those four exist, source-derived traces and fixture hashes are not ROM
-validation.
+Until that diff exists, source-derived traces and fixture hashes are not ROM
+validation. The assembled hash above is a hash of this listing build, not of a
+cartridge from 1983.

@@ -332,6 +332,8 @@ Classify discovered quirks as:
 - uncertain
 
 Decisions about preservation of confirmed bugs should be documented individually.
+The canonical list is [`specification/quirks.md`](specification/quirks.md).
+Phase reconciliation files keep dated copies; they do not replace that list.
 
 Original Mode should favor historically observable behavior unless there is a compelling reason otherwise.
 

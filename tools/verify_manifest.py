@@ -14,6 +14,75 @@ import os
 import sys
 
 
+def check_population(fixture_dir: str) -> int:
+    """Phase 1 coverage beyond the hash: five levels, and a recorded source.
+
+    population.json is the human-readable record. population-entry.txt is the
+    line contract the C++ tests read. Both must name the same levels.
+    """
+    bad = 0
+    json_path = os.path.join(fixture_dir, "population.json")
+    text_path = os.path.join(fixture_dir, "population-entry.txt")
+    try:
+        with open(json_path) as f:
+            doc = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"POPULATION {json_path}: {exc}")
+        return 1
+    if not str(doc.get("source", "")).strip():
+        print("POPULATION population.json has no source")
+        bad += 1
+    if not str(doc.get("extraction_method", "")).strip():
+        print("POPULATION population.json has no extraction_method")
+        bad += 1
+    entries = doc.get("entries")
+    if not isinstance(entries, list):
+        print("POPULATION population.json has no entries list")
+        return bad + 1
+    at_second_one = [e for e in entries if e.get("second") == 1]
+    levels = {e.get("level") for e in at_second_one}
+    if levels != set(range(5)):
+        print(f"POPULATION SECOND=1 levels are {sorted(levels)}, expected 0..4")
+        bad += 1
+    required = ("slot", "type", "row", "col", "power", "use")
+    for entry in entries:
+        creatures = entry.get("creatures")
+        if not isinstance(creatures, list):
+            print(f"POPULATION level {entry.get('level')} has no creature list")
+            bad += 1
+            continue
+        if entry.get("live") != len(creatures):
+            print(f"POPULATION level {entry.get('level')} live count disagrees "
+                  f"with the creature list")
+            bad += 1
+        if entry.get("occupied_0_0"):
+            print(f"POPULATION level {entry.get('level')} second {entry.get('second')} "
+                  "places a creature at (0, 0)")
+            bad += 1
+        for creature in creatures:
+            missing = [k for k in required if k not in creature]
+            if missing:
+                print(f"POPULATION creature record missing {missing}")
+                bad += 1
+                break
+    try:
+        text = open(text_path, encoding="utf-8").read()
+    except OSError as exc:
+        print(f"POPULATION {text_path}: {exc}")
+        return bad + 1
+    if not text.startswith("#") or "source:" not in text.split("\n", 3)[1]:
+        print("POPULATION population-entry.txt header does not name a source")
+        bad += 1
+    for level in range(5):
+        if f"creature {level} 1 " not in text:
+            print(f"POPULATION population-entry.txt has no level {level} at SECOND=1")
+            bad += 1
+    if "\ncregen " not in text and not text.startswith("cregen "):
+        print("POPULATION population-entry.txt has no cregen line")
+        bad += 1
+    return bad
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print(__doc__.strip())
@@ -52,6 +121,8 @@ def main() -> int:
     for extra in sorted(present - listed):
         print(f"UNLISTED {extra}")
         bad += 1
+
+    bad += check_population(d)
 
     print(f"{'FAILED' if bad else 'OK'}: {len(listed)} fixtures, {bad} problems")
     return 1 if bad else 0

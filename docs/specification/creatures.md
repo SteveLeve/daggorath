@@ -76,8 +76,10 @@ special parameters. `REVEAL` later calls `OCBFIL` with the real type. Reveal
 itself is not implemented.
 
 `NEWLVL` walks objects on the current level whose owner is negative and, for
-each, the next live creature, wrapping at the end of the 32 slots. The object
-is prepended to that creature's list. Objects on other levels are left alone.
+each, the next live creature, wrapping at the end of the 32 slots. `NLVL42`
+does not give up when every block is unused: it keeps scanning. The core does
+the same. Shipped populations birth at least one creature before this walk, so
+the scan ends. The object is prepended to that creature's list. Objects on other levels are left alone.
 The player's wooden sword and pine torch are created in `GAME30` **after**
 `NEWLVL` returns, with ownership incremented to 1, so they are not in the
 first attachment. A later `NEWLVL` sees them and skips them because the owner

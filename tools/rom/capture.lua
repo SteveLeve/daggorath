@@ -109,6 +109,21 @@ local KEY_PORT = {
 local symbols = load_symbols(symbols_path)
 local watches = load_watches(watch_path, symbols)
 local script = load_script(script_path)
+
+-- Host check of the file parsers and the key table. This does not boot a CoCo
+-- and does not validate MAME ioport tags. Set DOD_SELFTEST=1.
+if os.getenv("DOD_SELFTEST") == "1" then
+    local need = { "A", "Z", "SPACE", "CR", "BS" }
+    for _, key in ipairs(need) do
+        if not KEY_PORT[key] then die("KEY_PORT has no entry for " .. key) end
+    end
+    if #watches < 1 then die("watchlist produced no rows") end
+    io.write(string.format("selftest ok symbols=%d watches=%d script_keys=%d\n",
+        (function() local n = 0; for _ in pairs(symbols) do n = n + 1 end; return n end)(),
+        #watches, #script))
+    return
+end
+
 local script_at = 1
 local jiffy = 0
 local prev = {}

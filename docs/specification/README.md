@@ -14,6 +14,7 @@ Every rule carries one label: **source-proven**, **ROM-observed**, **inferred**,
 | [`dungeon-and-rng.md`](dungeon-and-rng.md) | RNG, level seeds, maze construction, doors, vertical features, movement legality | written in Phase 1 from the Phase 0b source reading |
 | [`commands-and-parser.md`](commands-and-parser.md) | the 15 verbs, token tables, prefix matching, failure behaviour for MOVE, TURN, and LOOK | written in Phase 1 from the Phase 0b source reading |
 | [`creatures.md`](creatures.md) | population, object attachment, regeneration, when a matrix increment is born | written in Phase 1; movement and attacks are not specified as implemented |
+| [`quirks.md`](quirks.md) | canonical Original Mode quirks ledger | Phase 0b rows plus Phase 1 rows |
 | `combat-and-items.md` | attack, damage, scaling, items, magic, torches | **to write**: after Phase 1 |
 | `rendering-and-audio.md` | vector data, viewer projection, lighting, sound events | **to write**: later |
 

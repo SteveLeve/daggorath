@@ -21,5 +21,16 @@ python3 tools/rom/trace_diff.py trace-a trace-b
 DOD_ROM=/path/to/image.rom tools/rom/assemble.sh
 ```
 
+`capture.lua` can check its file parsers without a machine:
+
+```sh
+DOD_SELFTEST=1 DOD_SYMBOLS=symbols.tsv DOD_WATCHES=tools/rom/watchlist.tsv \
+  DOD_SCRIPT=path/to/script lua tools/rom/capture.lua
+```
+
+That run checks the watchlist, the symbol table, and the key table. It does not
+boot a CoCo, and it does not prove the MAME ioport tags. A frame capture still
+needs an emulator and a ROM, recorded in `docs/provenance/rom-diff.md`.
+
 `capture.lua` reads `DOD_SYMBOLS`, `DOD_WATCHES`, `DOD_SCRIPT`, `DOD_TRACE`, and
 `DOD_RAW`. Raw samples stay in the raw file. The trace is the interpretation.
