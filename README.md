@@ -15,21 +15,25 @@ are the eventual targets; neither is being built yet.
 |---|---|
 | **Phase 0** | complete — [source archaeology report](docs/archaeology/phase-0-archaeology-report.md) |
 | **Phase 0b** | complete — [executable evidence pack](docs/archaeology/phase-0b/README.md): 15 fixtures, jiffy-by-jiffy scheduler specification, headless C++20 slice, 68 conformance checks passing |
-| **Phase 1** | open — [prompt](docs/prompts/phase-1-conformance-and-creatures.md): ROM conformance harness, then level population and creature regeneration |
+| **Phase 1** | software-complete, ROM-unverified — [reconciliation](docs/archaeology/phase-1/reconciliation.md). Population, `CREGEN`, and the new specifications are in the tree. The ROM gate is deferred: [`rom-diff.md`](docs/provenance/rom-diff.md) |
 
 **No claim in this repository is verified against a retail ROM.** Everything is
 source-derived from the reconstructed 1983 listing pinned at commit `a94326f`,
-which carries 2022 assembler-compatibility edits. Closing that gap is Phase 1's
-first task. See [`docs/provenance/ledger.md`](docs/provenance/ledger.md) §5.
+which carries 2022 assembler-compatibility edits. The Phase 1 measurement is
+recorded in [`docs/provenance/rom-diff.md`](docs/provenance/rom-diff.md).
 
 ## What runs today
 
 The core implements the 24-bit RNG, maze generation for all five levels, the
 discrete clock and scheduler, the unchecked 32-byte keyboard buffer, the line
 editor, the original parser, and `MOVE`, `TURN` and `LOOK` with the movement
-exertion path and heart-rate update. Every other command reports
-`UNIMPLEMENTED` rather than approximating. Combat, creatures, items, magic,
-rendering, audio and save/load are absent by design.
+exertion path and heart-rate update. Entering a level births creatures from
+the `CMXLND` counts and hangs creature-owned objects on them. `CREGEN`
+increments the current level's matrix every five minutes (and once on the
+opening lap) and does not create a creature until the next entry.
+Every other command reports `UNIMPLEMENTED` rather than approximating.
+Creature movement, combat, magic, rendering, audio and save/load are absent
+by design.
 
 `dcli` runs timestamped keystroke scripts and emits diff-friendly traces, so the
 same script can later be replayed against a ROM capture and compared line by line.

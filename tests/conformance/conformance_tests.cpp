@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -337,6 +338,94 @@ void test_keystroke_burst_in_one_jiffy() {
           "a whole command typed inside one jiffy is dispatched in one PLAYER turn");
 }
 
+int live_count(const dag::Game& game) {
+    int n = 0;
+    for (const dag::Ccb& c : game.creatures()) {
+        if (c.in_use) ++n;
+    }
+    return n;
+}
+
+int matrix_sum(const dag::Game& game) {
+    int n = 0;
+    for (const std::uint8_t v : game.matrix_row()) n += v;
+    return n;
+}
+
+void test_population_against_fixture() {
+    std::ifstream in(fixture_dir() + "/population-entry.txt");
+    check(static_cast<bool>(in), "fixtures/population-entry.txt is readable");
+    std::string line;
+    int creatures_checked = 0;
+    int objects_checked = 0;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream ls(line);
+        std::string kind;
+        ls >> kind;
+        if (kind == "creature") {
+            int level, second, slot, type, row, col, power, mgo, mgd, pho, phd, mv, at, use;
+            ls >> level >> second >> slot >> type >> row >> col >> power >> mgo >> mgd >>
+                pho >> phd >> mv >> at >> use;
+            dag::Game game(static_cast<std::uint8_t>(second), level);
+            const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(slot)];
+            const bool ok = c.in_use == use && c.type == type && c.row == row && c.col == col &&
+                            c.power == power && c.magic_offense == mgo &&
+                            c.magic_defense == mgd && c.physical_offense == pho &&
+                            c.physical_defense == phd && c.move_delay == mv &&
+                            c.attack_delay == at;
+            char buf[160];
+            std::snprintf(buf, sizeof buf,
+                          "L%d S%d slot %d got type %u at %u,%u power %u", level, second, slot,
+                          c.type, c.row, c.col, c.power);
+            check(ok, "creature record matches fixture", buf);
+            ++creatures_checked;
+        } else if (kind == "object") {
+            int level, second, index, type, olevel, owner, cls, reveal, mgo, pho, s0, s1, s2,
+                carrier;
+            ls >> level >> second >> index >> type >> olevel >> owner >> cls >> reveal >> mgo >>
+                pho >> s0 >> s1 >> s2 >> carrier;
+            dag::Game game(static_cast<std::uint8_t>(second), level);
+            const dag::Ocb& o = game.objects()[static_cast<std::size_t>(index)];
+            const bool ok = o.type == type && o.level == olevel && o.owner == owner &&
+                            o.cls == cls && o.reveal == reveal && o.magic_offense == mgo &&
+                            o.physical_offense == pho && o.spec[0] == s0 && o.spec[1] == s1 &&
+                            o.spec[2] == s2 && o.carrier == carrier;
+            char buf[160];
+            std::snprintf(buf, sizeof buf, "L%d object %d got type %u carrier %d owner %u",
+                          level, index, o.type, o.carrier, o.owner);
+            check(ok, "object record matches fixture", buf);
+            ++objects_checked;
+        } else if (kind == "cregen") {
+            int before, mid, sum_after, inc, after;
+            ls >> before >> mid >> sum_after >> inc >> after;
+            dag::Game game(1, 0);
+            check(live_count(game) == before, "level 0 births the CMTTAB count");
+            check(matrix_sum(game) == before, "matrix sum matches the birth count");
+            game.advance_jiffies(1);
+            check(live_count(game) == mid, "opening CREGEN does not birth a creature");
+            check(matrix_sum(game) == sum_after, "opening CREGEN increments the matrix");
+            check(game.matrix_row()[static_cast<std::size_t>(inc)] == 1,
+                  "opening CREGEN increments the fixture's type");
+            game.enter_level(0);
+            check(live_count(game) == after, "re-entry births the incremented matrix");
+            check(matrix_sum(game) == after, "re-entry leaves the matrix unchanged");
+        } else if (kind == "vft") {
+            int expect[5];
+            for (int i = 0; i < 5; ++i) ls >> expect[i];
+            bool ok = true;
+            for (int i = 0; i < 5; ++i) {
+                if (dag::vft_pointer(i) != expect[i]) ok = false;
+            }
+            check(ok, "NEWLVL vertical-feature pointer matches the fixture");
+        }
+    }
+    check(creatures_checked > 100, "creature fixture rows were checked",
+          "rows=" + std::to_string(creatures_checked));
+    check(objects_checked > 20, "object fixture rows were checked",
+          "rows=" + std::to_string(objects_checked));
+}
+
 void test_look() {
     dag::Game game(1, 0);
     game.load_script(type_at(2, "L"));
@@ -356,6 +445,7 @@ int main() {
     test_clock_rollovers();
     test_turn_and_move();
     test_keystroke_burst_in_one_jiffy();
+    test_population_against_fixture();
     test_look();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks

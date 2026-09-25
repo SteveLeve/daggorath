@@ -275,18 +275,23 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 
 **[SRC]** `NEWLVL.ASM`, `DGNGEN.ASM`, `COMCRE.ASM`:
 
-- `NEWLVL` resets creature control blocks and their TCBs, rebuilds the maze from
-  the fixed `LVLTAB` seed for the level, repopulates creatures from `CMTTAB`, and
-  distributes creature-owned objects.
+- `NEWLVL` zeros every creature control block, calls `SYSTCB`, rebuilds the maze
+  from the fixed `LVLTAB` seed, then births one creature per current `CMXLND`
+  count. It reads the RAM matrix, not a fresh copy of `CMTTAB`. Creature-owned
+  objects already on the level are then hung on the new creatures. Detail is in
+  [`creatures.md`](creatures.md).
 - `DGNGEN` seeds the RNG from `LVLTAB + LEVEL` and **only after the maze and all
   115 doors are complete** does `DGEN90` draw `SECOND` further random numbers.
   The five maps are therefore fixed; the *subsequent* RNG stream is not.
 - `DGEN90` is `LDB SECOND / loop { RANDOM ; DEC B ; BNE }`. With `SECOND = 0` the
   loop runs **256** times, not zero **[SRC]** — a boundary a modern rewrite
   loses if it is written as `for (i = 0; i < second; ++i)`.
-- Whether and when a `CREGEN` matrix increment becomes a visible creature — in
-  particular on re-entering a level — is **[OPEN]**; `CREGEN` only increments the
-  level matrix, and the creation path in `COMCRE` needs a dedicated trace.
+- `CREGEN` only increments the current level's matrix, and only when the row
+  sum is below 32 **[SRC]**. The new creature is born on the next `NEWLVL` for
+  that level, including a return to it. It is not born on the tick that
+  increments the count. Because system tasks start in `Q.SCD`, the first
+  `CREGEN` runs on the opening scheduler lap and the five-minute period starts
+  after that run. See [`creatures.md`](creatures.md) §5.
 
 ## 12. Port obligations
 
@@ -305,8 +310,9 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 
 | ID | Deviation | Why |
 |---|---|---|
-| D-1 | The slice models per-jiffy foreground passes rather than the endless `SCHED` lap | A faithful endless loop would re-enter any task returning `Q.SCD` without bound; no in-scope task does that. Revisit before implementing creatures. |
+| D-1 | The slice models per-jiffy foreground passes rather than the endless `SCHED` lap | A faithful endless loop would re-enter any task returning `Q.SCD` without bound. No in-scope task returns `Q.SCD`. Creature tasks are the reason this stays explicit: see D-6. **[OPEN]** against a ROM trace. |
 | D-2 | Tasks made ready during a pass run on the following pass | Keeps the pass deterministic and terminating. The original would pick them up on its next lap, usually within the same jiffy. **[OPEN]**: measurable only against a ROM trace. |
 | D-3 | `HSLOW` clamps a computed countdown of 0 to 1 | A 0 countdown would wrap to 255 in the original; the clamp avoids silently modelling a 255-jiffy delay. Only reachable at `HEARTR == 0`, i.e. near faint. |
-| D-4 | Animation and sound cost no simulated time | Durations are unknown from the listing (§5.1). |
+| D-4 | Animation and sound cost no simulated time | Durations are unknown from the listing (§5.1). Phase 1 did not measure them; there was no ROM capture (`rom-diff.md`). |
 | D-5 | The trace samples the clock counters when an event is emitted | Interrupt-phase events can therefore print a pre-bump counter value. |
+| D-6 | `CBIRTH` does not queue `CMOVE` | The control block is filled and the movement delay is stored, and the task is not inserted into `Q.TEN`. Queuing an inert `CMOVE` would change the foreground order while movement itself is still unspecified, and would tangle D-1 and D-2 with creatures. Retire this when creature movement is implemented. |

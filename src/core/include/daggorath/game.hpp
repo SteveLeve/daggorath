@@ -1,16 +1,16 @@
-// Daggorath Core — the Phase 0b slice: clock + PLAYER/HSLOW tasks + the line
-// editor and command dispatch for MOVE, TURN and LOOK.
-// Source: HUMAN.ASM (PLAYER, HUMAN), PTURN.ASM (PTURN, PMOVE, PSTEP, PREVU),
-//         PLOOK.ASM, COMPLR.ASM (HSLOW), HUPDAT.ASM (HUPDAX), COMMON.ASM,
-//         ONCE.ASM (GAME10), COMDAT.ASM (TCBDAT, GAMDAT).
+// Daggorath Core — clock, PLAYER/HSLOW, MOVE/TURN/LOOK, and NEWLVL population.
+// Source: HUMAN.ASM, PTURN.ASM, PLOOK.ASM, COMPLR.ASM, HUPDAT.ASM, COMMON.ASM,
+//         ONCE.ASM, COMDAT.ASM, NEWLVL.ASM, COMCRE.ASM, OBIRTH.ASM.
 //
-// Deliberately out of scope: combat, creatures, items, magic, rendering.
+// Deliberately out of scope: combat, creature movement, attacks, magic,
+// rendering. CREGEN updates the matrix only; see population.hpp.
 #pragma once
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "daggorath/maze.hpp"
+#include "daggorath/population.hpp"
 #include "daggorath/scheduler.hpp"
 
 namespace dag {
@@ -58,9 +58,24 @@ public:
     const PlayerState& player() const { return player_; }
     const Maze& maze() const { return level_.maze; }
     const GeneratedLevel& level() const { return level_; }
+    int level_index() const { return level_index_; }
     const std::vector<TraceEvent>& trace() const { return trace_; }
     const Counters& counters() const { return sched_.counters(); }
     DisplayMode display_mode() const { return mode_; }
+
+    const std::array<Ccb, kCcbSlots>& creatures() const { return ccbs_; }
+    const std::vector<Ocb>& objects() const { return objects_; }
+    const std::array<std::uint8_t, kCreatureTypes>& matrix_row() const {
+        return matrix_[static_cast<std::size_t>(level_index_)];
+    }
+    const std::array<std::array<std::uint8_t, kCreatureTypes>, 5>& matrix() const {
+        return matrix_;
+    }
+
+    // NEWLVL for `level`, using the clock's current SECOND. Does not move the
+    // player and does not reset the scheduler (deviation D-6 covers the
+    // unqueued creature tasks; system tasks keep running).
+    void enter_level(int level);
 
     // HUPDAX: heart rate = (P*64)/(P+2D) - 19, by repeated subtraction, stored
     // in one signed byte. Faint at <= 3, recover above 4.
@@ -77,6 +92,13 @@ private:
     void step_player(int relative_dir);    // PSTEP
     void movement_exertion();              // PMOV90
     void emit(const std::string& kind, const std::string& detail);
+    TaskResult task_cregen();
+    void build_level(int level, std::uint8_t second);
+
+    std::array<std::array<std::uint8_t, kCreatureTypes>, 5> matrix_{};
+    std::array<Ccb, kCcbSlots> ccbs_{};
+    std::vector<Ocb> objects_;
+    int level_index_ = 0;
 
     Scheduler sched_;
     GeneratedLevel level_;

@@ -54,10 +54,16 @@ make traces      # regenerate every trace in this pack from its script
 make verify      # check these fixture hashes against MANIFEST.json
 ```
 
+Phase 1 continues from this pack in
+[`../phase-1/reconciliation.md`](../phase-1/reconciliation.md). The ROM result
+is only in [`../../provenance/rom-diff.md`](../../provenance/rom-diff.md).
+
 The code moved during the Phase 1 reorganisation: `reference/` became
 `src/core`, `src/app/dcli.cpp` and `tests/conformance/`, and the fixture path
-passed to the build is now `-DDAGGORATH_FIXTURE_DIR`. The fixtures, traces and
-scripts in this pack are unchanged, and `make verify` confirms that.
+passed to the build is now `-DDAGGORATH_FIXTURE_DIR`. Phase 1 added
+`population.json` and `population-entry.txt` and a `VFTPTR` index on
+`vertical-features.json`; the traces and scripts in this pack were not
+rewritten. `make verify` checks the manifest.
 
 ### `dcli` options
 

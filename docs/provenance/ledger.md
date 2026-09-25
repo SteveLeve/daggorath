@@ -11,9 +11,9 @@ SHA-256 unless stated.
 | g++ | 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) | reference slice |
 | CMake | 3.28.3 | reference slice build |
 | Platform | Linux 6.18.44 x86_64 | build and test host |
-| `lwasm` | **not run** | no assembly of the listing was attempted; see §5 |
-| Emulator | **none available** | see §5 |
-| Retail ROM | **none available** | see §5 |
+| `lwasm` | **absent** (2026-09-25). No version, because it is not installed | absence record only; see [`rom-diff.md`](rom-diff.md). Not an evidence row |
+| Emulator | **absent** (2026-09-25). No name, version, or machine configuration | absence record only. `capture.lua` was not executed |
+| Retail ROM | **absent**. No filename, length, SHA-256, or rights basis | none was held or fetched. Do not cite this row as a capture |
 
 ## 2. Primary evidence — reconstructed assembly listing
 
@@ -92,22 +92,10 @@ the generated `lexicon_tables.hpp` clearly marked as generated, and put both in
 front of counsel before any public distribution. Nothing in this pack should be
 relicensed under the project's eventual terms without that review.
 
-## 5. ROM and emulator: blocked
+## 5. ROM and emulator
 
-No retail Dungeons of Daggorath ROM image and no CoCo emulator were available in
-this environment, and the environment's network egress reaches package registries
-and GitHub only, so neither could be obtained. `lwasm` was likewise not run, so
-the listing was not assembled and no cartridge hash comparison was made.
-
-Consequences, stated plainly:
-
-- **No claim in this pack is verified against a retail ROM.** Everything is
-  source-derived from a reconstructed listing that carries 2022 edits.
-- The maze hashes are hashes of *this pack's* serialization of the generator's
-  output. They are reproducible and independently cross-checked between two
-  implementations (Python and C++), but they are not evidence about the ROM.
-- Phase 0's blocker "are the listing/`lwasm` fixes behaviour-equivalent to the
-  retail ROM?" remains **open and untouched**.
-
-`traces/README.md` records the exact procedure to run once a ROM and emulator are
-available, so the comparison can be executed without redesigning it.
+Phase 0b found no ROM, no emulator, and did not run `lwasm`. Phase 1 checked
+again on 2026-09-25 and recorded the result in
+[`rom-diff.md`](rom-diff.md). That file is the current statement. No claim in
+this ledger is ROM-verified. Maze hashes remain hashes of this project's
+serialization, cross-checked between the Python extractor and the C++ core.

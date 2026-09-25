@@ -7,6 +7,7 @@ add_library(daggorath_core
   maze.cpp
   scheduler.cpp
   parser.cpp
+  population.cpp
   game.cpp
 )
 target_include_directories(daggorath_core PUBLIC include)

@@ -338,6 +338,27 @@ def dgngen(level_seed, second, trace=None):
     return maze, rng
 
 
+def _vft_pointers(raw):
+    """NEWLVL NLVL10/NLVL12: for level L, skip L negative bytes, leaving VFTPTR
+    on the byte where that search starts."""
+    pointers = []
+    for level in range(5):
+        x = 0
+        b = level
+        while True:
+            pointers_at = x
+            while x < len(raw) and raw[x] < 0x80:
+                x += 1
+            if x < len(raw):
+                x += 1  # consume the negative terminator
+            b = (b - 1) & 0xFF
+            if b & 0x80:  # BPL fails once B is negative
+                pointers.append(pointers_at)
+                break
+            # else VFTPTR advances to X and the walk repeats
+    return pointers
+
+
 def serialize(maze):
     """Stable serialization: 1024 bytes, row-major, row*32+col, one byte/cell."""
     return bytes(maze.cells)
@@ -483,8 +504,11 @@ def main():
                          for k in range(0, len(g) - 2, 3)]}
             for gi, g in enumerate(groups) if g
         ],
-        "note": "Group-to-level mapping is INFERRED from the source comment "
-                "columns and is an open item; the byte values are source-proven.",
+        "note": "Bytes are source-proven. newlvl_vftptr is the byte index "
+                "NEWLVL leaves in VFTPTR, computed by the NLVL10/NLVL12 walk "
+                "(COMCRE.ASM VFTTAB, NEWLVL.ASM NLVL10). An index that lands on "
+                "$80 means that direction's search is empty.",
+        "newlvl_vftptr_byte_index": _vft_pointers(raw),
     }
 
     # --- token tables --------------------------------------------------
@@ -674,6 +698,248 @@ def main():
             "quotient is incremented before the borrow test), minus 19 = 46 jiffies",
     }
 
+    # --- NEWLVL population and CREGEN (Phase 1) -------------------------
+    # CBIRTH / FNDCEL / CFIND, ONCE CINI40 object distribution, NEWLVL
+    # attachment, COMCRE CREGEN. Two implementations (this script and the
+    # C++ core) must agree; the text fixture is the contract.
+    CLASS = {"K.FLAS": 0, "K.RING": 1, "K.SCRO": 2, "K.SHIE": 3,
+             "K.SWOR": 4, "K.TORC": 5}
+    type_of = {o["symbol"]: i for i, o in enumerate(objects)}
+    for j, s in enumerate(specials):
+        type_of[s["symbol"]] = len(objects) + j
+
+    def resolve_spec(params):
+        if not params:
+            return None
+        out = []
+        for p in params:
+            if p.startswith("T."):
+                out.append(type_of[p[2:]])
+            else:
+                out.append(int(p) & 0xFF)
+        return out
+
+    odbs = []
+    for o in objects:
+        odbs.append({
+            "cls": CLASS[o["class"]], "reveal": o["reveal_requirement"],
+            "mgo": o["magic_offense"], "pho": o["physical_offense"],
+            "spec": resolve_spec(o.get("special_params")),
+        })
+    for s in specials:
+        odbs.append({
+            "cls": CLASS[s["class"]], "reveal": s["reveal_requirement"],
+            "mgo": s["magic_offense"], "pho": s["physical_offense"],
+            "spec": resolve_spec(s.get("extra") if isinstance(s.get("extra"), list)
+                                 and s["extra"] and str(s["extra"][0]).isdigit()
+                                 else None),
+        })
+
+    def ocbfil(type_):
+        d = odbs[type_]
+        return {
+            "cls": d["cls"], "reveal": d["reveal"], "mgo": d["mgo"], "pho": d["pho"],
+            "spec": list(d["spec"]) if d["spec"] is not None else [0, 0, 0],
+            "spec_written": d["spec"] is not None,
+        }
+
+    generic_type = {3: type_of["SHI4"], 4: type_of["SWO3"], 5: type_of["TOR4"]}
+
+    def birth_object(type_, level):
+        o = ocbfil(type_)
+        if o["cls"] in generic_type:
+            reveal = o["reveal"]
+            prev_spec = o["spec"]
+            g = ocbfil(generic_type[o["cls"]])
+            if not g["spec_written"]:
+                g["spec"] = prev_spec
+            o = g
+            o["reveal"] = reveal
+        o.update(type=type_, level=level & 0xFF, owner=0xFF, row=0, col=0,
+                 next=-1, carrier=-1)
+        return o
+
+    pool = []
+    for o in objects:
+        level = o["initial_level"]
+        for _ in range(o["count"]):
+            pool.append(birth_object(type_of[o["symbol"]], level))
+            level += 1
+            if level > 5:
+                level = o["initial_level"]
+
+    defs = creatures
+
+    def cbirth(ccbs, type_, rng, maze):
+        slot = next(i for i, c in enumerate(ccbs) if c["use"] == 0)
+        d = defs[type_]
+        ccbs[slot] = {
+            "slot": slot, "type": type_, "use": 0xFF,
+            "power": d["power"], "mgo": d["magic_offense"],
+            "mgd": d["magic_defense"], "pho": d["physical_offense"],
+            "phd": d["physical_defense"],
+            "mv": d["move_delay_tenths"], "at": d["attack_delay_tenths"],
+            "row": 0, "col": 0, "dir": 0, "damage": 0, "objects": [],
+        }
+        while True:
+            col = rng.next() & 31
+            row = rng.next() & 31
+            if maze.at(row, col) == 0xFF:
+                continue
+            if any(c["use"] and c["row"] == row and c["col"] == col for c in ccbs):
+                continue
+            ccbs[slot]["row"] = row
+            ccbs[slot]["col"] = col
+            return
+
+    def attach(level, ccbs, objs):
+        for o in objs:
+            o["next"] = -1
+            o["carrier"] = -1
+        for c in ccbs:
+            c["objects"] = []
+        u = -1
+        started = False
+        idx = -1
+        while True:
+            if not started:
+                idx = -1
+                started = True
+            found = None
+            for j in range(idx + 1, len(objs)):
+                if objs[j]["level"] == level:
+                    found = j
+                    break
+            if found is None:
+                return
+            idx = found
+            if objs[idx]["owner"] < 0x80:
+                continue
+            while True:
+                u += 1
+                if u >= 32:
+                    u = 0
+                if ccbs[u]["use"]:
+                    break
+            ccbs[u]["objects"].insert(0, idx)
+            objs[idx]["carrier"] = u
+
+    def empty_ccbs():
+        return [{"use": 0, "row": 0, "col": 0, "objects": []} for _ in range(32)]
+
+    def populate(level, second, matrix_row):
+        seed = lvltab[level:level + 3]
+        maze, rng = dgngen(seed, second, None)
+        ccbs = empty_ccbs()
+        for type_ in range(11, -1, -1):
+            for _ in range(matrix_row[type_]):
+                cbirth(ccbs, type_, rng, maze)
+        objs = [dict(o) for o in pool]
+        attach(level, ccbs, objs)
+        live = [c for c in ccbs if c["use"]]
+        return live, objs, rng
+
+    def cregen(row, rng):
+        total = 0
+        for t in range(11, -1, -1):
+            total = (total + row[t]) & 0xFF
+        if total >= 32:
+            return None
+        t = ((rng.next() & 7) + 2) & 0xFF
+        row[t] = (row[t] + 1) & 0xFF
+        return t
+
+    lines = [
+        "# population at NEWLVL return, before the opening SCHED lap",
+        "# source: NEWLVL.ASM, COMCRE.ASM CBIRTH/FNDCEL/CFIND/CREGEN, "
+        "ONCE.ASM CINI40, OBIRTH.ASM",
+        "# creature <level> <second> <slot> <type> <row> <col> <power> "
+        "<mgo> <mgd> <pho> <phd> <mv> <at> <use>",
+        "# object <level> <second> <index> <type> <olevel> <owner> <cls> "
+        "<reveal> <mgo> <pho> <s0> <s1> <s2> <carrier>",
+        "# positions <level> <second> <row,col>...",
+    ]
+    entries = []
+    for level in range(5):
+        row = list(cmt[level * 12:(level + 1) * 12])
+        for second in (1,) if level else (0, 1, 7, 30, 59):
+            live, objs, _rng = populate(level, second, row)
+            if second == 1 or level == 0:
+                recs = []
+                for c in live:
+                    lines.append(
+                        "creature {level} {second} {slot} {type} {row} {col} "
+                        "{power} {mgo} {mgd} {pho} {phd} {mv} {at} {use}".format(
+                            level=level, second=second, **c))
+                    recs.append({k: c[k] for k in
+                                 ("slot", "type", "row", "col", "power", "use")})
+                obj_recs = []
+                if second == 1:
+                    for i, o in enumerate(objs):
+                        if o["level"] != level or o["owner"] < 0x80:
+                            continue
+                        lines.append(
+                            f"object {level} {second} {i} {o['type']} {o['level']} "
+                            f"{o['owner']} {o['cls']} {o['reveal']} {o['mgo']} {o['pho']} "
+                            f"{o['spec'][0]} {o['spec'][1]} {o['spec'][2]} {o['carrier']}")
+                        obj_recs.append({"index": i, "type": o["type"],
+                                         "level": o["level"], "owner": o["owner"],
+                                         "carrier": o["carrier"]})
+                entries.append({
+                    "level": level, "second": second, "live": len(live),
+                    "occupied_0_0": any(c["row"] == 0 and c["col"] == 0 for c in live),
+                    "creatures": recs, "creature_owned_objects": obj_recs,
+                })
+            coords = " ".join(f"{c['row']},{c['col']}" for c in live)
+            lines.append(f"positions {level} {second} {coords}")
+
+    # Opening-lap CREGEN then re-entry, level 0, SECOND=1.
+    row = list(cmt[0:12])
+    live, _objs, rng = populate(0, 1, row)
+    before = len(live)
+    inc = cregen(row, rng)
+    mid = before
+    live2, _o2, _r2 = populate(0, 1, row)
+    lines.append(
+        f"cregen {before} {mid} {sum(row)} {inc} {len(live2)}")
+    lines.append("vft " + " ".join(str(i) for i in _vft_pointers(
+        [int(b, 16) for b in fixtures["vertical-features.json"]["raw_bytes"]])))
+    text = ("\n".join(lines) + "\n").encode()
+    pop_path = os.path.join(outdir, "population-entry.txt")
+    with open(pop_path, "wb") as f:
+        f.write(text)
+
+    fixtures["population.json"] = {
+        "description": "Creature and object records at NEWLVL return",
+        "source": "NEWLVL.ASM NLVL30/NLVL40; COMCRE.ASM CBIRTH/FNDCEL/CFIND/CREGEN; "
+                  "ONCE.ASM CINI44; OBIRTH.ASM OBIRTX/GENVAL; COMDAT.ASM CMTTAB",
+        "extraction_method":
+            "independent transliteration of CBIRTH placement (RNDCEL column "
+            "then row, reject $FF and any in-use CCB including the slot being "
+            "filled while it still holds row/col 0), ONCE object distribution "
+            "(low nibble count, high nibble starting level, wrap when level "
+            "exceeds 5), GENVAL generic overwrite, and NEWLVL round-robin "
+            "attachment. Evaluated at SECOND=1 for every level and at "
+            "SECOND=0,1,7,30,59 for level 0. The line-oriented sibling "
+            "population-entry.txt is the byte contract the C++ core checks.",
+        "cregen_rule":
+            "CREGEN adds one to matrix type ((RANDOM & 7) + 2) when the 8-bit "
+            "sum of the current level row is below 32. It does not call CBIRTH. "
+            "The extra creature is born the next time NEWLVL reads that row. "
+            "Tasks start in Q.SCD, so the first CREGEN runs on the opening "
+            "SCHED lap, before five minutes have elapsed.",
+        "cell_0_0": "rejected during CBIRTH because the CCB being filled is "
+                    "already in use at row 0, column 0",
+        "entries": entries,
+        "cregen_reentry_level0_second1": {
+            "live_before": before,
+            "live_after_cregen_before_reentry": mid,
+            "matrix_sum_after_cregen": sum(row),
+            "incremented_type": inc,
+            "live_after_reentry": len(live2),
+        },
+    }
+
     # --- write ----------------------------------------------------------
     manifest = {"fixtures": []}
     for name, obj in fixtures.items():
@@ -684,7 +950,8 @@ def main():
         manifest["fixtures"].append(
             {"file": name, "sha256": hashlib.sha256(blob).hexdigest(),
              "bytes": len(blob)})
-    extra = [f"maze-level-{l}.bin" for l in range(5)] + ["rng-vectors.txt"]
+    extra = [f"maze-level-{l}.bin" for l in range(5)] + [
+        "rng-vectors.txt", "population-entry.txt"]
     for name in extra:
         with open(os.path.join(outdir, name), "rb") as f:
             blob = f.read()

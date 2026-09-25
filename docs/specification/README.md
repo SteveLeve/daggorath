@@ -5,15 +5,15 @@ implementation is tested against, and they are updated as evidence arrives — i
 contrast to the archaeology reports, which are dated and left alone.
 
 Every rule carries one label: **source-proven**, **ROM-observed**, **inferred**, or
-**unresolved**. As of Phase 0b no rule is ROM-observed; see
-[`../provenance/ledger.md`](../provenance/ledger.md) §5.
+**unresolved**. No rule is ROM-observed. The measurement is recorded in
+[`../provenance/rom-diff.md`](../provenance/rom-diff.md).
 
 | Document | Covers | State |
 |---|---|---|
-| [`clock-and-scheduler.md`](clock-and-scheduler.md) | interrupt order, counters, countdown queues, dispatch, keyboard path, command dispatch, physiology timing, level transitions, port obligations, deviations | written in Phase 0b |
-| `dungeon-and-rng.md` | RNG, level seeds, maze construction, doors, vertical features, movement legality | **to write**: the behaviour is proven and fixtured, but lives only in `reconciliation.md` §1.2 |
-| `commands-and-parser.md` | the 15 verbs, token tables, prefix matching, failure behaviour per command | **to write**: proven in `reconciliation.md` §1.3 and fixtured |
-| `creatures.md` | population, movement priorities, regeneration, creature tasks | **to write**: Phase 1 |
+| [`clock-and-scheduler.md`](clock-and-scheduler.md) | interrupt order, counters, countdown queues, dispatch, keyboard path, command dispatch, physiology timing, level transitions, port obligations, deviations | written in Phase 0b; §11 and D-6 updated in Phase 1 |
+| [`dungeon-and-rng.md`](dungeon-and-rng.md) | RNG, level seeds, maze construction, doors, vertical features, movement legality | written in Phase 1 from the Phase 0b source reading |
+| [`commands-and-parser.md`](commands-and-parser.md) | the 15 verbs, token tables, prefix matching, failure behaviour for MOVE, TURN, and LOOK | written in Phase 1 from the Phase 0b source reading |
+| [`creatures.md`](creatures.md) | population, object attachment, regeneration, when a matrix increment is born | written in Phase 1; movement and attacks are not specified as implemented |
 | `combat-and-items.md` | attack, damage, scaling, items, magic, torches | **to write**: after Phase 1 |
 | `rendering-and-audio.md` | vector data, viewer projection, lighting, sound events | **to write**: later |
 
