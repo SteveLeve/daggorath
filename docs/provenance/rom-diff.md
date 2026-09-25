@@ -3,7 +3,7 @@
 This is the only record of the comparison between the pinned listing and a
 retail cartridge image. Other documents point here.
 
-**Result: the assembled listing and the Tandy 26-3093 cartridge image are byte-identical.** No emulator frame has been captured, so timing claims are not ROM-observed.
+**Result: the assembled listing and the Tandy 26-3093 cartridge image are byte-identical.** No emulator frame has been captured. A frame capture was attempted and stopped because Color BASIC and Extended BASIC could not be legally obtained. Timing claims are not ROM-observed.
 
 ## Rights basis
 
@@ -47,6 +47,34 @@ of a running machine.
 
 `tools/rom/capture.lua` was run with `DOD_SELFTEST=1` under Lua 5.4.7
 (`selftest ok symbols=36 watches=36 script_keys=14` against
-`t1-move-turn-look.script`). The frame loop was not entered. MAME and XRoar
-are not installed, and no Color Computer firmware ROM was used. Deviations
-D-1 through D-5, and the animation and sound durations, are unchanged.
+`t1-move-turn-look.script`). The frame loop was not entered.
+
+MAME 0.264, Ubuntu package `mame 0.264+dfsg.1-1`, was run on 2026-09-25.
+In that version the CoCo 1/2 driver is `coco` (there is no `coco2` system).
+Its default BIOS is `b12e11`: Color BASIC 1.2 and Extended Color BASIC 1.1.
+The launch was `mame coco -cart` of the catalog 26-3093 `.ccc`, with
+`-video none -sound none -skip_gameinfo -seconds_to_run 1`, and an empty
+ROM path. MAME exited before any frame:
+
+```
+bas12.rom NOT FOUND (tried in coco)
+extbas11.rom NOT FOUND (tried in coco)
+Fatal error: Required files are missing, the machine cannot be run.
+```
+
+| File | Role | SHA1 MAME requires |
+|---|---|---|
+| `bas12.rom` | Color BASIC 1.2, 8192 bytes | `0f14dc46c647510eb0b7bd3f53e33da07907d04f` |
+| `extbas11.rom` | Extended Color BASIC 1.1, 8192 bytes | `ad927fb4f30746d820cb8b860ebb585e7f095dea` |
+
+Those two images are not produced by assembling the game listing. None were
+on this machine. They are Microsoft BASIC licensed to Tandy, and no
+redistribution grant was found. They were not downloaded. The owner’s
+physical cartridge is the game, catalog 26-3093, not these machine ROMs.
+XRoar is not in the Ubuntu noble archive that was queried.
+
+No frame was captured. No timing was measured or invented. Deviations D-1
+through D-5, and the animation and sound durations, are unchanged. The
+“not captured” rows in
+[`../archaeology/phase-1/reconciliation.md`](../archaeology/phase-1/reconciliation.md)
+§1 stand.
