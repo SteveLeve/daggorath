@@ -26,3 +26,6 @@ captures/
 __pycache__/
 *.pyc
 .venv/
+
+# Machine-specific agent notes
+.claude.local.md
