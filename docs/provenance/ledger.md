@@ -13,7 +13,7 @@ SHA-256 unless stated.
 | Platform | Linux 6.18.44 x86_64 | build and test host |
 | `lwasm` | LWTOOLS 4.25, built 2026-09-25 from the upstream tarball. Not installed on `PATH` | assembled the pinned listing; length and SHA-256 are in [`rom-diff.md`](rom-diff.md). Not a retail comparison |
 | Emulator | **absent**. No MAME or XRoar version, no machine configuration | `capture.lua` file parsers were self-tested under Lua 5.4.7. No frame was captured |
-| Retail ROM | **absent**. No filename, length, SHA-256, or rights basis | none was held or fetched. Do not cite this row as a capture |
+| Retail ROM | `Dungeons of Daggorath (1982) (26-3093) (Tandy).ccc`, 8192 bytes, SHA-256 `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571` | Owner states they hold a physical Tandy cartridge. Bytes are the Color Computer Archive file for catalog 26-3093, kept in gitignored `captures/`, not a dump of that cartridge and not committed. Byte-identical to the LWTOOLS 4.25 image. See [`rom-diff.md`](rom-diff.md). Not an emulator capture |
 
 ## 2. Primary evidence — reconstructed assembly listing
 
@@ -94,8 +94,9 @@ relicensed under the project's eventual terms without that review.
 
 ## 5. ROM and emulator
 
-Phase 0b found no ROM, no emulator, and did not run `lwasm`. Phase 1 checked
-again on 2026-09-25 and recorded the result in
-[`rom-diff.md`](rom-diff.md). That file is the current statement. No claim in
-this ledger is ROM-verified. Maze hashes remain hashes of this project's
-serialization, cross-checked between the Python extractor and the C++ core.
+Phase 0b found no ROM, no emulator, and did not run `lwasm`. Phase 1 recorded
+the later measurement in [`rom-diff.md`](rom-diff.md). The assembled listing
+matches the catalog 26-3093 image byte for byte. No emulator frame has been
+captured, so behavioural claims are not ROM-observed. Maze hashes remain hashes
+of this project's serialization, cross-checked between the Python extractor and
+the C++ core.

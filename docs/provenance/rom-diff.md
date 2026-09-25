@@ -1,60 +1,52 @@
 # ROM equivalence — Phase 1 measurement
 
-This is the only record of the Phase 1 attempt to assemble the pinned listing
-and diff it against a retail cartridge. Other documents point here. They do not
-restate the obstacle.
+This is the only record of the comparison between the pinned listing and a
+retail cartridge image. Other documents point here.
 
-**Result: the pinned listing assembles. It has not been diffed against a retail ROM.** No claim in this repository is ROM-verified.
+**Result: the assembled listing and the Tandy 26-3093 cartridge image are byte-identical.** No emulator frame has been captured, so timing claims are not ROM-observed.
 
-## What was measured
+## Rights basis
+
+The project owner states that they own a physical copy of the Tandy cartridge.
+The bytes compared here are the Color Computer Archive file for catalog
+**26-3093**, not a dump taken from that physical cartridge in this session.
+The file is local, under `captures/`, and is gitignored. It is not in the
+repository.
+
+| Field | Value |
+|---|---|
+| Filename | `Dungeons of Daggorath (1982) (26-3093) (Tandy).ccc` |
+| Archive path | `https://colorcomputerarchive.com/repo/Cartridges/Dungeons%20of%20Daggorath%20(1982)%20(26-3093)%20(Tandy).ccc` |
+| Bytes | 8192 |
+| SHA-256 | `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571` |
+
+The Shield Fix, disk patch, cassette, and disk images on that archive were not
+used.
+
+## Assembled listing
 
 On 2026-09-25, `lwasm` from LWTOOLS 4.25 (source tarball
-`https://www.lwtools.ca/releases/lwtools/lwtools-4.25.tar.gz`, built locally,
-not installed system-wide) assembled `third_party/dod-asm` at
-`a94326f00ebb16a106b540c58bc2ccf5f7b66dac` through `tools/rom/assemble.sh`.
+`https://www.lwtools.ca/releases/lwtools/lwtools-4.25.tar.gz`) assembled
+`third_party/dod-asm` at `a94326f00ebb16a106b540c58bc2ccf5f7b66dac` through
+`tools/rom/assemble.sh` (`--6809 --format=raw`).
 
 | Image | Bytes | SHA-256 |
 |---|---|---|
-| Assembled cartridge (`--format=raw`) | 8192 | `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571` |
-| Retail ROM | none held | not computed |
+| Assembled cartridge | 8192 | `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571` |
+| Archive `.ccc` | 8192 | `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571` |
 
-The listing file produced 11701 lines. The assembled image is the size of an
-8 KiB cartridge. That size is not a comparison with a retail image. No retail
-bytes were read, so there is no differing-byte list and no claim here changes
-from source-proven to ROM-observed.
+`cmp` of the two files exited 0. Differing bytes: **0**. The `.ccc` has no
+header; all 8192 bytes are the cartridge image.
 
-`tools/rom/capture.lua` was run with `DOD_SELFTEST=1` under Lua 5.4.7. That
-checked the watchlist parser, the symbol table, and the key table
+The 2022 assembler-compatibility edits in the pinned listing assemble to the
+same bytes as this catalog 26-3093 image. Source-proven claims read from that
+listing are claims about the code in this image. They are not yet observations
+of a running machine.
+
+## What a capture has not done
+
+`tools/rom/capture.lua` was run with `DOD_SELFTEST=1` under Lua 5.4.7
 (`selftest ok symbols=36 watches=36 script_keys=14` against
-`t1-move-turn-look.script`). A missing symbol exits 1. The frame loop was not
-entered. MAME and XRoar are not installed, and no CoCo ROM set was used. The
-ioport tags in `capture.lua` are still unverified.
-
-## What is still absent
-
-| Requirement | Result |
-|---|---|
-| CoCo emulator | Not installed. No frame capture |
-| Retail ROM | No image on the machine. None was fetched. No filename, hash, or rights basis |
-
-## What this means for `reconciliation.md`
-
-Every behavioural claim that Phase 0b and Phase 1 mark **source-proven** stays
-source-proven against the reconstructed listing, including its 2022
-`lwasm` edits. None of those claims is promoted to **ROM-observed**. The
-deviations D-1 through D-5 in `clock-and-scheduler.md` §13 are unchanged by
-capture, because there was no capture. Animation and sound durations stay open
-for the same reason.
-
-A later run that obtains a retail image records, in this file only:
-
-1. The MAME or XRoar version and machine configuration.
-2. The retail image's filename, byte length, SHA-256, and the rights basis for
-   holding it. That row is added to `ledger.md` §1 **before** the image is used
-   as evidence.
-3. Every byte that differs from the assembled image above, and what the
-   difference does to a specific claim.
-
-Until that diff exists, source-derived traces and fixture hashes are not ROM
-validation. The assembled hash above is a hash of this listing build, not of a
-cartridge from 1983.
+`t1-move-turn-look.script`). The frame loop was not entered. MAME and XRoar
+are not installed, and no Color Computer firmware ROM was used. Deviations
+D-1 through D-5, and the animation and sound durations, are unchanged.

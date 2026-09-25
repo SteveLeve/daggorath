@@ -15,12 +15,12 @@ are the eventual targets; neither is being built yet.
 |---|---|
 | **Phase 0** | complete — [source archaeology report](docs/archaeology/phase-0-archaeology-report.md) |
 | **Phase 0b** | complete — [executable evidence pack](docs/archaeology/phase-0b/README.md): 15 fixtures, jiffy-by-jiffy scheduler specification, headless C++20 slice, 68 conformance checks passing |
-| **Phase 1** | software-complete, ROM-unverified — [reconciliation](docs/archaeology/phase-1/reconciliation.md). Population, `CREGEN`, and the new specifications are in the tree. The ROM gate is deferred: [`rom-diff.md`](docs/provenance/rom-diff.md) |
+| **Phase 1** | software-complete; cartridge bytes match catalog 26-3093 — [reconciliation](docs/archaeology/phase-1/reconciliation.md). No emulator capture yet: [`rom-diff.md`](docs/provenance/rom-diff.md) |
 
-**No claim in this repository is verified against a retail ROM.** Everything is
-source-derived from the reconstructed 1983 listing pinned at commit `a94326f`,
-which carries 2022 assembler-compatibility edits. The Phase 1 measurement is
-recorded in [`docs/provenance/rom-diff.md`](docs/provenance/rom-diff.md).
+The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
+to the Tandy catalog 26-3093 cartridge image. Behavioural claims remain
+source-derived until an emulator capture exists. The cartridge file is not in
+the repository.
 
 ## What runs today
 

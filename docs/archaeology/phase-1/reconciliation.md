@@ -4,11 +4,12 @@ Phase 1's questions were the ROM equivalence of the pinned listing, the
 `CREGEN` birth blocker, and the population behaviour `NEWLVL` actually
 performs. Items not investigated stay open.
 
-**ROM.** The pinned listing assembles with LWTOOLS 4.25. No retail image was
-diffed, and no CoCo emulator ran a frame. The single record is
-[`../../provenance/rom-diff.md`](../../provenance/rom-diff.md).
-Nothing below is ROM-observed. "Resolved" means resolved against the listing
-at `a94326f`.
+**ROM.** LWTOOLS 4.25 assembled the pinned listing to the same 8192 bytes as
+the Tandy catalog 26-3093 image. The diff is in
+[`../../provenance/rom-diff.md`](../../provenance/rom-diff.md). No CoCo emulator
+ran a frame, so nothing below is ROM-observed behaviour. "Resolved" means
+resolved against the listing at `a94326f`, whose assembled bytes match that
+image.
 
 Confidence: **High** = read off the listing and cross-checked by the Python
 extractor and the C++ core; **Medium** = read off the listing, one
@@ -89,7 +90,7 @@ The canonical copy of this table, together with the Phase 0b rows, is
 
 | Priority | Question | Why it is still open |
 |---|---|---|
-| Blocker | Is the reconstructed listing behaviour-equivalent to the retail ROM? | [`rom-diff.md`](../../provenance/rom-diff.md). |
+| Closed for bytes | Is the reconstructed listing the same code as catalog 26-3093? | Yes. Zero differing bytes. [`rom-diff.md`](../../provenance/rom-diff.md). Runtime behaviour is still unmeasured. |
 | High | Animation and sound durations, and whether `SNOISE` consumes `SEED` | No capture. D-4 stands. |
 | High | D-1 and D-2 against a running ROM | No capture. |
 | High | `CMOVE` priorities and attack | Out of scope for this phase. |
@@ -98,12 +99,10 @@ The canonical copy of this table, together with the Phase 0b rows, is
 
 ## 6. Gate
 
-The prompt's completion gate is **not met**. Steps 4–6 are done. Steps 1–3 are
-deferred: no retail ROM, no `lwasm`, and no emulator were available, so nothing
-is ROM-verified. Phase 1 is closed as **software-complete, ROM-unverified**.
-A later run that obtains those tools records the byte diff and the first
-divergences in [`rom-diff.md`](../../provenance/rom-diff.md) and replaces the
-"not captured" rows in §1.
+The prompt's completion gate is **not met**. Steps 4–6 are done. The cartridge
+byte diff is done and has zero differences. Step 3 is not: no emulator frame
+was captured, so the "not captured" rows in §1 stand. Behavioural claims stay
+source-derived.
 
 `make all` on 2026-09-25 exited 0. That run checks the core against its own
 fixtures and traces. It is not ROM evidence.
@@ -115,15 +114,14 @@ fixtures and traces. It is not ROM evidence.
 - Each of the five Phase 0b scripts, replayed through `dcli` for 200 jiffies
   at `SECOND = 1` and compared with `trace_diff.py` to the stored trace:
   `no divergence` (446, 442, 435, 442, and 436 lines).
-- `tools/rom/assemble.sh` with LWTOOLS 4.25 exited 0: 8192 bytes,
-  SHA-256 `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571`.
-  No retail image was supplied, so the script printed `retail_rom absent`.
+- Catalog 26-3093 `.ccc` and the LWTOOLS 4.25 image are both 8192 bytes,
+  SHA-256 `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571`,
+  and `cmp` reports no differing bytes. The `.ccc` is gitignored.
 
 ## 7. Next slice
 
-The ROM half of this phase is deferred, not done. When `lwasm`, an emulator,
-and a legally held ROM are available, run steps 1–3 and write the results into
-`rom-diff.md` before treating any source-proven claim as ROM-observed.
+The cartridge bytes match. An emulator frame capture is still required before
+any source-proven claim is treated as ROM-observed.
 
 The next gameplay slice the source supports is creature movement (`CMOVE`
 only, retiring D-6), still without attacks. Attacks need the matrix decrement
