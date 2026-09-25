@@ -15,6 +15,7 @@ used as evidence.
 | `watchlist.tsv` | symbols to sample every interrupt, with widths |
 | `capture.lua` | MAME script: sample the watchlist at 60 Hz, inject `<jiffy> <KEY>` keystrokes on the CoCo matrix, write a raw sample file and a separate interpreted trace |
 | `trace_diff.py` | diff two traces and report the first divergence with its jiffy and both lines |
+| `run-capture.sh` | replay `t1`–`t5` through `capture.lua`. Exits 2, and writes no trace, when `DOD_FIRMWARE` lacks Color BASIC 1.2 and Extended Color BASIC 1.1 with the MAME 0.264 `b12e11` SHA-1s |
 
 ```sh
 python3 tools/rom/trace_diff.py trace-a trace-b
