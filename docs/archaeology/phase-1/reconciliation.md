@@ -6,8 +6,10 @@ performs. Items not investigated stay open.
 
 **ROM.** LWTOOLS 4.25 assembled the pinned listing to the same 8192 bytes as
 the Tandy catalog 26-3093 image. The diff is in
-[`../../provenance/rom-diff.md`](../../provenance/rom-diff.md). No CoCo emulator
-ran a frame, so nothing below is ROM-observed behaviour. "Resolved" means
+[`../../provenance/rom-diff.md`](../../provenance/rom-diff.md). MAME 0.264
+(`coco`, BIOS `b12e11`) was invoked on that image and exited before a frame:
+Color BASIC 1.2 and Extended Color BASIC 1.1 were not on the machine and were
+not downloaded. Nothing below is ROM-observed behaviour. "Resolved" means
 resolved against the listing at `a94326f`, whose assembled bytes match that
 image.
 
@@ -20,8 +22,10 @@ implementation; **Low** = inference.
 The harness is `tools/rom/assemble.sh`, `tools/rom/capture.lua`,
 `tools/rom/watchlist.tsv`, and `tools/rom/trace_diff.py`. `assemble.sh` produced
 an 8192-byte image; see `rom-diff.md`. `capture.lua` was run only as
-`DOD_SELFTEST=1` (parsers and key table). Its frame loop has not run.
-`trace_diff.py` was run against `dcli` traces, not against a ROM trace.
+`DOD_SELFTEST=1` (parsers and key table). Its frame loop has not run, because
+MAME exited before a frame. `trace_diff.py` was run against `dcli` traces, not
+against a ROM trace. The cells below stay “not captured”: there is no ROM
+trace, so there is no first divergence and no “none”.
 
 | Capture | First divergence |
 |---|---|
@@ -100,9 +104,10 @@ The canonical copy of this table, together with the Phase 0b rows, is
 ## 6. Gate
 
 The prompt's completion gate is **not met**. Steps 4–6 are done. The cartridge
-byte diff is done and has zero differences. Step 3 is not: no emulator frame
-was captured, so the "not captured" rows in §1 stand. Behavioural claims stay
-source-derived.
+byte diff is done and has zero differences. Step 3 is not: MAME 0.264 exited
+before a frame, for the reason in
+[`rom-diff.md`](../../provenance/rom-diff.md), so the "not captured" rows in
+§1 stand. Behavioural claims stay source-derived.
 
 `make all` on 2026-09-25 exited 0. That run checks the core against its own
 fixtures and traces. It is not ROM evidence.
@@ -120,8 +125,10 @@ fixtures and traces. It is not ROM evidence.
 
 ## 7. Next slice
 
-The cartridge bytes match. An emulator frame capture is still required before
-any source-proven claim is treated as ROM-observed.
+The cartridge bytes match. A frame capture is still required before any
+source-proven claim is treated as ROM-observed. It is blocked on a legally
+obtained Color BASIC 1.2 and Extended Color BASIC 1.1 image, as recorded in
+[`rom-diff.md`](../../provenance/rom-diff.md).
 
 The next gameplay slice the source supports is creature movement (`CMOVE`
 only, retiring D-6), still without attacks. Attacks need the matrix decrement
