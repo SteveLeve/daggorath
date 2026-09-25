@@ -277,12 +277,16 @@ Still source-derived: the harness clock (`Game(second)`), including
 The `SECOND` = 0, 1, 7, 30, 59 spins are harness-modified and are not
 unmodified ROM behaviour. t3 and t5 are reference-only inputs.
 
-`make all` on 2026-09-25 exited 0. It checks the core against its fixtures and
-stored traces. It is not the ROM evidence; §1 is.
+`make all` on 2026-09-25, after the trace regeneration, exited 0. It checks
+the core against its fixtures and stored traces. It is not the ROM evidence;
+§1 is. The stored traces were regenerated from the recorded first divergence
+of the previous baseline: each of `t1`–`t5` diverged at trace line 1, jiffy 0,
+`INIT` clock `0:0:1.0.0` / `second=1` versus `0:0:6.2.5` / `second=6`. No
+fixture hash changed. `population-entry.txt` was not regenerated.
 
 - `ctest`: 2 tests, 0 failures (`conformance`, `trace_diff_identity`).
+- Conformance binary: `PASS: 380 checks, 0 failures`.
 - `make verify`: `OK: 17 fixtures, 0 problems`.
-- Trace targets were already up to date, so `make all` printed no divergence.
 - Listing pin: `a94326f00ebb16a106b540c58bc2ccf5f7b66dac`.
 - Catalog 26-3093 `.ccc` and the LWTOOLS 4.25 image are both 8192 bytes,
   SHA-256 `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571`,

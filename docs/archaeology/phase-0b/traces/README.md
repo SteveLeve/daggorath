@@ -2,6 +2,13 @@
 
 **Phase 0b deliverable (d).**
 
+**Later.** Phase 1 counts the 377 level-0 build interrupts, so these traces now
+open at `0:0:6.2.5`. They are still the reference slice's own output. The old
+baseline's first divergence, and which file is the source-derived `SECOND` = 1
+comparison, are in
+[`../../phase-1/reconciliation.md`](../../phase-1/reconciliation.md) §1 and §6.
+Section 1 below is the dated Phase 0b record and is not rewritten.
+
 ## 1. Status: ROM tracing is blocked
 
 No retail ROM image and no CoCo emulator were available in the environment this

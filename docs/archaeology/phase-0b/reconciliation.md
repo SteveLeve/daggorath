@@ -124,7 +124,8 @@ entry. A port that ships `HOTH` as a typed word gets it wrong.
 
 Phase 1's reconciliation is
 [`../phase-1/reconciliation.md`](../phase-1/reconciliation.md). It does not
-edit the sections above. Phase 1 is software-complete and ROM-unverified.
+edit the sections above. Phase 1 counts the 377 level-0 build interrupts;
+the reference traces open at `0:0:6.2.5`.
 
 The quirks ledger for Phase 0b is §2 of this file and is left as dated. The
 canonical ledger, which includes those rows and the Phase 1 rows, is
