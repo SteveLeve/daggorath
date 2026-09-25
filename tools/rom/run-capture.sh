@@ -4,15 +4,17 @@
 # It does not invent a second one.
 #
 # Firmware stays outside the repository. Set DOD_FIRMWARE to a directory that
-# contains bas12.rom (Color BASIC 1.2) and extbas11.rom (Extended Color BASIC
-# 1.1). If either file is missing, or its SHA-1 is not the MAME 0.264 coco
-# BIOS b12e11 hash, this script exits 2 and writes no trace.
+# contains bas13.rom (Color BASIC 1.3) and extbas11.rom (Extended Color BASIC
+# 1.1), the pair in the owner's CoCo 2 and in MAME 0.264 coco2b. If either
+# file is missing, or its SHA-1 is not the coco2b hash, this script exits 2
+# and writes no trace.
 #
 # Optional:
 #   DOD_MAME     mame binary (default: mame)
 #   DOD_HASHPATH MAME hash directory, if the default is not installed
 #   DOD_ROM      catalog 26-3093 cartridge image
-#   DOD_JIFFIES  sampled frames per script (default 200, matching the dcli diffs)
+#   DOD_JIFFIES  game interrupts per script after scheduler entry (default 200,
+#                matching the dcli diffs). -seconds_to_run 120 is a backstop only.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
@@ -21,15 +23,15 @@ MAME=${DOD_MAME:-mame}
 CART=${DOD_ROM:-"$ROOT/captures/Dungeons of Daggorath (1982) (26-3093) (Tandy).ccc"}
 JIFFIES=${DOD_JIFFIES:-200}
 
-if [ ! -f "$FIRMWARE/bas12.rom" ] || [ ! -f "$FIRMWARE/extbas11.rom" ]; then
-    echo "capture not run: need bas12.rom and extbas11.rom in DOD_FIRMWARE. See docs/provenance/rom-diff.md" >&2
+if [ ! -f "$FIRMWARE/bas13.rom" ] || [ ! -f "$FIRMWARE/extbas11.rom" ]; then
+    echo "capture not run: need bas13.rom and extbas11.rom in DOD_FIRMWARE. See docs/provenance/rom-diff.md" >&2
     exit 2
 fi
 
-python3 - "$FIRMWARE/bas12.rom" "$FIRMWARE/extbas11.rom" <<'PY'
+python3 - "$FIRMWARE/bas13.rom" "$FIRMWARE/extbas11.rom" <<'PY'
 import hashlib, pathlib, sys
 expected = {
-    "bas12.rom": "0f14dc46c647510eb0b7bd3f53e33da07907d04f",
+    "bas13.rom": "28b92bebe35fa4f026a084416d6ea3b1552b63d3",
     "extbas11.rom": "ad927fb4f30746d820cb8b860ebb585e7f095dea",
 }
 for path in sys.argv[1:]:
@@ -60,8 +62,8 @@ fi
 
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
-mkdir -p "$STAGE/coco"
-cp "$FIRMWARE/bas12.rom" "$FIRMWARE/extbas11.rom" "$STAGE/coco/"
+mkdir -p "$STAGE/coco2b"
+cp "$FIRMWARE/bas13.rom" "$FIRMWARE/extbas11.rom" "$STAGE/coco2b/"
 mkdir -p "$ROOT/captures"
 
 # A trace mismatch is a result, not a reason to skip the remaining scripts.
@@ -77,8 +79,11 @@ for name in t1-move-turn-look t2-forward-corridor t3-burst-one-jiffy t4-parser-e
     "$MAME" \
         ${DOD_HASHPATH:+-hashpath "$DOD_HASHPATH"} \
         -rompath "$STAGE" \
-        -video none -sound none -skip_gameinfo \
-        coco -cart "$CART" \
+        -video none -sound none -skip_gameinfo -nothrottle \
+        -seconds_to_run 120 \
+        -cfg_directory "$STAGE/cfg" -snapshot_directory "$STAGE/snap" \
+        -nvram_directory "$STAGE/nvram" -diff_directory "$STAGE/diff" \
+        coco2b -cart "$CART" \
         -autoboot_script "$ROOT/tools/rom/capture.lua"
     python3 "$ROOT/tools/rom/trace_diff.py" \
         "$ROOT/docs/archaeology/phase-0b/traces/$name.trace" \

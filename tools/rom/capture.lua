@@ -1,12 +1,8 @@
 -- MAME Lua capture for the procedure in
 -- docs/archaeology/phase-0b/traces/README.md §3.
 --
--- This script has not been executed in Phase 1: no CoCo emulator was
--- installed, and no retail ROM was available. It is the procedure, written
--- so a later run does not invent a second one.
---
--- Usage (illustrative; confirm against the MAME version actually installed):
---   mame coco -cart build/rom/daggorath.bin -autoboot_script tools/rom/capture.lua
+-- Run by tools/rom/run-capture.sh against MAME 0.264 coco2b:
+--   mame coco2b -cart <26-3093 image> -autoboot_script tools/rom/capture.lua
 --
 -- Required environment (set before launch, or edit the locals below):
 --   DOD_SYMBOLS   TSV "symbol<TAB>hex-address" from the lwasm listing
@@ -86,16 +82,13 @@ local function load_script(path)
     return keys
 end
 
--- MAME 0.264 coco_keyboard in src/mame/trs/coco12.cpp. Each entry is the
--- root ioport tag and the PORT_BIT mask. port:field(mask) selects that bit.
--- set_value(1) asserts the key; the port is active-low. Checked against that
--- source. MAME 0.264 ioport_configurer::port_alloc stores owner.subtag(name).
--- For the root device that is ":row0" .. ":row6". Not executed: MAME exited
--- before a frame.
--- MAME 0.264 calls the frame notifier at the end of the frame, not the start.
--- Keys for jiffy 0 are pressed from the reset notifier, before the first frame.
--- After each frame is sampled, those keys are released and the next jiffy's
--- keys are pressed, so they are down while that frame's CPU work runs.
+-- Keyboard matrix from MAME 0.264 coco_keyboard in src/mame/trs/coco12.cpp.
+-- ":rowN" is the PIA0 port A input bit (the matrix row) and the mask is the
+-- PIA0 port B strobe bit (the column). Keys are not injected through MAME's
+-- ioport system, whose set_value takes effect at the next frame update.
+-- Instead a read tap on $FF00 pulls a pressed key's row bit low whenever the
+-- game has strobed that key's column low through $FF02 (§3.3: inject at the
+-- PIA level).
 local KEY_PORT = {
     ["0"] = { ":row4", 0x01 }, ["1"] = { ":row4", 0x02 }, ["2"] = { ":row4", 0x04 },
     ["3"] = { ":row4", 0x08 }, ["4"] = { ":row4", 0x10 }, ["5"] = { ":row4", 0x20 },
@@ -139,17 +132,15 @@ if os.getenv("DOD_SELFTEST") == "1" then
 end
 
 local script_at = 1
-local jiffy = 0
 local prev = {}
 
 local raw = io.open(raw_path, "w")
 local trace = io.open(trace_path, "w")
 if not raw or not trace then die("cannot open capture outputs") end
-raw:write("# jiffy\tsymbol\thex\n")
+raw:write("# isr\tsymbol\thex\n")
 trace:write("# jiffy\tclock\tevent\tdetail\n")
 
 local function read_bytes(mem, addr, width)
-    if width < 1 then return "" end
     local hex = {}
     for i = 0, width - 1 do
         hex[#hex + 1] = string.format("%02X", mem:read_u8(addr + i))
@@ -157,100 +148,154 @@ local function read_bytes(mem, addr, width)
     return table.concat(hex)
 end
 
-local function sample()
-    local machine = manager.machine
-    local cpu = machine.devices[":maincpu"]
-    if not cpu then die("no :maincpu device; start the coco or coco3 driver") end
-    local mem = cpu.spaces["program"]
+local DIRS = { [0] = "N", "E", "S", "W" }
+
+-- Raw: every watch at game interrupt `isr`, read when CLOCK first writes JIFFY,
+-- so the clock bytes are still the pre-bump values. Sample 0 is the state at
+-- scheduler entry and is reported as INIT. A later sample is the state the
+-- foreground left at the end of jiffy isr-1, which is how the trace labels it.
+local function sample(mem, isr)
     local values = {}
     for _, w in ipairs(watches) do
-        if w.width > 0 then
+        -- Width "-" (TCBLND, CCBLND) is a structure walk, not yet implemented.
+        if w.width and w.width > 0 then
             local hex = read_bytes(mem, w.addr, w.width)
             values[w.name] = hex
-            raw:write(string.format("%d\t%s\t%s\n", jiffy, w.name, hex))
+            raw:write(string.format("%d\t%s\t%s\n", isr, w.name, hex))
         end
     end
+    local jiffy = isr == 0 and 0 or isr - 1
+    local function num(name) return tonumber(values[name] or "0", 16) or 0 end
     local clock = string.format("%d:%d:%d.%d.%d",
-        tonumber(values.HOUR or "0", 16) or 0,
-        tonumber(values.MINUTE or "0", 16) or 0,
-        tonumber(values.SECOND or "0", 16) or 0,
-        tonumber(values.TENTH or "0", 16) or 0,
-        tonumber(values.JIFFY or "0", 16) or 0)
+        num("HOUR"), num("MINUTE"), num("SECOND"), num("TENTH"), num("JIFFY"))
     local function emit(kind, detail)
         trace:write(string.format("%d\t%s\t%s\t%s\n", jiffy, clock, kind, detail))
     end
-    if jiffy == 0 then
-        emit("INIT", "rom-capture")
+    -- Interpretation, kept in this file and not in the raw sample. Only state
+    -- visible in RAM is reported, at the jiffy the change is first seen.
+    if isr == 0 then
+        emit("INIT", string.format("level=%d row=%d col=%d dir=%s second=%d",
+            num("LEVEL"), num("PROW"), num("PCOL"), DIRS[num("PDIR") % 4], num("SECOND")))
     end
-    -- Interpretation, kept in this file and not in the raw sample.
     local function changed(name)
         return values[name] and prev[name] and values[name] ~= prev[name]
     end
-    if changed("PROW") or changed("PCOL") then
-        emit("MOVE", string.format("row=%d col=%d",
-            tonumber(values.PROW, 16), tonumber(values.PCOL, 16)))
+    if isr == 0 then
+        for name, hex in pairs(values) do prev[name] = hex end
+        return
     end
     if changed("PDIR") then
-        emit("TURN", "dir=" .. tostring(tonumber(values.PDIR, 16)))
+        emit("TURN", "dir=" .. DIRS[num("PDIR") % 4])
+    end
+    if changed("PROW") or changed("PCOL") then
+        emit("MOVE", string.format("row=%d col=%d", num("PROW"), num("PCOL")))
+    end
+    if changed("PDAM") then
+        emit("EXERT", string.format("damage=%d heart_rate=%d", num("PDAM"), num("HEARTR")))
     end
     for name, hex in pairs(values) do prev[name] = hex end
 end
 
-local held = {}
-
-local function release_held()
-    for i = 1, #held do
-        held[i]:clear_value()
-    end
-    held = {}
-end
-
 local jiffy_limit = tonumber(os.getenv("DOD_JIFFIES") or "")
+local cpu = manager.machine.devices[":maincpu"]
+if not cpu then die("no :maincpu device; start the coco2b driver") end
+local mem = cpu.spaces["program"]
+local function sym(name)
+    local a = symbols[name]
+    if not a then die("symbol " .. name .. " is not in " .. symbols_path) end
+    return a
+end
+local JIFFY, AUTFLG = sym("JIFFY"), sym("AUTFLG")
+local CLOCK, CLK50, GAME50 = sym("CLOCK"), sym("CLK50"), sym("GAME50")
 
--- Press this jiffy's keys. The caller releases the previous jiffy's keys first
--- when a frame has already run.
-local function inject()
-    local machine = manager.machine
-    release_held()
-    while script_at <= #script and script[script_at].jiffy == jiffy do
-        local spec = KEY_PORT[script[script_at].key]
-        if not spec then
-            die("no matrix entry for key " .. script[script_at].key)
-        end
-        local port = machine.ioport.ports[spec[1]]
-        if not port then
-            die("ioport " .. spec[1] .. " missing; expected root subtag :rowN")
-        end
-        local field = port:field(spec[2])
-        if not field then
-            die(string.format("ioport %s has no field mask 0x%02X", spec[1], spec[2]))
-        end
-        field:set_value(1)
-        held[#held + 1] = field
-        script_at = script_at + 1
-    end
+-- Phases: "boot" until the autoplay demo sets AUTFLG; "abort" holds SPACE until
+-- the demo's CLOCK sees it and transfers to GAME; "build" while GAME10..GAME50
+-- builds level 0 with the clock already running; "game" counts interrupts from
+-- the first CLOCK after GAME50 is fetched, which falls into SCHED. That
+-- interrupt is jiffy 0: the reference slice emits INIT at scheduler entry.
+-- The alignment is inferred, not source-proven. The build interrupts are
+-- counted in build_isrs and reported, not hidden.
+local phase = "boot"
+local isr = -1          -- game interrupt counter; the first CLOCK after GAME50 is isr 0
+local build_isrs = 0    -- interrupts between GAME10's IRQSYN and GAME50
+local last_isr_time = nil
+local pressed = {}      -- row index -> column mask currently held
+local strobe = 0xFF     -- last value written to PIA0 port B ($FF02)
+
+local function press(key)
+    local spec = KEY_PORT[key]
+    if not spec then die("no matrix entry for key " .. key) end
+    local row = tonumber(spec[1]:match("(%d)$"))
+    pressed[row] = (pressed[row] or 0) | spec[2]
 end
 
-local function after_frame()
-    sample()
-    release_held()
-    jiffy = jiffy + 1
-    if jiffy_limit and jiffy >= jiffy_limit then
+local function release_all() pressed = {} end
+
+local function on_clock()
+    if phase == "boot" then
+        if mem:read_u8(AUTFLG) ~= 0 then
+            phase = "abort"
+            press("SPACE")
+        end
+        return
+    end
+    if phase == "abort" then
+        if mem:read_u8(AUTFLG) == 0 then
+            release_all()
+            phase = "build"
+        else
+            return
+        end
+    end
+    if phase == "build" then
+        build_isrs = build_isrs + 1
+        return
+    end
+    isr = isr + 1
+    sample(mem, isr)
+    if jiffy_limit and isr - 1 >= jiffy_limit then
         raw:flush()
         trace:flush()
         manager.machine:exit()
         return
     end
-    inject()
+    -- Keys for jiffy isr are down for this interrupt's keyboard scan (CLK60
+    -- runs after the timer bump) and released at the next interrupt.
+    release_all()
+    while script_at <= #script and script[script_at].jiffy <= isr do
+        if script[script_at].jiffy == isr then press(script[script_at].key) end
+        script_at = script_at + 1
+    end
 end
 
--- 0.264: frame notifier is the end of the frame. Reset runs before the first one.
-if emu.add_machine_reset_notifier and emu.add_machine_frame_notifier then
-    emu.add_machine_reset_notifier(inject)
-    emu.add_machine_frame_notifier(after_frame)
-elseif emu.register_start and emu.register_frame then
-    emu.register_start(inject)
-    emu.register_frame(after_frame)
-else
-    die("this MAME build has no reset notifier and no end-of-frame notifier")
-end
+-- One call per interrupt: the first JIFFY write inside CLOCK. A rollover
+-- writes JIFFY twice in the same interrupt; the 8 ms gap check drops it.
+local taps = {}
+taps[#taps + 1] = mem:install_write_tap(JIFFY, JIFFY, "dod_jiffy", function(offset, data, mask)
+    local pc = cpu.state["PC"].value
+    if pc < CLOCK or pc > CLK50 then return end
+    local now = manager.machine.time:as_double()
+    if last_isr_time and now - last_isr_time < 0.008 then return end
+    last_isr_time = now
+    on_clock()
+end)
+taps[#taps + 1] = mem:install_write_tap(0xFF02, 0xFF02, "dod_strobe", function(offset, data, mask)
+    strobe = data & 0xFF
+end)
+taps[#taps + 1] = mem:install_read_tap(0xFF00, 0xFF00, "dod_rows", function(offset, data, mask)
+    local low = 0
+    for row, cols in pairs(pressed) do
+        if (cols & ~strobe & 0xFF) ~= 0 then low = low | (1 << row) end
+    end
+    if low == 0 then return data end
+    return data & ~low
+end)
+-- Opcode fetch of GAME50: level 0 is built and SCHED is next.
+taps[#taps + 1] = mem:install_read_tap(GAME50, GAME50, "dod_game50", function(offset, data, mask)
+    if phase == "build" then
+        phase = "game"
+        trace:write(string.format("# level build: %d interrupts from GAME10 IRQSYN to GAME50\n", build_isrs))
+    end
+    return data
+end)
+_G.dod_capture_taps = taps
