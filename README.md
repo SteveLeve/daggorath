@@ -16,6 +16,7 @@ are the eventual targets; neither is being built yet.
 | **Phase 0** | complete — [source archaeology report](docs/archaeology/phase-0-archaeology-report.md) |
 | **Phase 0b** | complete — [executable evidence pack](docs/archaeology/phase-0b/README.md): 15 fixtures, jiffy-by-jiffy scheduler specification, headless C++20 slice, 68 conformance checks passing |
 | **Phase 1** | cartridge bytes match catalog 26-3093; ROM captures are in [reconciliation](docs/archaeology/phase-1/reconciliation.md) §1. Next: [apply the owner's decision on #13](docs/prompts/phase-1-apply-issue-13.md) |
+| **Phases 2–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
 to the Tandy catalog 26-3093 cartridge image. MAME 0.264 `coco2b` has run that
