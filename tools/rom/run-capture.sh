@@ -64,6 +64,8 @@ mkdir -p "$STAGE/coco"
 cp "$FIRMWARE/bas12.rom" "$FIRMWARE/extbas11.rom" "$STAGE/coco/"
 mkdir -p "$ROOT/captures"
 
+# A trace mismatch is a result, not a reason to skip the remaining scripts.
+status=0
 for name in t1-move-turn-look t2-forward-corridor t3-burst-one-jiffy t4-parser-edges t5-keyboard-overrun; do
     echo "capture $name"
     DOD_SYMBOLS="$ROOT/build/rom/symbols.tsv" \
@@ -80,5 +82,6 @@ for name in t1-move-turn-look t2-forward-corridor t3-burst-one-jiffy t4-parser-e
         -autoboot_script "$ROOT/tools/rom/capture.lua"
     python3 "$ROOT/tools/rom/trace_diff.py" \
         "$ROOT/docs/archaeology/phase-0b/traces/$name.trace" \
-        "$ROOT/captures/$name.rom.trace"
+        "$ROOT/captures/$name.rom.trace" || status=1
 done
+exit "$status"
