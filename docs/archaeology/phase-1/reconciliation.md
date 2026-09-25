@@ -256,8 +256,8 @@ The canonical copy of this table, together with the Phase 0b rows, is
 ## 6. Gate
 
 Every §1 row has a first divergence, a measured result, or a "not run" reason.
-Issue #13 is decided: Original Mode counts the 377 build interrupts. The core
-does that. The decision is not waiting.
+Issue #13 is decided and applied: Original Mode counts the 377 build
+interrupts.
 
 ROM-observed, from §1: the 377-interrupt build and `DGEN90` at `SECOND` = 6,
 including seeds and the 24 positions; the opening `CREGEN` increment of type 5
