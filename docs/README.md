@@ -35,3 +35,9 @@ corrections appear in the next report.
 
 [`prompts/`](prompts/README.md) holds the working prompt for each phase, so a
 phase can be re-run or audited later.
+
+## Planning and decisions
+
+[`planning/`](planning/README.md) holds the roadmap for Phases 2–11, the ROM
+capture backlog and the review checklist. [`adr/`](adr/README.md) records
+decisions that constrain more than one phase.
