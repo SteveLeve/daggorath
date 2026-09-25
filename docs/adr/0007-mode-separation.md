@@ -11,8 +11,14 @@ or expensive.
 
 ## Decision
 
-1. Original Mode has no configuration that alters rules: no seed, no map
-   generator choice, no difficulty. `Game(Mode::Original)` takes nothing else.
+1. Original Mode exposes no gameplay choice that alters rules: no player-facing
+   seed, no map generator choice, no difficulty. Its production construction path
+   derives clock, RNG and state exactly as the original does.
+   Tests, replay and snapshot restore may inject a complete initial state or a
+   deterministic environment, but only through an explicitly non-gameplay
+   harness API that no player-facing surface can reach. A conformance test
+   proves the normal construction path is still canonical (the same initial
+   state as the source's power-on).
 2. Presentation and input options (scaling, line thickness, control layout,
    volume) are allowed in any mode because they do not reach the core.
 3. The core's variation points, when first needed, are compile-time or

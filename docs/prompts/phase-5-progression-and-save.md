@@ -3,11 +3,16 @@ completes the headless game. Read the charter, `CLAUDE.md`, the roadmap,
 ADR-0005, ADR-0008 and the Phase 4 reconciliation first. Produce working
 artifacts, not a plan.
 
+**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
+thresholds, effects, routine roles) comes from earlier reports and is a target
+to verify against the listing. Cite the listing, never this prompt.
+
 **Preservation requirement.** The wizard-image kill runs `ENDGAM` as the source
 does (dialogue, equipment stripping, imposed weight, regeneration of level 3,
 random relocation); the true-wizard kill freezes creatures and sets up the final
-ring; the final ring's full incantation reaches `WINNER`; `DEATH` presents as
-the source does. `ZSAVE`/`ZLOAD` save and restore exactly what `PZTAPE` and
+ring; the final ring's full incantation reaches `WINNER`; any death-related
+progression or dialogue state Phase 3 deferred is completed (the transition to
+dead is Phase 3's; drawing it is Phase 6's). `ZSAVE`/`ZLOAD` save and restore exactly what `PZTAPE` and
 `COMMON` save and restore — including what they lose.
 
 Work in this order.

@@ -26,7 +26,7 @@ No ROM capture exists to measure it (`provenance/rom-diff.md`).
    until an interrupt boundary, with the source's per-task cost unknown.
    Requires a CPU-cost model the project does not have; any cost table would be
    invented. Rejected unless Track R measures costs.
-3. **Model the lap exactly in order but not in cost**: within one jiffy,
+3. **Preserve lap ordering with a per-jiffy fixed point** (order, not cost): within one jiffy,
    repeat laps until no task is ready (a fixed point), with a guard that a task
    returning `Q.SCD` runs at most once per jiffy. Closer to the source's order
    where CPU time is ample; still an inference about how many laps fit in

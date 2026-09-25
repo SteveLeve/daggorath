@@ -4,6 +4,10 @@ the Dungeons of Daggorath preservation project. Read the charter, `CLAUDE.md`,
 `docs/specification/combat-and-items.md`, `docs/specification/dungeon-and-rng.md`
 and the Phase 3 reconciliation first. Produce working artifacts, not a plan.
 
+**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
+thresholds, effects, routine roles) comes from earlier reports and is a target
+to verify against the listing. Cite the listing, never this prompt.
+
 **Preservation requirement.** Every object behaves as the listing's handlers
 make it behave: `PGET` (GET, DROP, STOW, PULL), `PEXAM`, `PREVEA`, `PUSE`,
 `PINCAN`, `PCLIMB`, `BURNER`, `OBIRTH`. Generic parameters until reveal,

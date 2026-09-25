@@ -7,6 +7,10 @@ and `docs/archaeology/phase-1/reconciliation.md` before starting. Produce workin
 artifacts and recorded evidence, not a plan. Do not build combat, objects,
 rendering or any UI.
 
+**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
+thresholds, effects, routine roles) comes from earlier reports and is a target
+to verify against the listing. Cite the listing, never this prompt.
+
 **Preservation requirement.** Creatures move by the original `CMOVE` rules
 (`CRETUR.ASM`), at the original movement and attack delays from the creature
 table, in the original task order, drawing from the one shared RNG in the

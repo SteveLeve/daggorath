@@ -5,7 +5,9 @@ implementation is tested against, and they are updated as evidence arrives — i
 contrast to the archaeology reports, which are dated and left alone.
 
 Every rule carries one label: **source-proven**, **ROM-observed**, **inferred**, or
-**unresolved**. No rule is ROM-observed. The measurement is recorded in
+**unresolved**. A capture under replacement firmware is noted as
+**replacement-firmware-observed** beside the label and does not make a rule
+ROM-observed (ADR-0003). No rule is ROM-observed. The measurement is recorded in
 [`../provenance/rom-diff.md`](../provenance/rom-diff.md).
 
 | Document | Covers | State |

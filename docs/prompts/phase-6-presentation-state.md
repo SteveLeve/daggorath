@@ -4,6 +4,10 @@ preservation project. Read the charter (presentation fidelity), `CLAUDE.md`,
 report §§14–15 and the latest reconciliation first. Produce working artifacts,
 not a plan. Do not draw pixels or open a window.
 
+**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
+thresholds, effects, routine roles) comes from earlier reports and is a target
+to verify against the listing. Cite the listing, never this prompt.
+
 **Preservation requirement.** What the player could see and hear is a function
 of state the original computed: `VIEWER`'s range walk and edge parsing,
 line-of-sight stop, regular versus magical light, draw order of architecture,
@@ -14,9 +18,11 @@ foreground for as long as the source makes them, where that is knowable.
 
 Work in this order.
 
-1. **Settle ADR-0004** (if 6a did not): `RenderState`, `PresentationEvent`, the
-   blocking model. Put types in `src/presentation/` or a core-owned header,
-   respecting module boundaries.
+1. **Settle ADR-0004's projection half.** `CoreEvent` and the blocking model
+   already exist from Phase 6a. Define `RenderState` in `src/presentation/` as a
+   pure projection of a read-only core snapshot plus `CoreEvent`s. `src/core`
+   includes no presentation header; if the projection needs a core value, core
+   exposes the value.
 2. **Extract** vector geometry (`VARC`, `VERT`, `VOBJ`, `D3`, `D4`), `VCTLST`
    encoding, scale tables (`NORSCL`, `HLFSCL`, `BAKSCL`), font and text
    positions, and `SOUNDS` parameters into fixtures with provenance, and
@@ -28,8 +34,8 @@ Work in this order.
    and D-4 durations: derive what the listing determines (loop counts), leave
    the rest unresolved.
 4. **Implement** the viewer as a draw list of vectors in logical coordinates
-   (not pixels), map mode, text regions, and the sound-event stream. Update
-   `dcli` to print them in stable text.
+   (not pixels), map mode, text regions, and the sound-event stream. Add a
+   `dcli` option that prints the projection in stable text.
 5. **Tests:** draw-list fixtures for fixed states on every level (Python
    reference implementation independent of the C++), map mode, darkness,
    magical light, same-cell creature sound at maximum volume.

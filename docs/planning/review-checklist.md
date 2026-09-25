@@ -3,7 +3,7 @@
 For a reviewing agent (or human) on any phase PR. Report each item as pass,
 fail with location, or not applicable. The `evidence-auditor` and
 `boundary-checker` agents under `.claude/agents/` cover items 2–6 and 8
-mechanically; run them and merge their findings.
+mechanically; item 12 is `tools/check_links.py`; run them and merge their findings.
 
 1. **Scope.** Every changed area belongs to the open phase named in `README.md`.
    Nothing from the prompt's "do not build" list is present. Commands out of
@@ -28,6 +28,9 @@ mechanically; run them and merge their findings.
     test counts and the first divergence of any mismatch — not an assurance.
 11. **ADRs.** A Proposed ADR the phase was meant to settle has a dated
     Resolution; any decision that constrains later phases has an ADR.
-12. **Hand-off.** Reconciliation written, forward pointer appended to the
+12. **Links.** Every relative link in changed Markdown resolves
+    (`python3 tools/check_links.py`), and phase ↔ ADR ↔ spec cross-references
+    name documents and sections that exist.
+13. **Hand-off.** Reconciliation written, forward pointer appended to the
     previous one, capture backlog updated, `README.md` state updated, next
     phase's prompt amended if the evidence moved.

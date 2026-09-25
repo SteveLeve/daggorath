@@ -3,6 +3,10 @@ preservation project. Read the charter's Mobile UX section and principle 4,
 `CLAUDE.md` ("input reaches the simulation as timestamped keystrokes or parsed
 commands, never by a side door"), ADR-0007 and the desktop app first.
 
+**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
+thresholds, effects, routine roles) comes from earlier reports and is a target
+to verify against the listing. Cite the listing, never this prompt.
+
 **Preservation requirement.** Touch is an adaptation layer. Every gesture
 produces the keystrokes (or a parsed command whose effect is identical to
 typing it) the original player would have typed; the typed command line stays

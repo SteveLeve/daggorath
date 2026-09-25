@@ -5,6 +5,10 @@ Daggorath preservation project. Read the charter, `CLAUDE.md`,
 `docs/specification/clock-and-scheduler.md` §12 first. Produce a working
 application, not a plan.
 
+**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
+thresholds, effects, routine roles) comes from earlier reports and is a target
+to verify against the listing. Cite the listing, never this prompt.
+
 **Preservation requirement.** The desktop app is a presentation of Original
 Mode, not a variant. It paces the core at 60 jiffies per simulated second and
 never skips a jiffy (§12 obligation 1); under host stalls it catches up by

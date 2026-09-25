@@ -9,6 +9,7 @@ different agent and produce comparable work.
 | [`phase-0b-evidence-pack.md`](phase-0b-evidence-pack.md) | 0b — executable evidence pack: fixtures, scheduler spec, headless slice | complete: `docs/archaeology/phase-0b/README.md` |
 | [`phase-1-conformance-and-creatures.md`](phase-1-conformance-and-creatures.md) | 1 — ROM conformance harness, then level population and regeneration | **open** |
 | [`phase-2-creature-movement.md`](phase-2-creature-movement.md) | 2 — `CMOVE` without attack; scheduler lap model (ADR-0002) | planned |
+| [`phase-6a-core-events.md`](phase-6a-core-events.md) | 6a — core-owned `CoreEvent` contract (ADR-0004), run after 2 and before 3 | planned |
 | [`phase-3-combat.md`](phase-3-combat.md) | 3 — `PATTK`, `ATTACK`, `DAMAGE`, creature attack, faint, death | planned |
 | [`phase-4-objects-and-magic.md`](phase-4-objects-and-magic.md) | 4 — objects, inventory, torches, magic, `CLIMB` | planned |
 | [`phase-5-progression-and-save.md`](phase-5-progression-and-save.md) | 5 — endings, `ZSAVE`/`ZLOAD`; headless game complete | planned |
@@ -33,3 +34,7 @@ Planned prompts were written ahead of their phase (2026-09-25, see
 it against the previous phase's reconciliation and amend it where the evidence
 moved; record the amendment in the new phase's reconciliation. A review agent
 checks each phase with [`../planning/review-checklist.md`](../planning/review-checklist.md).
+
+Behaviour named in a planned prompt (routine priorities, thresholds, effects)
+is a **hypothesis to verify** against the listing, taken from earlier reports.
+The prompt is not evidence; cite the listing, not the prompt.

@@ -6,6 +6,10 @@ Daggorath preservation project. Read `docs/project-instructions.md`, `CLAUDE.md`
 starting. Produce working artifacts, not a plan. Do not build item use, magic
 beyond the ring gate `PATTK` checks, endings, rendering or UI.
 
+**Hypotheses, not evidence.** Behaviour this prompt names (priorities,
+thresholds, effects, routine roles) comes from earlier reports and is a target
+to verify against the listing. Cite the listing, never this prompt.
+
 **Preservation requirement.** Hits, misses and damage reproduce the original's
 `ATTACK`, `DAMAGE` and `SCAL16` arithmetic at its original byte widths, signed
 and unsigned comparisons, overflow and wrap. The player's exertion on attack, the
@@ -25,7 +29,9 @@ torch 1-in-4 gate; ring bypass; `DAMAGE` magical and physical channels with the
 radix-7 factors; `SCAL16`; kill handling including loot drop and the `CMXLND`
 decrement in `PATT40`; creature attack from `CMOVE` against the player's shield
 if any; player damage into `HUPDAT`; faint (keyboard suspension) and recovery;
-`DEATH`. Record the Phase 0 report's "VERIFY exact byte wrapping and signed
+`DEATH` — Phase 3 owns the whole simulation transition to dead; only
+death-related progression or dialogue that the source reaches through an
+ending is deferred to Phase 5, and drawing it is Phase 6. Record the Phase 0 report's "VERIFY exact byte wrapping and signed
 flags" as resolved or still open.
 
 **2. Fixtures.** Extract the factor tables, `EMPHND`, and whatever `ATTACK`

@@ -20,7 +20,12 @@ gameplay phase on that blocker would stall the project indefinitely.
    `docs/planning/capture-backlog.md`, with the rule it would promote or refute.
 4. Nothing is labelled ROM-observed without a capture recorded per
    `archaeology/phase-0b/traces/README.md` §3 and a ledger row for the ROMs and
-   emulator used.
+   emulator used. **ROM-observed is reserved for captures under authenticated
+   original system ROMs** (hashes matching those in `rom-diff.md`). A capture
+   under replacement firmware is labelled **replacement-firmware-observed**: it
+   corroborates cartridge-local behaviour but promotes nothing to ROM-observed
+   unless a documented equivalence result covers the specific behaviour at stake
+   (for example, a rule that touches no firmware service and no firmware timing).
 5. Timing that cannot be read from the listing (D-4 animation and sound
    durations, lap cost) stays **unresolved** and modelled as documented
    deviations, never as invented numbers.
@@ -33,5 +38,5 @@ gameplay phase on that blocker would stall the project indefinitely.
   divergent rule.
 - Candidate legal paths, each needing a ledger entry before use: a dump the
   owner takes from their own CoCo's system ROMs; a licensed distribution; an
-  open-source replacement firmware the cartridge runs under (behaviour under
-  replacement firmware must itself be validated before its captures count).
+  open-source replacement firmware the cartridge runs under (captures under it
+  carry the replacement-firmware-observed label, rule 4).

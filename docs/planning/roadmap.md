@@ -31,7 +31,8 @@ Decisions that shape more than one phase are recorded as ADRs in
 |---|---|---|---|---|
 | 1 | ROM conformance harness, level population, regeneration | 1–3 | 0b | [`phase-1-…`](../prompts/phase-1-conformance-and-creatures.md) — **open** |
 | 2 | Creature movement (`CMOVE` without attack), scheduler lap model | 2 | 1 | [`phase-2-creature-movement.md`](../prompts/phase-2-creature-movement.md) |
-| 3 | Combat, physiology to death | 2 | 2 | [`phase-3-combat.md`](../prompts/phase-3-combat.md) |
+| 6a | Core event contract (ADR-0004 core half) | 4 | 2 | [`phase-6a-core-events.md`](../prompts/phase-6a-core-events.md) |
+| 3 | Combat, physiology to death | 2 | 2, 6a | [`phase-3-combat.md`](../prompts/phase-3-combat.md) |
 | 4 | Objects, inventory, torches, magic, vertical travel | 2 | 3 | [`phase-4-objects-and-magic.md`](../prompts/phase-4-objects-and-magic.md) |
 | 5 | Progression, endings, save/load — **headless game complete** | 2–3 | 4 | [`phase-5-progression-and-save.md`](../prompts/phase-5-progression-and-save.md) |
 | 6 | Presentation state: viewer, mapper, text, sound events | 4 | 5 (contract may start after 2) | [`phase-6-presentation-state.md`](../prompts/phase-6-presentation-state.md) |
@@ -50,9 +51,8 @@ ring and torch gates live and because kill drops loot; progression comes last
 because both endings are reached through combat and `INCANT`.
 
 ```text
-1 ─► 2 ─► 3 ─► 4 ─► 5 ─► 6 ─► 7 ─► 8 ─► 9 ─► 10 ─► 11
-     │                   ▲
-     └── 6a (contract) ──┘      R runs alongside 2–7 and back-fills labels
+1 ─► 2 ─► 6a ─► 3 ─► 4 ─► 5 ─► 6 ─► 7 ─► 8 ─► 9 ─► 10 ─► 11
+                                    R runs alongside 2–7 and back-fills labels
 ```
 
 ## 3. Phase scope summaries
@@ -80,7 +80,8 @@ artifacts not plans, a named completion gate with run output, an explicit
 - **In:** `PATTK` (player attack, exertion, sound event, torch/darkness gate,
   ring bypass), `ATTACK`, `DAMAGE`, `SCAL16` with exact byte widths, creature
   attack branch of `CMOVE`, kill (loot drop, `CMXLND` decrement in `PATT40`),
-  player damage, faint, recovery, `DEATH`.
+  player damage, faint, recovery, and the simulation transition to dead
+  (`DEATH`): Phase 3 owns it completely.
 - **Out:** wizard kill endings (Phase 5: the kill is detected and traced, the
   `ENDGAM` body is `UNIMPLEMENTED`), item use, rendering.
 - **Gate evidence:** exhaustive/property fixtures for `SCAL16` and `DAMAGE` over
@@ -99,23 +100,28 @@ artifacts not plans, a named completion gate with run output, an explicit
 ### Phase 5 — Progression, endings, save/load
 
 - **In:** `ENDGAM` (wizard image kill on level 2 → level 3 regeneration and
-  relocation), true-wizard kill freeze, final ring and `WINNER`, `DEATH`
-  screen state, the save/load decision (ADR-0005) and its implementation.
+  relocation), true-wizard kill freeze, final ring and `WINNER`, any
+  death-related progression or dialogue state Phase 3 deferred (not the
+  transition itself; drawing it is Phase 6), the save/load decision (ADR-0005) and its implementation.
 - **Exit criterion for the headless game:** a scripted complete playthrough
   from power-on to `WINNER` runs in `dcli` with a committed trace, and no
   command reports `UNIMPLEMENTED`.
 
 ### Phase 6 — Presentation state
 
-- **In:** a `RenderState` / ordered `PresentationEvent` contract (ADR-0004),
+- **In:** the presentation-owned `RenderState` projection over core state and
+  Phase 6a's `CoreEvent`s (ADR-0004),
   `VIEWER` visibility and draw list as data, `MAPPER` modes, status and text
   regions, extraction of vector geometry (`VARC`, `VERT`, `VOBJ`, `D3`, `D4`,
   `VCTLST`) and scale tables as fixtures (ADR-0006), sound events with source
   volume, `SNOISE`'s effect on `SEED`, and a resolution of D-4 (blocking
   durations) as far as the listing allows.
 - **Out:** pixels, SDL, audio output.
-- **Early start (6a):** the contract and event enum may be written after Phase 2
-  so that Phases 3–5 emit events into it instead of ad hoc trace lines.
+- **Phase 6a (required, small):** the core-owned `CoreEvent` types from
+  ADR-0004 land after Phase 2 and before Phase 3, so Phases 3–5 emit events into
+  them instead of ad hoc trace lines. Prompt:
+  [`phase-6a-core-events.md`](../prompts/phase-6a-core-events.md). Phase 6
+  itself builds only the presentation-owned projection.
 
 ### Phase 7 — Desktop SDL3 application
 
