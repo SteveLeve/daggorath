@@ -30,7 +30,7 @@ DOD_SELFTEST=1 DOD_SYMBOLS=symbols.tsv DOD_WATCHES=tools/rom/watchlist.tsv \
 
 That run checks the watchlist, the symbol table, and the key table. It does not
 boot a CoCo. The key masks match MAME 0.264 `coco_keyboard` in `coco12.cpp`.
-The `:rowN` tag spelling has not been confirmed on a running machine. A frame
+The `:rowN` tags are the root-device subtags from MAME 0.264 `port_alloc`. They have not been read back from a running machine. A frame
 capture still needs firmware, recorded in `docs/provenance/rom-diff.md`.
 
 `capture.lua` reads `DOD_SYMBOLS`, `DOD_WATCHES`, `DOD_SCRIPT`, `DOD_TRACE`, and

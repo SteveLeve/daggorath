@@ -89,8 +89,9 @@ end
 -- MAME 0.264 coco_keyboard in src/mame/trs/coco12.cpp. Each entry is the
 -- root ioport tag and the PORT_BIT mask. port:field(mask) selects that bit.
 -- set_value(1) asserts the key; the port is active-low. Checked against that
--- source. Not executed: MAME exited before a frame, so the ":rowN" tag
--- spelling is still unconfirmed on a live machine.
+-- source. MAME 0.264 ioport_configurer::port_alloc stores owner.subtag(name).
+-- For the root device that is ":row0" .. ":row6". Not executed: MAME exited
+-- before a frame.
 -- MAME 0.264 calls the frame notifier at the end of the frame, not the start.
 -- Keys for jiffy 0 are pressed from the reset notifier, before the first frame.
 -- After each frame is sampled, those keys are released and the next jiffy's
@@ -218,7 +219,7 @@ local function inject()
         end
         local port = machine.ioport.ports[spec[1]]
         if not port then
-            die("ioport " .. spec[1] .. " missing; the :rowN tag spelling is unconfirmed")
+            die("ioport " .. spec[1] .. " missing; expected root subtag :rowN")
         end
         local field = port:field(spec[2])
         if not field then
