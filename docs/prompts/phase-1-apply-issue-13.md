@@ -9,6 +9,10 @@ not a plan. This prompt continues `phase-1-rom-captures.md`. It does not
 replace the preservation requirement in `phase-1-conformance-and-creatures.md`,
 which still overrides anything here.
 
+**Decision (owner, 2026-09-25).** Count the 377 build interrupts, so Original
+Mode matches the ROM's level-0 entry. The owner chose this for fidelity. Do
+not keep `SECOND` = 1 as a deviation, and do not reopen the choice.
+
 **Where things stand (commit f669183).** The cartridge matches catalog
 26-3093. The ROM captures are in reconciliation §1. The literal first
 divergence of `t1`–`t5` is still jiffy 0: reference `INIT` `0:0:1.0.0` versus
@@ -20,13 +24,7 @@ those seeds and the 24 positions. `population-entry.txt`
 was not changed. Do not re-derive the captures, the firmware, or the byte
 identity.
 
-**Stop if the owner has not decided.** Issue #13 must contain an owner
-decision in a later comment than the 2026-09-25 evidence comment: either
-count the 377 build interrupts, or keep `SECOND` = 1 as a documented
-deviation. A recommendation is not a decision. If that comment is absent,
-say so once, change nothing, and stop. Do not pick a side.
-
-**If the decision is to count the 377 interrupts:**
+**Apply it.**
 
 - The scheduler entry that the reference calls jiffy 0 must show clock
   `0:0:6.2.5` and `SECOND` = 6, because that is what the ROM samples after
@@ -35,27 +33,15 @@ say so once, change nothing, and stop. Do not pick a side.
   `CREGEN` must increment type 5, leave 24 creatures alive, and the next
   `NEWLVL` for level 0 must birth 25.
 - Before any fixture, stored trace, or `MANIFEST.json` changes, write the
-  reason in `docs/archaeology/phase-1/reconciliation.md`. Never regenerate a
-  baseline to make a diff pass.
+  reason in `docs/archaeology/phase-1/reconciliation.md`: the owner decided
+  to count the 377 interrupts. Never regenerate a baseline to make a diff
+  pass.
 - Record the new initial clock in `clock-and-scheduler.md` §13. Retire the
   "core still starts at `0:0:1.0.0`" sentence in reconciliation §6.
 - `population-entry.txt`'s `SECOND` = 1 rows may stay as a source-derived
   comparison. The ROM-observed level-0 entry is `SECOND` = 6. Say which
   file is which.
-
-**If the decision is to keep `SECOND` = 1:**
-
-- Do not change the core, a fixture, or a stored trace.
-- Add the deviation to `clock-and-scheduler.md` §13: the reference starts at
-  `0:0:1.0.0` and `DGEN90` sees `SECOND` = 1, while the ROM build leaves
-  `0:0:6.2.5` and `SECOND` = 6. Point at reconciliation §1 for the numbers.
-- Leave `population-entry.txt` as the source-derived `SECOND` = 1 case.
-- Say in reconciliation §6 that this is a documented deviation, not an
-  unmeasured gap.
-
-**Either way:**
-
-- Update issue #13 and issue #2's checkboxes to match the decision.
+- Update issue #13 and issue #2's checkboxes to match this decision.
 - Update PR #1's description. Mark the pull request ready only after `make
   all` exits 0 and reconciliation §6 no longer says the decision is waiting.
 - Run `make all` and report the actual output: ctest counts, `make verify`,
