@@ -37,10 +37,11 @@ for path in sys.argv[1:]:
     digest = hashlib.sha1(data).hexdigest()
     name = pathlib.Path(path).name
     if len(data) != 8192 or digest != expected[name]:
-        raise SystemExit(
+        sys.stderr.write(
             f"capture not run: {name} is {len(data)} bytes, SHA-1 {digest}, "
-            f"expected 8192 bytes and {expected[name]}"
+            f"expected 8192 bytes and {expected[name]}\n"
         )
+        raise SystemExit(2)
     print(f"firmware_ok {name} {digest}")
 PY
 
