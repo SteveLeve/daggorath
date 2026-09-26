@@ -30,6 +30,8 @@ Labels: **[SRC]** read from the pinned listing; **[INF]** inferred; **[OPEN]** u
 - the starting inventory against `initial-state.json`
 - every `CMDTAB` verb in `tokens.json` reaching a handler, except `ZSAVE` and `ZLOAD`
 
+`INCANT`, `BURNER`, and `USE` write object types 18–24. Those rows are the `SPCXXX` block in `objects.json` `special_objects`, added with the Phase 7 table so `OCBFIL` does not index past the placed `OBJXXX` rows. See `docs/archaeology/phase-7/reconciliation.md`.
+
 ## Still deferred
 
 | Id | What | Until |

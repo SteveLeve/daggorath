@@ -19,6 +19,10 @@
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
+#include "daggorath/raster.hpp"
+#include "daggorath/snoise.hpp"
+#include "daggorath/snapshot.hpp"
+#include "daggorath/sound_mix.hpp"
 #include "daggorath/vctlst.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
@@ -995,6 +999,58 @@ void test_projection() {
     mapper.mode = 2;
     mapper.map_features = true;
     check(dag::project(mapper).text == "MAP features", "map mode names features");
+    std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels{};
+    dag::DrawSegment horizontal{0, 0, 10, 0, 0, 0, "wall"};
+    dag::draw_segment(pixels, horizontal);
+    int pixels_on = 0;
+    for (std::uint8_t pixel : pixels) pixels_on += pixel;
+    check(pixels_on == 10, "VECTOR plots one dot per step of a 10-pixel run");
+    check(pixels[0] == 1 && pixels[9] == 1 && pixels[10] == 0,
+          "the run covers x=0 through x=9");
+    pixels.fill(0);
+    dag::draw_segment(pixels, horizontal, 1);
+    int faded = 0;
+    for (std::uint8_t pixel : pixels) faded += pixel;
+    check(faded == 5, "fade 1 plots every second step");
+    std::array<std::uint8_t, dag::kPackedBytes> bitmap{};
+    dag::pack_bitmap(pixels, bitmap);
+    pixels.fill(0);
+    dag::draw_segment(pixels, horizontal, 0);
+    dag::pack_bitmap(pixels, bitmap);
+    check(bitmap[0] == 0xFF && bitmap[1] == 0xC0, "BITMSK packs the first ten columns");
+    const std::string image = dag::bitmap_pbm(pixels);
+    check(image.rfind("P1\n256 192\n1 1 1 1 1 1 1 1 1 1 0", 0) == 0,
+          "the offscreen bitmap starts with the ten plotted dots");
+    dag::ViewSnapshot lit;
+    lit.regular_light = 7;
+    lit.ahead[1] = 0;
+    int frame_pixels = 0;
+    for (std::uint8_t pixel : dag::rasterize(lit)) frame_pixels += pixel;
+    check(frame_pixels > 0, "a lit corridor rasterizes to dots");
+    int dark_pixels = 0;
+    for (std::uint8_t pixel : dag::rasterize(dark)) dark_pixels += pixel;
+    check(dark_pixels == 0, "a dark view rasterizes to an empty frame");
+    std::uint64_t owed = 0;
+    check(dag::jiffies_due(1000000, owed) == 60, "one second is sixty jiffies");
+    check(owed == 40, "the leftover microseconds are kept");
+    std::uint16_t noise = 1;
+    const int expect[] = {6, 31, 156, 781};
+    for (int value : expect) {
+        check(dag::snoise(noise) == value, "SNOISE matches the Python walk");
+    }
+    check(dag::dac_sample(0x10, 0xFF) == 0x0C, "SNOUT masks the DAC byte with $FC");
+    std::uint16_t rattle_state = 1;
+    const std::vector<std::uint8_t> pulses = dag::noise_pulses(rattle_state, 0xFF, 10);
+    check(pulses.size() == 10 * 0xC0, "RATTLE emits ten pulses of 192 samples");
+    std::uint16_t hiss = 1;
+    check(dag::noise_pulses(hiss, 0xFF, 1).size() == 0xC0, "PSSHT emits one pulse");
+    check(dag::noise_pulses(hiss, 0xFF, 2).size() == 2 * 0xC0, "PSSST emits two pulses");
+    std::uint16_t thud_state = 1;
+    check(dag::thud(thud_state, 0xFF).size() == (0x150 - 0x80) / 2, "THUD writes one sample per pitch step");
+    check(dag::set_fade(7, 0) == 0, "light 7 at range 0 is full brightness");
+    check(dag::set_fade(0, 0) == 0xFF, "light 0 is darkness");
+    check(dag::set_fade(6, 0) == 0x01, "one step below full brightness uses BIT0");
+    check(dag::set_fade(1, 0) == 0x20, "signed fade -6 uses BITMSK entry 2");
     const std::uint8_t list[] = {76, 128, 76, 138, 0xFE};
     const auto lines = dag::decode_vectors(list, 128, 128, 128, 76, 0);
     check(lines.size() == 1 && lines[0].x0 == 128 && lines[0].x1 == 138 && lines[0].y0 == 76,
@@ -1060,6 +1116,268 @@ void test_projection() {
           "the left peek list ends at its outer corner");
     check(right_lines.size() == 4 && right_lines.back().x1 == 228 && right_lines.back().y1 == 128,
           "the right peek list ends at its outer corner");
+    dag::Game keys(1, 0);
+    keys.set_frozen(true);
+    for (char ch : std::string("TURN RIGHT")) keys.press(static_cast<std::uint8_t>(ch));
+    keys.press(0x0D);
+    keys.advance_jiffies(30);
+    check(keys.player().dir == dag::Dir::East, "pressed keys turn the player right");
+    const dag::ViewSnapshot seen = dag::snapshot_from(keys);
+    check(seen.ahead[0] != 0xFF, "the cell underfoot is open");
+    check(seen.dir == static_cast<int>(dag::Dir::East), "the snapshot faces the way the player turned");
+    dag::Game lit_game(1, 0);
+    lit_game.set_frozen(true);
+    auto type_line = [&](const std::string& text) {
+        lit_game.load_script(type_at(lit_game.counters().total_jiffies, text));
+        lit_game.advance_jiffies(40);
+    };
+    type_line("PULL LEFT TORCH");
+    type_line("USE LEFT");
+    int lit_dots = 0;
+    for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) lit_dots += pixel;
+    check(lit_dots == 1799, "a lit level-0 view has 1799 dots", "dots=" + std::to_string(lit_dots));
+    type_line("PULL LEFT SWORD");
+    int with_sword = 0;
+    for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) with_sword += pixel;
+    check(with_sword > lit_dots, "the held sword adds its glyph", "dots=" + std::to_string(with_sword));
+    const auto scaled = dag::scale_frame(dag::rasterize(dag::snapshot_from(lit_game)), 3);
+    check(scaled.size() == 256u * 3u * 192u * 3u, "integer scale triples each axis");
+    int blocks = 0;
+    for (std::uint8_t pixel : scaled) blocks += pixel;
+    check(blocks == with_sword * 9, "each lit dot becomes a 3 by 3 block");
+    bool found_wall = false;
+    for (int turn = 0; turn < 4 && !found_wall; ++turn) {
+        int next_row = 0;
+        int next_col = 0;
+        if (!dag::step_ok(lit_game.maze(), lit_game.player().row, lit_game.player().col,
+                          lit_game.player().dir, next_row, next_col)) {
+            found_wall = true;
+            break;
+        }
+        type_line("TURN RIGHT");
+    }
+    check(found_wall, "a facing direction is blocked");
+    const std::size_t before = lit_game.trace().size();
+    type_line("MOVE");
+    std::uint16_t sound = 1;
+    std::size_t thud_samples = 0;
+    for (std::size_t i = before; i < lit_game.trace().size(); ++i) {
+        const auto& event = lit_game.trace()[i];
+        thud_samples += dag::samples_for(event.kind, event.detail, sound).size();
+    }
+    check(thud_samples == 104, "a blocked move synthesizes the THUD buffer",
+          "samples=" + std::to_string(thud_samples));
+    dag::SoundMix mix;
+    mix.consume(lit_game.trace());
+    check(mix.pending().size() == 104, "the mixer queues the blocked-move THUD");
+}
+
+void test_incant_fire_script() {
+    std::ifstream in(std::string(DAG_FIXTURE_DIR) + "/../../phase-7/traces/incant-fire.script");
+    check(in.good(), "incant-fire script is present");
+    if (!in.good()) return;
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    std::string error;
+    dag::Game game(1, 0);
+    game.load_script(dag::parse_script(buffer.str(), error));
+    check(error.empty(), "incant-fire script parses");
+    game.advance_jiffies(400);
+    bool incanted = false;
+    for (const auto& event : game.trace()) {
+        if (event.kind == "INCANT" && event.detail.find("type=21") != std::string::npos) incanted = true;
+    }
+    check(incanted, "the script incants the ring into FIRE");
+    check(!game.player().dead, "the player survives the incant script");
+    const dag::ViewSnapshot end = dag::snapshot_from(game);
+    check(end.right_class == 1, "the incanted ring is drawn in the right hand",
+          "class=" + std::to_string(end.right_class) + " hand=" +
+              std::to_string(game.player().right_hand));
+}
+
+void test_prepared_winner() {
+    dag::Game game(1, 4);
+    game.set_frozen(true);
+    int ring = -1;
+    for (int i = 0; i < static_cast<int>(game.objects().size()); ++i) {
+        const dag::Ocb& object = game.objects()[static_cast<std::size_t>(i)];
+        if (object.level == 4 && object.type == 0) ring = i;
+    }
+    check(ring >= 0, "level 4 has the supreme ring");
+    if (ring < 0) return;
+    game.hold(true, ring);
+    std::uint64_t jiffy = 0;
+    auto press_line = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        jiffy += static_cast<std::uint64_t>(text.size()) + 20;
+        game.advance_jiffies(jiffy);
+    };
+    press_line("INCANT FINAL");
+    bool won = false;
+    for (const auto& event : game.trace()) {
+        if (event.kind == "WINNER") won = true;
+    }
+    check(won && game.player().won, "incanting FINAL on the supreme ring wins");
+    dag::Fighter wizard;
+    wizard.power = 8000;
+    wizard.magic_defense = 6;
+    wizard.physical_defense = 0;
+    dag::Fighter wooden;
+    wooden.power = 160;
+    wooden.physical_offense = 16;
+    dag::apply_damage(wooden, wizard);
+    check(wizard.damage == 0, "a wooden sword does no damage through physical defense 0");
+    dag::Fighter magic_ring;
+    magic_ring.power = 160;
+    magic_ring.magic_offense = 255;
+    magic_ring.physical_offense = 255;
+    dag::apply_damage(magic_ring, wizard);
+    check(wizard.damage > 0, "magic offense passes the wizard's magic defense");
+    dag::Fighter fresh = wizard;
+    fresh.damage = 0;
+    dag::Fighter elvish;
+    elvish.power = 160;
+    elvish.magic_offense = 64;
+    elvish.physical_offense = 64;
+    dag::apply_damage(elvish, fresh);
+    check(fresh.damage == 3, "the elvish sword deals 3 damage to the wizard at power 160");
+    fresh.damage = 0;
+    dag::Fighter fire;
+    fire.power = 160;
+    fire.magic_offense = 255;
+    fire.physical_offense = 255;
+    dag::apply_damage(fire, fresh);
+    check(fresh.damage == 14, "the fire ring deals 14 damage to the wizard at power 160");
+}
+
+void test_hslow_floor() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    std::uint64_t at = 0;
+    auto line = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        at += static_cast<std::uint64_t>(text.size()) + 2;
+        game.advance_jiffies(at);
+    };
+    line("TURN RIGHT");
+    for (int i = 0; i < 15; ++i) line("MOVE");
+    check(game.player().damage == 71, "fifteen wall bumps add 71 damage");
+    game.advance_jiffies(at + 8000);
+    check(game.player().damage == 63 && !game.player().dead,
+          "resting while frozen heals down to 63 and then stops");
+}
+
+void test_fire_ring_reaches_wizard() {
+    dag::Game game(1, 4);
+    game.set_frozen(true);
+    int vulcan = -1;
+    for (int i = 0; i < static_cast<int>(game.objects().size()); ++i) {
+        if (game.objects()[static_cast<std::size_t>(i)].type == 12) vulcan = i;
+    }
+    check(vulcan >= 0, "a vulcan ring object exists");
+    if (vulcan < 0) return;
+    game.hold(false, vulcan);
+    std::uint64_t at = 0;
+    auto line = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        at += static_cast<std::uint64_t>(text.size()) + 2;
+        game.advance_jiffies(at);
+    };
+    line("INCANT FIRE");
+    int goal_row = -1;
+    int goal_col = -1;
+    int wizard = -1;
+    for (int slot = 0; slot < dag::kCcbSlots; ++slot) {
+        const dag::Ccb& creature = game.creatures()[static_cast<std::size_t>(slot)];
+        if (creature.in_use && creature.type == 11) {
+            wizard = slot;
+            goal_row = creature.row;
+            goal_col = creature.col;
+        }
+    }
+    check(wizard >= 0, "the wizard is on level 4");
+    if (wizard < 0) return;
+    struct Node { int row, col, parent; };
+    std::vector<Node> nodes;
+    std::vector<int> bfs;
+    std::vector<char> seen(32 * 32, 0);
+    nodes.push_back({game.player().row, game.player().col, -1});
+    bfs.push_back(0);
+    seen[game.player().row * 32 + game.player().col] = 1;
+    int found = -1;
+    for (std::size_t qi = 0; qi < bfs.size() && found < 0; ++qi) {
+        const Node here = nodes[static_cast<std::size_t>(bfs[qi])];
+        if (here.row == goal_row && here.col == goal_col) {
+            found = bfs[qi];
+            break;
+        }
+        for (int dir = 0; dir < 4; ++dir) {
+            int nr = 0, nc = 0;
+            if (!dag::step_ok(game.maze(), here.row, here.col, static_cast<dag::Dir>(dir), nr, nc))
+                continue;
+            const int key = nr * 32 + nc;
+            if (seen[static_cast<std::size_t>(key)]) continue;
+            seen[static_cast<std::size_t>(key)] = 1;
+            nodes.push_back({nr, nc, bfs[qi]});
+            bfs.push_back(static_cast<int>(nodes.size()) - 1);
+        }
+    }
+    check(found >= 0, "a frozen walk can reach the wizard");
+    if (found < 0) return;
+    std::vector<int> path;
+    for (int n = found; n >= 0; n = nodes[static_cast<std::size_t>(n)].parent) path.push_back(n);
+    std::reverse(path.begin(), path.end());
+    int facing = static_cast<int>(game.player().dir);
+    for (std::size_t i = 1; i < path.size(); ++i) {
+        const int drow = nodes[static_cast<std::size_t>(path[i])].row -
+                         nodes[static_cast<std::size_t>(path[i - 1])].row;
+        const int dcol = nodes[static_cast<std::size_t>(path[i])].col -
+                         nodes[static_cast<std::size_t>(path[i - 1])].col;
+        int step_dir = 3;
+        if (drow == -1) step_dir = 0;
+        else if (dcol == 1) step_dir = 1;
+        else if (drow == 1) step_dir = 2;
+        const int delta = (step_dir - facing) & 3;
+        if (delta == 1) line("TURN RIGHT");
+        else if (delta == 3) line("TURN LEFT");
+        else if (delta == 2) line("TURN AROUND");
+        facing = step_dir;
+        line("MOVE");
+        if (game.player().damage > 70) {
+            at += 4000;
+            game.advance_jiffies(at);
+        }
+    }
+    check(game.player().row == goal_row && game.player().col == goal_col && !game.player().dead,
+          "the player reaches the wizard alive");
+    auto say = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        game.advance_jiffies(static_cast<std::uint64_t>(text.size()) + 2);
+    };
+    say("ATTACK LEFT");
+    check(game.creatures()[static_cast<std::size_t>(wizard)].damage == 14,
+          "one fire-ring swing deals 14 wizard damage");
+    int swings = 1;
+    while (game.creatures()[static_cast<std::size_t>(wizard)].in_use && !game.player().dead &&
+           swings < 600) {
+        int guard = 0;
+        while (game.player().damage > 63 && !game.player().dead && guard < 80) {
+            game.advance_jiffies(200);
+            ++guard;
+        }
+        say("ATTACK LEFT");
+        ++swings;
+    }
+    check(!game.player().dead && !game.creatures()[static_cast<std::size_t>(wizard)].in_use &&
+              swings == 572,
+          "572 rested fire-ring swings kill the wizard");
+    say("GET RIGHT RING");
+    say("INCANT FINAL");
+    check(game.player().won, "incanting the wizard's ring reaches WINNER");
 }
 
 }  // namespace
@@ -1084,6 +1402,10 @@ int main() {
     test_objects_and_climb();
     test_save_and_snapshot();
     test_projection();
+    test_incant_fire_script();
+    test_prepared_winner();
+    test_hslow_floor();
+    test_fire_ring_reaches_wizard();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";

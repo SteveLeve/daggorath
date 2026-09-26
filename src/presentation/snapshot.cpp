@@ -11,6 +11,13 @@ ViewSnapshot snapshot_from(const Game& game) {
     view.magic_light = game.player().magic_light;
     view.mode = static_cast<int>(game.display_mode());
     view.map_features = game.player().map_features;
+    if (game.player().torch >= 0) view.foreground = 5;
+    auto hand_class = [&](int hand) {
+        if (hand < 0 || static_cast<std::size_t>(hand) >= game.objects().size()) return -1;
+        return static_cast<int>(game.objects()[static_cast<std::size_t>(hand)].cls);
+    };
+    view.left_class = hand_class(game.player().left_hand);
+    view.right_class = hand_class(game.player().right_hand);
     view.level = game.level_index();
     view.maze = game.maze();
     static constexpr int dr[4] = {-1, 0, 1, 0};

@@ -12,9 +12,10 @@
 #include <sstream>
 #include <string>
 
-#include "daggorath/game.hpp"
 #include "daggorath/examine.hpp"
+#include "daggorath/game.hpp"
 #include "daggorath/mapper.hpp"
+#include "daggorath/raster.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/snapshot.hpp"
 #include "daggorath/text.hpp"
@@ -23,8 +24,8 @@ namespace {
 
 int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
-                 "            [--dump-maze FILE] [--trace FILE] [--present] [--events]\n"
-                 "            [--present-map] [--present-text]\n"
+                 "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE]\n"
+                 "            [--events] [--present-map] [--present-text] [--level N]\n"
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n";
@@ -55,7 +56,7 @@ int maze_summary() {
 }  // namespace
 
 int main(int argc, char** argv) {
-    std::string script_path, maze_out, trace_out;
+    std::string script_path, maze_out, trace_out, bitmap_out;
     std::uint64_t jiffies = 600;
     bool have_second = false;
     bool present = false;
@@ -63,6 +64,8 @@ int main(int argc, char** argv) {
     bool present_map = false;
     bool present_text = false;
     int second = 0;
+    int level = 0;
+    bool frozen = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -77,9 +80,12 @@ int main(int argc, char** argv) {
             second = std::atoi(next().c_str());
             have_second = true;
         }
+        else if (a == "--level") level = std::atoi(next().c_str());
+        else if (a == "--frozen") frozen = true;
         else if (a == "--dump-maze") maze_out = next();
         else if (a == "--trace") trace_out = next();
         else if (a == "--present") present = true;
+        else if (a == "--bitmap") bitmap_out = next();
         else if (a == "--events") events = true;
         else if (a == "--present-map") present_map = true;
         else if (a == "--present-text") present_text = true;
@@ -87,9 +93,10 @@ int main(int argc, char** argv) {
     }
 
     std::optional<dag::Game> held;
-    if (have_second) held.emplace(static_cast<std::uint8_t>(second), 0);
+    if (have_second) held.emplace(static_cast<std::uint8_t>(second), level);
     else held.emplace();
     dag::Game& game = *held;
+    if (frozen) game.set_frozen(true);
 
     if (!script_path.empty()) {
         std::ifstream in(script_path);
@@ -143,6 +150,14 @@ int main(int argc, char** argv) {
     }
     if (present) {
         std::cout << dag::project(dag::snapshot_from(game)).to_text();
+    }
+    if (!bitmap_out.empty()) {
+        std::ofstream image(bitmap_out);
+        if (!image) {
+            std::cerr << "cannot write " << bitmap_out << "\n";
+            return 1;
+        }
+        image << dag::bitmap_pbm(dag::rasterize(dag::snapshot_from(game)));
     }
     if (present_map) {
         dag::MapSnapshot snap;

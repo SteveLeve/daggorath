@@ -319,6 +319,7 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-5 | The trace samples the clock counters when an event is emitted | Interrupt-phase events can therefore print a pre-bump counter value. |
 | D-6 | Retired 2026-09-25 | `CBIRTH` queues `CMOVE` on `Q.TEN` with the definition's movement delay (`COMCRE.ASM`). Phase 2. |
 | D-7 | Retired 2026-09-25 | `CMOVE` calls `ATTACK`. Phase 3. |
+| D-10 | The desktop clock converts host microseconds into jiffies and runs every owed jiffy | A stall catches up. It does not drop a jiffy. The window target is built only when SDL3 is present. Audio synthesis from `SOUNDS` is not in this target yet. |
 | D-8 | Retired 2026-09-25 | Killing type 10 runs `ENDGAM` and type 11 runs the ring riddle (`PATTK.ASM`). Phase 5. |
 | D-9 | Retired 2026-09-25 | Incanting `FINAL` runs `WINNER` (`PINCAN.ASM`). Phase 5. |
 | D-11 | `ZLOAD` of a name that is not on the cassette reports `???` | **[SRC]** `LOAD` reads blocks until a header's name matches and never gives up. The core's cassette is an in-memory list, so an absent name would hang forever. ADR-0005. |

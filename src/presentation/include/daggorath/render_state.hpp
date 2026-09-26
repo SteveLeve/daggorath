@@ -48,6 +48,9 @@ struct ViewSnapshot {
     int magic_light = 0;
     int mode = 0;  // 0 viewer, 1 examine, 2 mapper
     bool map_features = false;
+    int foreground = -1;  // lit torch class, or -1
+    int left_class = -1;
+    int right_class = -1;
     int level = 0;
     Maze maze;
     std::vector<SeenCreature> creatures;

@@ -87,6 +87,11 @@ public:
         script_pos_ = 0;
     }
 
+    // One keystroke on the next free jiffy at or after the current clock.
+    // Successive calls do not share an interrupt. `advance_jiffies` delivers
+    // each stamp through the same path as a script.
+    void press(std::uint8_t ascii);
+
     // Advance exactly n discrete 1/60 s boundaries. A large delta never skips
     // intervening boundaries.
     void advance_jiffies(std::uint64_t n);
@@ -241,6 +246,7 @@ private:
     std::string line_;                     // LINBUF (32 bytes)
     std::vector<KeyEvent> script_;
     std::size_t script_pos_ = 0;
+    std::uint64_t next_input_jiffy_ = 0;
     std::vector<TraceEvent> trace_;
     std::vector<CoreEvent> events_;
     HeartState heart_;
