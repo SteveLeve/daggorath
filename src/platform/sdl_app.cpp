@@ -2,6 +2,7 @@
 #include "daggorath/game.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snapshot.hpp"
+#include "daggorath/sound_mix.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -73,6 +74,14 @@ int main(int argc, char** argv) {
     if (renderer == nullptr || texture == nullptr) return 1;
 
     dag::Game game;
+    dag::SoundMix mix;
+    SDL_AudioSpec spec{};
+    spec.format = SDL_AUDIO_U8;
+    spec.channels = 1;
+    spec.freq = 6000;
+    SDL_AudioStream* audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec,
+                                                       nullptr, nullptr);
+    if (audio != nullptr) SDL_ResumeAudioStreamDevice(audio);
     std::uint64_t owed = 0;
     bool running = true;
     while (running) {
@@ -101,9 +110,15 @@ int main(int argc, char** argv) {
         SDL_UpdateTexture(texture, nullptr, rgb.data(), pitch);
         SDL_RenderTexture(renderer, texture, nullptr, nullptr);
         SDL_RenderPresent(renderer);
+        mix.consume(game.trace());
+        if (audio != nullptr && !mix.pending().empty()) {
+            SDL_PutAudioStreamData(audio, mix.pending().data(),
+                                   static_cast<int>(mix.pending().size()));
+            mix.clear();
+        }
         SDL_Delay(1);
     }
-    SDL_DestroyTexture(texture);
+    if (audio != nullptr) SDL_DestroyAudioStream(audio);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

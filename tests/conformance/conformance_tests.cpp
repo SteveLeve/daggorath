@@ -22,6 +22,7 @@
 #include "daggorath/raster.hpp"
 #include "daggorath/snoise.hpp"
 #include "daggorath/snapshot.hpp"
+#include "daggorath/sound_mix.hpp"
 #include "daggorath/vctlst.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
@@ -1049,6 +1050,9 @@ void test_projection() {
     }
     check(thud_samples == 104, "a blocked move synthesizes the THUD buffer",
           "samples=" + std::to_string(thud_samples));
+    dag::SoundMix mix;
+    mix.consume(lit_game.trace());
+    check(mix.pending().size() == 104, "the mixer queues the blocked-move THUD");
 }
 
 }  // namespace
