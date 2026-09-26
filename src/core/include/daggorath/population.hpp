@@ -103,4 +103,11 @@ int cregen_increment(std::array<std::uint8_t, kCreatureTypes>& row, Rng& rng);
 // Byte index NEWLVL leaves in VFTPTR for `level` (NLVL10/NLVL12).
 int vft_pointer(int level);
 
+// OCBFIX: copy the specific object's definition, without the generic overlay.
+void fill_ocb_specific(Ocb& object);
+
+// VFIND. Negative when the cell has no vertical feature. Codes match CD.ASM
+// VF.HUP 0, VF.LUP 1, VF.HDN 2, VF.LDN 3.
+int vfind(int level, int row, int col);
+
 }  // namespace dag

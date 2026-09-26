@@ -18,7 +18,8 @@ are the eventual targets; neither is being built yet.
 | **Phase 1** | complete — cartridge bytes match catalog 26-3093; Original Mode counts the 377 build interrupts (`0:0:6.2.5`, `SECOND` = 6). [reconciliation](docs/archaeology/phase-1/reconciliation.md) |
 | **Phase 2** | complete — `CMOVE` without attack; [reconciliation](docs/archaeology/phase-2/reconciliation.md) |
 | **Phase 3** | complete — combat through death; [reconciliation](docs/archaeology/phase-3/reconciliation.md) |
-| **Phases 4–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
+| **Phase 4** | in review — object commands, torches, incant, climb; [reconciliation](docs/archaeology/phase-4/reconciliation.md) |
+| **Phases 5–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
 to the Tandy catalog 26-3093 cartridge image. MAME 0.264 `coco2b` has run that

@@ -851,6 +851,57 @@ void test_combat_fixtures_and_flow() {
     check(after == static_cast<std::uint8_t>(before - 1), "kill decrements CMXLND");
 }
 
+void test_objects_and_climb() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    std::string error;
+    auto run = [&](const std::string& text) {
+        game.load_script(type_at(game.counters().total_jiffies, text));
+        game.advance_jiffies(40);
+    };
+    run("PULL LEFT SWORD");
+    check(game.player().left_hand >= 0, "PULL LEFT SWORD takes the wooden sword");
+    check(game.player().carried_weight == 35, "pull does not change burden");
+    const int sword = game.player().left_hand;
+    run("DROP LEFT");
+    check(game.player().left_hand < 0, "DROP LEFT empties the hand");
+    check(game.player().carried_weight == 10, "dropping the sword removes 25 weight");
+    check(game.objects()[static_cast<std::size_t>(sword)].owner == 0, "dropped sword is unowned");
+
+    run("PULL LEFT TORCH");
+    run("USE LEFT");
+    check(game.player().torch >= 0, "USE LEFT lights the pine torch");
+    check(game.player().left_hand < 0, "a used torch is stowed");
+    check(game.player().regular_light > 0, "a lit torch sets the light level");
+
+    run("EXAMINE");
+    check(game.display_mode() == dag::DisplayMode::Examine, "EXAMINE selects examine mode");
+    run("CLIMB");
+    bool rejected = false;
+    for (const auto& event : game.trace())
+        if (event.kind == "OUTPUT") rejected = true;
+    check(rejected, "bare CLIMB is rejected");
+    check(dag::vfind(0, 0, 23) == 3, "level 0 (0,23) is a ladder down");
+    check(dag::vfind(0, 15, 4) == 2, "level 0 (15,4) is a hole down");
+
+    bool zsave = false;
+    bool attack_unimplemented = false;
+    dag::Game verbs(1, 0);
+    verbs.set_frozen(true);
+    verbs.load_script(type_at(0, "ZSAVE"));
+    verbs.advance_jiffies(40);
+    verbs.load_script(type_at(verbs.counters().total_jiffies, "ATTACK LEFT"));
+    verbs.advance_jiffies(80);
+    for (const auto& event : verbs.trace()) {
+        if (event.kind == "UNIMPLEMENTED" && event.detail.find("ZSAVE") != std::string::npos)
+            zsave = true;
+        if (event.kind == "UNIMPLEMENTED" && event.detail.find("ATTACK") != std::string::npos)
+            attack_unimplemented = true;
+    }
+    check(zsave, "ZSAVE still reports UNIMPLEMENTED");
+    check(!attack_unimplemented, "ATTACK reaches a handler");
+}
+
 }  // namespace
 
 int main() {
@@ -870,6 +921,7 @@ int main() {
     test_same_jiffy_creature_and_key();
     test_reentry_mid_move();
     test_combat_fixtures_and_flow();
+    test_objects_and_climb();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";

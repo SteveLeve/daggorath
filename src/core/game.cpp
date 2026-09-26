@@ -67,10 +67,16 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     const std::uint8_t second_now = sched_.counters().second;
     build_level(level, second_now);
     // GAME30 runs after NEWLVL, so these two are absent from the first attachment.
+    int previous = -1;
     for (const std::uint8_t type : {std::uint8_t{17}, std::uint8_t{15}}) {  // WOODEN, PINE
         Ocb bag = birth_player_object(type, 0);
         bag.owner = 1;                       // INC of the zeroed ownership byte
+        bag.reveal = 0;                      // GAME30 clears the reveal requirement
         objects_.push_back(bag);
+        const int index = static_cast<int>(objects_.size()) - 1;
+        if (previous < 0) player_.bag_head = index;
+        else objects_[static_cast<std::size_t>(previous)].next = index;
+        previous = index;
     }
 
     update_heart_rate();
@@ -84,7 +90,7 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
                 Queue::Sched, 0, true});
     hslow_task_ = sched_.add({"HSLOW", [this] { return task_hslow(); },
                               Queue::Sched, 0, true});
-    sched_.add({"BURNER", [] { return TaskResult{Queue::Minute, 1}; },
+    sched_.add({"BURNER", [this] { return task_burner(); },
                 Queue::Sched, 0, true});
     sched_.add({"CREGEN", [this] { return task_cregen(); },
                 Queue::Sched, 0, true});
@@ -324,6 +330,15 @@ void Game::dispatch_line() {
         case kCmdTurn: cmd_turn(line, pos); break;
         case kCmdLook: cmd_look(); break;
         case kCmdAttack: cmd_attack(line, pos); break;
+        case 1: cmd_climb(line, pos); break;
+        case 2: cmd_drop(line, pos); break;
+        case 3: cmd_examine(); break;
+        case 4: cmd_get(line, pos); break;
+        case 5: cmd_incant(line, pos); break;
+        case 8: cmd_pull(line, pos); break;
+        case 9: cmd_reveal(line, pos); break;
+        case 10: cmd_stow(line, pos); break;
+        case 12: cmd_use(line, pos); break;
         default:
             emit("UNIMPLEMENTED", std::string(kCmdTab[r.type].word) +
                  " is outside the Phase 0b slice");
@@ -373,6 +388,308 @@ void Game::cmd_move(const std::string& line, std::size_t& pos) {
     step_player(relative);
     movement_exertion();
     sync_pending_ = true;
+}
+
+constexpr std::uint8_t kClassWeight[] = {5, 1, 10, 25, 25, 10};
+constexpr std::uint8_t kTypeFlaskThews = 5;
+constexpr std::uint8_t kTypeScrollSeer = 4;
+constexpr std::uint8_t kTypeScrollVision = 7;
+constexpr std::uint8_t kTypeFlaskAbye = 8;
+constexpr std::uint8_t kTypeFlaskHale = 9;
+constexpr std::uint8_t kTypeFlaskEmpty = 23;
+constexpr std::uint8_t kTypeRingFinal = 18;
+constexpr std::uint8_t kClassTorch = 5;
+
+bool Game::parse_hand(const std::string& line, std::size_t& pos, bool& right, int& held) {
+    const ParseResult hand = parse(kDirTab, line, pos);
+    if (hand.status != ParseStatus::Matched ||
+        (hand.type != kDirLeft && hand.type != kDirRight)) {
+        emit("OUTPUT", "???");
+        return false;
+    }
+    right = hand.type == kDirRight;
+    held = right ? player_.right_hand : player_.left_hand;
+    return true;
+}
+
+bool Game::parse_object(const std::string& line, std::size_t& pos, bool& specific,
+                        std::uint8_t& kind) {
+    const ParseResult generic = parse(kGenTab, line, pos);
+    if (generic.status == ParseStatus::Matched) {
+        specific = false;
+        kind = generic.type;
+        return true;
+    }
+    if (generic.status == ParseStatus::NoToken) {
+        emit("OUTPUT", "???");
+        return false;
+    }
+    const ParseResult adjective = parse(kAdjTab, line, pos);
+    const ParseResult genus = parse(kGenTab, line, pos);
+    if (adjective.status != ParseStatus::Matched || genus.status != ParseStatus::Matched ||
+        genus.token_class != adjective.token_class) {
+        emit("OUTPUT", "???");
+        return false;
+    }
+    specific = true;
+    kind = adjective.type;
+    return true;
+}
+
+void Game::add_weight(int delta) {
+    player_.carried_weight = static_cast<std::uint16_t>(player_.carried_weight + delta);
+    update_heart_rate();
+    emit("BURDEN", "weight=" + std::to_string(player_.carried_weight));
+}
+
+void Game::stow_index(bool right, int index) {
+    Ocb& object = objects_[static_cast<std::size_t>(index)];
+    object.next = player_.bag_head;
+    player_.bag_head = index;
+    if (right) player_.right_hand = -1;
+    else player_.left_hand = -1;
+    emit("STOW", "object=" + std::to_string(index));
+}
+
+void Game::refresh_light() {
+    if (player_.torch < 0) {
+        player_.regular_light = 0;
+        player_.magic_light = 0;
+        return;
+    }
+    const Ocb& torch = objects_[static_cast<std::size_t>(player_.torch)];
+    player_.regular_light = torch.spec[1];
+    player_.magic_light = torch.spec[2];
+}
+
+TaskResult Game::task_burner() {
+    if (player_.torch >= 0) {
+        Ocb& torch = objects_[static_cast<std::size_t>(player_.torch)];
+        if (torch.spec[0] != 0) {
+            torch.spec[0] = static_cast<std::uint8_t>(torch.spec[0] - 1);
+            if (torch.spec[0] <= 5) {
+                torch.type = kTypeTorchDead;
+                torch.reveal = 0;
+                emit("TORCH", "dead timer=" + std::to_string(torch.spec[0]));
+            }
+            if (torch.spec[0] < torch.spec[1]) torch.spec[1] = torch.spec[0];
+            if (torch.spec[0] < torch.spec[2]) torch.spec[2] = torch.spec[0];
+            refresh_light();
+            emit("TORCH", "timer=" + std::to_string(torch.spec[0]) +
+                              " light=" + std::to_string(player_.regular_light));
+        }
+    }
+    return {Queue::Minute, 1};
+}
+
+void Game::cmd_get(const std::string& line, std::size_t& pos) {
+    bool right = false;
+    int held = -1;
+    if (!parse_hand(line, pos, right, held)) return;
+    if (held >= 0) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    bool specific = false;
+    std::uint8_t kind = 0;
+    if (!parse_object(line, pos, specific, kind)) return;
+    int found = -1;
+    for (int i = 0; i < static_cast<int>(objects_.size()); ++i) {
+        const Ocb& o = objects_[static_cast<std::size_t>(i)];
+        if (o.owner != 0 || o.level != level_index_) continue;
+        if (o.row != player_.row || o.col != player_.col) continue;
+        const bool match = specific ? o.type == kind : o.cls == kind;
+        if (match) {
+            found = i;
+            break;
+        }
+    }
+    if (found < 0) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    Ocb& object = objects_[static_cast<std::size_t>(found)];
+    object.owner = 1;
+    if (right) player_.right_hand = found;
+    else player_.left_hand = found;
+    add_weight(kClassWeight[object.cls]);
+    emit("GET", "object=" + std::to_string(found));
+}
+
+void Game::cmd_drop(const std::string& line, std::size_t& pos) {
+    bool right = false;
+    int held = -1;
+    if (!parse_hand(line, pos, right, held)) return;
+    if (held < 0) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    Ocb& object = objects_[static_cast<std::size_t>(held)];
+    if (right) player_.right_hand = -1;
+    else player_.left_hand = -1;
+    object.owner = 0;
+    object.row = static_cast<std::uint8_t>(player_.row);
+    object.col = static_cast<std::uint8_t>(player_.col);
+    object.level = static_cast<std::uint8_t>(level_index_);
+    const int weight = kClassWeight[object.cls];
+    add_weight(-weight);
+    emit("DROP", "object=" + std::to_string(held));
+}
+
+void Game::cmd_stow(const std::string& line, std::size_t& pos) {
+    bool right = false;
+    int held = -1;
+    if (!parse_hand(line, pos, right, held)) return;
+    if (held < 0) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    stow_index(right, held);
+}
+
+void Game::cmd_pull(const std::string& line, std::size_t& pos) {
+    bool right = false;
+    int held = -1;
+    if (!parse_hand(line, pos, right, held)) return;
+    if (held >= 0) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    bool specific = false;
+    std::uint8_t kind = 0;
+    if (!parse_object(line, pos, specific, kind)) return;
+    int previous = -1;
+    int current = player_.bag_head;
+    while (current >= 0) {
+        Ocb& object = objects_[static_cast<std::size_t>(current)];
+        const bool match = specific ? object.type == kind : object.cls == kind;
+        if (match) {
+            if (previous < 0) player_.bag_head = object.next;
+            else objects_[static_cast<std::size_t>(previous)].next = object.next;
+            object.next = -1;
+            if (right) player_.right_hand = current;
+            else player_.left_hand = current;
+            if (current == player_.torch) {
+                player_.torch = -1;
+                refresh_light();
+            }
+            emit("PULL", "object=" + std::to_string(current));
+            return;
+        }
+        previous = current;
+        current = object.next;
+    }
+    emit("OUTPUT", "???");
+}
+
+void Game::cmd_use(const std::string& line, std::size_t& pos) {
+    bool right = false;
+    int held = -1;
+    if (!parse_hand(line, pos, right, held)) return;
+    if (held < 0) return;
+    Ocb& object = objects_[static_cast<std::size_t>(held)];
+    if (object.cls == kClassTorch) {
+        player_.torch = held;
+        refresh_light();
+        stow_index(right, held);
+        emit("SOUND", "A$TORC");
+        return;
+    }
+    if (object.type == kTypeFlaskThews) {
+        player_.power = static_cast<std::uint16_t>(player_.power + 1000);
+    } else if (object.type == kTypeFlaskHale) {
+        player_.damage = 0;
+    } else if (object.type == kTypeFlaskAbye) {
+        player_.damage = static_cast<std::uint16_t>(
+            player_.damage + scal16(player_.power, 102));
+    } else if (object.type == kTypeScrollVision || object.type == kTypeScrollSeer) {
+        if (object.reveal != 0) return;
+        player_.map_features = object.type == kTypeScrollSeer;
+        mode_ = DisplayMode::Mapper;
+        emit("MAP", player_.map_features ? "features=1" : "features=0");
+        return;
+    } else {
+        return;
+    }
+    object.type = kTypeFlaskEmpty;
+    object.reveal = 0;
+    emit("SOUND", "A$FLAS");
+    update_heart_rate();
+    emit("USE", "flask=" + std::to_string(held));
+}
+
+void Game::cmd_reveal(const std::string& line, std::size_t& pos) {
+    bool right = false;
+    int held = -1;
+    if (!parse_hand(line, pos, right, held)) return;
+    if (held < 0) return;
+    Ocb& object = objects_[static_cast<std::size_t>(held)];
+    if (object.reveal == 0) return;
+    const unsigned need = static_cast<unsigned>(object.reveal) * 25u;
+    if (need > player_.power) return;
+    fill_ocb_specific(object);
+    object.reveal = 0;
+    emit("REVEAL", "object=" + std::to_string(held) + " type=" + std::to_string(object.type));
+}
+
+bool Game::incant_hand(int index, std::uint8_t word) {
+    if (index < 0) return false;
+    Ocb& object = objects_[static_cast<std::size_t>(index)];
+    if (object.cls != kClassRing) return false;
+    if (object.spec[1] == 0 || object.spec[1] != word) return false;
+    object.type = object.spec[1];
+    fill_ocb_specific(object);
+    object.spec[1] = 0;
+    emit("SOUND", "A$RING");
+    emit("INCANT", "object=" + std::to_string(index) + " type=" + std::to_string(object.type));
+    if (object.type == kTypeRingFinal) emit("DEFER", "winner");
+    return object.type == kTypeRingFinal;
+}
+
+void Game::cmd_incant(const std::string& line, std::size_t& pos) {
+    const ParseResult word = parse(kAdjTab, line, pos);
+    if (word.status != ParseStatus::Matched || !word.full_word) return;
+    if (incant_hand(player_.left_hand, word.type)) return;
+    incant_hand(player_.right_hand, word.type);
+}
+
+void Game::cmd_examine() {
+    mode_ = DisplayMode::Examine;
+    const int creature = find_creature(player_.row, player_.col);
+    emit("EXAMINE", "creature=" + std::to_string(creature));
+}
+
+void Game::cmd_climb(const std::string& line, std::size_t& pos) {
+    const int feature = vfind(level_index_, player_.row, player_.col);
+    const ParseResult dir = parse(kDirTab, line, pos);
+    if (feature < 0 || dir.status != ParseStatus::Matched) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    int delta = 0;
+    if (dir.type == 4) {  // UP
+        if (feature != 1) {
+            emit("OUTPUT", "???");
+            return;
+        }
+        delta = -1;
+    } else if (dir.type == 5) {  // DOWN
+        if ((feature & 2) == 0) {
+            emit("OUTPUT", "???");
+            return;
+        }
+        delta = 1;
+    } else {
+        emit("OUTPUT", "???");
+        return;
+    }
+    const int next = level_index_ + delta;
+    if (next < 0 || next > 4) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    emit("CLIMB", "level=" + std::to_string(next));
+    enter_level(next);
 }
 
 int Game::find_creature(int row, int col) const {

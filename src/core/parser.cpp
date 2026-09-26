@@ -28,6 +28,7 @@ ParseResult parse(std::span<const TokenEntry> table, std::string_view line,
         r.status = ParseStatus::Matched;
         r.type = e.index;
         r.token_class = e.token_class;
+        r.full_word = e.word.size() == r.token.size();
     }
     if (!seen) r.status = ParseStatus::NoMatch;
     return r;

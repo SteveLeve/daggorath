@@ -33,6 +33,10 @@ struct PlayerState {
     int left_hand = -1;
     int right_hand = -1;
     int torch = -1;
+    int bag_head = -1;
+    bool map_features = false;
+    std::uint8_t regular_light = 0;
+    std::uint8_t magic_light = 0;
 };
 
 struct TraceEvent {
@@ -65,7 +69,10 @@ public:
     // is not the ROM level-0 entry.
     explicit Game(std::uint8_t second_at_entry, int level = 0);
 
-    void load_script(std::vector<KeyEvent> keys) { script_ = std::move(keys); }
+    void load_script(std::vector<KeyEvent> keys) {
+        script_ = std::move(keys);
+        script_pos_ = 0;
+    }
 
     // Advance exactly n discrete 1/60 s boundaries. A large delta never skips
     // intervening boundaries.
@@ -115,6 +122,22 @@ private:
     void cmd_turn(const std::string& line, std::size_t& pos);
     void cmd_look();
     void cmd_attack(const std::string& line, std::size_t& pos);
+    void cmd_get(const std::string& line, std::size_t& pos);
+    void cmd_drop(const std::string& line, std::size_t& pos);
+    void cmd_stow(const std::string& line, std::size_t& pos);
+    void cmd_pull(const std::string& line, std::size_t& pos);
+    void cmd_use(const std::string& line, std::size_t& pos);
+    void cmd_reveal(const std::string& line, std::size_t& pos);
+    void cmd_incant(const std::string& line, std::size_t& pos);
+    void cmd_examine();
+    void cmd_climb(const std::string& line, std::size_t& pos);
+    bool parse_hand(const std::string& line, std::size_t& pos, bool& right, int& held);
+    bool parse_object(const std::string& line, std::size_t& pos, bool& specific, std::uint8_t& kind);
+    void add_weight(int delta);
+    void stow_index(bool right, int index);
+    void refresh_light();
+    bool incant_hand(int index, std::uint8_t word);
+    TaskResult task_burner();
     int find_creature(int row, int col) const;
     void kill_creature(int slot);
     Fighter player_fighter() const;

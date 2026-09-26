@@ -15,6 +15,7 @@ struct ParseResult {
     ParseStatus status = ParseStatus::NoMatch;
     std::uint8_t type = 0;          // index within the table (A on return)
     std::uint8_t token_class = 0;   // STRING+1 (B on return)
+    bool full_word = false;         // FULFLG: token consumed the whole table word
     std::string token;              // the raw token that was matched against
 };
 

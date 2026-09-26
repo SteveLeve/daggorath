@@ -205,6 +205,35 @@ int cregen_increment(std::array<std::uint8_t, kCreatureTypes>& row, Rng& rng) {
     return type;
 }
 
+void fill_ocb_specific(Ocb& object) {
+    Filled f = ocbfil(object.type);
+    object.cls = f.cls;
+    object.reveal = f.reveal;
+    object.magic_offense = f.mgo;
+    object.physical_offense = f.pho;
+    object.spec[0] = f.spec[0];
+    object.spec[1] = f.spec[1];
+    object.spec[2] = f.spec[2];
+}
+
+int vfind(int level, int row, int col) {
+    int x = vft_pointer(level);
+    const int n = static_cast<int>(sizeof kVftTab);
+    auto scan = [&](int bias) -> int {
+        while (x < n) {
+            const int code = static_cast<std::int8_t>(kVftTab[static_cast<std::size_t>(x++)]);
+            if (code < 0) return -1;
+            const int r = kVftTab[static_cast<std::size_t>(x++)];
+            const int c = kVftTab[static_cast<std::size_t>(x++)];
+            if (r == row && c == col) return code + bias;
+        }
+        return -1;
+    };
+    const int up = scan(0);
+    if (up >= 0) return up;
+    return scan(2);
+}
+
 int vft_pointer(int level) {
     int x = 0;
     int b = level;
