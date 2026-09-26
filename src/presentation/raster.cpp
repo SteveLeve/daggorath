@@ -1,5 +1,6 @@
 #include "daggorath/raster.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 
@@ -118,6 +119,15 @@ std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeig
         out << '\n';
     }
     return out.str();
+}
+
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view) {
+    std::array<std::uint8_t, kScreenWidth * kScreenHeight> pixels{};
+    const std::uint8_t light = static_cast<std::uint8_t>(
+        std::min(255, view.regular_light + view.magic_light));
+    const std::uint8_t fade = set_fade(light, 0);
+    for (const DrawSegment& segment : project(view).segments) draw_segment(pixels, segment, fade);
+    return pixels;
 }
 
 }  // namespace dag

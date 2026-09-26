@@ -961,6 +961,12 @@ void test_projection() {
     const std::string image = dag::bitmap_pbm(pixels);
     check(image.rfind("P1\n256 192\n1 1 1 1 1 1 1 1 1 1 0", 0) == 0,
           "the offscreen bitmap starts with the ten plotted dots");
+    int frame_pixels = 0;
+    for (std::uint8_t pixel : dag::rasterize(lit)) frame_pixels += pixel;
+    check(frame_pixels > 0, "a lit corridor rasterizes to dots");
+    int dark_pixels = 0;
+    for (std::uint8_t pixel : dag::rasterize(dark)) dark_pixels += pixel;
+    check(dark_pixels == 0, "a dark view rasterizes to an empty frame");
     std::uint64_t owed = 0;
     check(dag::jiffies_due(1000000, owed) == 60, "one second is sixty jiffies");
     check(owed == 40, "the leftover microseconds are kept");
