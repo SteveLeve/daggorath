@@ -1,6 +1,7 @@
 // Present when SDL3 is available. The core is advanced one jiffy at a time.
 #include "daggorath/game.hpp"
 #include "daggorath/raster.hpp"
+#include "daggorath/snapshot.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -25,12 +26,7 @@ int main() {
         }
         const int steps = dag::jiffies_due(16667, owed);
         if (steps > 0) game.advance_jiffies(static_cast<std::uint64_t>(steps));
-        dag::ViewSnapshot view;
-        view.regular_light = game.player().regular_light;
-        view.magic_light = game.player().magic_light;
-        view.mode = static_cast<int>(game.display_mode());
-        view.map_features = game.player().map_features;
-        const auto frame = dag::rasterize(view);
+        const auto frame = dag::rasterize(dag::snapshot_from(game));
         (void)frame;
         SDL_Delay(1);
     }

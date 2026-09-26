@@ -14,6 +14,7 @@
 
 #include "daggorath/game.hpp"
 #include "daggorath/render_state.hpp"
+#include "daggorath/snapshot.hpp"
 
 namespace {
 
@@ -119,25 +120,7 @@ int main(int argc, char** argv) {
                  static_cast<std::streamsize>(b.size()));
     }
     if (present) {
-        dag::ViewSnapshot view;
-        view.row = game.player().row;
-        view.col = game.player().col;
-        view.dir = static_cast<int>(game.player().dir);
-        view.regular_light = game.player().regular_light;
-        view.magic_light = game.player().magic_light;
-        view.mode = static_cast<int>(game.display_mode());
-        view.map_features = game.player().map_features;
-        int r = view.row;
-        int c = view.col;
-        static constexpr int dr[4] = {-1, 0, 1, 0};
-        static constexpr int dc[4] = {0, 1, 0, -1};
-        for (int i = 0; i < 5; ++i) {
-            if (r < 0 || c < 0 || r >= 32 || c >= 32) view.ahead[i] = 0xFF;
-            else view.ahead[i] = game.maze().at(r, c);
-            r += dr[view.dir & 3];
-            c += dc[view.dir & 3];
-        }
-        std::cout << dag::project(view).to_text();
+        std::cout << dag::project(dag::snapshot_from(game)).to_text();
     }
     return 0;
 }

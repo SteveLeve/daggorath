@@ -21,6 +21,7 @@
 #include "daggorath/parser.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snoise.hpp"
+#include "daggorath/snapshot.hpp"
 #include "daggorath/vctlst.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
@@ -1005,6 +1006,9 @@ void test_projection() {
     keys.press(0x0D);
     keys.advance_jiffies(30);
     check(keys.player().dir == dag::Dir::East, "pressed keys turn the player right");
+    const dag::ViewSnapshot seen = dag::snapshot_from(keys);
+    check(seen.ahead[0] != 0xFF, "the cell underfoot is open");
+    check(seen.dir == static_cast<int>(dag::Dir::East), "the snapshot faces the way the player turned");
 }
 
 }  // namespace
