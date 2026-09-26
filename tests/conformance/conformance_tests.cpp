@@ -19,6 +19,7 @@
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
+#include "daggorath/vctlst.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
 
@@ -1001,6 +1002,12 @@ void test_projection() {
     mapper.mode = 2;
     mapper.map_features = true;
     check(dag::project(mapper).text == "MAP features", "map mode names features");
+    const std::uint8_t list[] = {76, 128, 76, 138, 0xFE};
+    const auto lines = dag::decode_vectors(list, 128, 128, 128, 76, 0);
+    check(lines.size() == 1 && lines[0].x0 == 128 && lines[0].x1 == 138 && lines[0].y0 == 76,
+          "an absolute list draws one scaled segment");
+    check(dag::decode_vectors(list, 128, 128, 128, 76, 0xFF).empty(),
+          "fade $FF draws no vectors");
 }
 
 }  // namespace
