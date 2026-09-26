@@ -62,7 +62,7 @@ bool cwalk(Ccb& self, int slot, std::array<Ccb, kCcbSlots>& ccbs, const Maze& ma
 
 void apply_shield(HeldShield hand, std::uint8_t& magic, std::uint8_t& physical) {
     // SHIELD: empty or non-shield leaves the pair. A lower (better) pair replaces it.
-    if (!hand.present || hand.cls != 3) return;
+    if (!hand.present || hand.cls != 3) return;   // CD.ASM K.SHIE, CRETUR.ASM:116
     const unsigned current = (static_cast<unsigned>(magic) << 8) | physical;
     const unsigned offered =
         (static_cast<unsigned>(hand.magic_defense) << 8) | hand.physical_defense;
