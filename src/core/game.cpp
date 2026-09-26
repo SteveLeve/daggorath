@@ -19,7 +19,10 @@ constexpr std::size_t kLineBufSize = 32;   // CD.ASM:584 LINBUF RMB 32
 
 // Command indices within CMDTAB, i.e. the order of the CMDXXX macro.
 constexpr std::uint8_t kCmdAttack = 0, kCmdLook = 6, kCmdMove = 7, kCmdTurn = 11;
-constexpr std::uint8_t kClassRing = 1;
+constexpr std::uint8_t kClassRing = 1;          // CD.ASM K.RING
+// EMPHND after COMDAT.ASM's INI P.OCCLS+EMPHND: class 4 (sword noises),
+// magic offense 0, physical offense 5.
+constexpr std::uint8_t kEmptyClass = 4, kEmptyMagic = 0, kEmptyPhysical = 5;
 constexpr std::uint8_t kTypeRingEnergy = 19;
 constexpr std::uint8_t kTypeRingFire = 21;
 constexpr std::uint8_t kTypeRingGold = 22;
@@ -281,6 +284,7 @@ TaskResult Game::task_player() {
         }
         feed_char(internal);
         if (sync_pending_) break;   // the command blocked on SYNC
+        if (sched_.halted()) break; // DEATH ends in BRA * (HUPDAT.ASM)
     }
     return {Queue::Jiffy, 1};                           // SCHED$ 1,Q.JIF
 }
@@ -413,6 +417,7 @@ bool Game::parse_hand(const std::string& line, std::size_t& pos, bool& right, in
 
 bool Game::parse_object(const std::string& line, std::size_t& pos, bool& specific,
                         std::uint8_t& kind) {
+    const std::size_t token_start = pos;
     const ParseResult generic = parse(kGenTab, line, pos);
     if (generic.status == ParseStatus::Matched) {
         specific = false;
@@ -423,6 +428,8 @@ bool Game::parse_object(const std::string& line, std::size_t& pos, bool& specifi
         emit("OUTPUT", "???");
         return false;
     }
+    // POBJ10: PARSE0 classifies the token GENTAB just rejected; it reads no new one.
+    pos = token_start;
     const ParseResult adjective = parse(kAdjTab, line, pos);
     const ParseResult genus = parse(kGenTab, line, pos);
     if (adjective.status != ParseStatus::Matched || genus.status != ParseStatus::Matched ||
@@ -806,9 +813,9 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
         return;
     }
     const int index = hand.type == kDirRight ? player_.right_hand : player_.left_hand;
-    std::uint8_t magic = 0;
-    std::uint8_t physical = 5;
-    std::uint8_t cls = 4;
+    std::uint8_t magic = kEmptyMagic;
+    std::uint8_t physical = kEmptyPhysical;
+    std::uint8_t cls = kEmptyClass;
     std::uint8_t type = 0;
     Ocb* held = nullptr;
     if (index >= 0 && static_cast<std::size_t>(index) < objects_.size()) {

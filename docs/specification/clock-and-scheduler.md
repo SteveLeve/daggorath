@@ -317,7 +317,9 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-4 | Animation and sound cost no simulated time | The core still spends none. The ROM durations are now measured (reconciliation §1): a turn's facing change is visible 1 jiffy after dispatch; a half-step changes position 6 or 7 jiffies after dispatch; the blocked-move `THUD` holds the foreground for 14 or 15 interrupts. `SNOISE` does not modify `SEED`. |
 | D-5 | The trace samples the clock counters when an event is emitted | Interrupt-phase events can therefore print a pre-bump counter value. |
 | D-6 | Retired 2026-09-25 | `CBIRTH` queues `CMOVE` on `Q.TEN` with the definition's movement delay (`COMCRE.ASM`). Phase 2. |
-| D-7 | `CMOVE` does not call `ATTACK` | Same-cell and post-move occupancy still select the attack delay, emit the loud sound event, and stop. Damage, `HUPDAT` on that path, and the hit sound are Phase 3. ADR-0008. |
+| D-7 | Retired 2026-09-25 | `CMOVE` calls `ATTACK`. Phase 3. |
+| D-8 | Killing creature type 10 or 11 emits `DEFER endgame <type>` instead of running `ENDGAM` or the ring riddle | **[SRC]** `PATTK.ASM` branches to `ENDGAM` for type 10 and runs the ring riddle for type 11. Type 11 still sets the freeze flag. Retired by Phase 5. ADR-0008. |
+| D-9 | Incanting the final ring emits `DEFER winner` instead of running `WINNER` | **[SRC]** `PINCAN.ASM` jumps to `WINNER` when the incanted type is `T.RN15`. Retired by Phase 5. ADR-0008. |
 
 ### Initial clock (applied)
 
