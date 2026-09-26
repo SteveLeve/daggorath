@@ -128,7 +128,10 @@ void Game::queue_creatures() {
 }
 
 void Game::press(std::uint8_t ascii) {
-    script_.push_back(KeyEvent{sched_.counters().total_jiffies, ascii});
+    const std::uint64_t now = sched_.counters().total_jiffies;
+    if (next_input_jiffy_ < now) next_input_jiffy_ = now;
+    script_.push_back(KeyEvent{next_input_jiffy_, ascii});
+    ++next_input_jiffy_;
 }
 
 void Game::hold(bool right, int object_index) {

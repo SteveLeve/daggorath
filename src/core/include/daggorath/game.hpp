@@ -76,8 +76,9 @@ public:
         script_pos_ = 0;
     }
 
-    // One keystroke at the current jiffy, for the desktop keyboard adapter.
-    // The next `advance_jiffies` delivers it through the same path as a script.
+    // One keystroke on the next free jiffy at or after the current clock.
+    // Successive calls do not share an interrupt. `advance_jiffies` delivers
+    // each stamp through the same path as a script.
     void press(std::uint8_t ascii);
 
     // Advance exactly n discrete 1/60 s boundaries. A large delta never skips
@@ -186,6 +187,7 @@ private:
     std::string line_;                     // LINBUF (32 bytes)
     std::vector<KeyEvent> script_;
     std::size_t script_pos_ = 0;
+    std::uint64_t next_input_jiffy_ = 0;
     std::vector<TraceEvent> trace_;
     int player_task_ = -1;
     int hslow_task_ = -1;

@@ -96,6 +96,7 @@ std::uint8_t set_fade(std::uint8_t light, std::uint8_t range) {
     const auto signed_level = static_cast<std::int8_t>(adjusted);
     if (signed_level >= 0) return 0;
     if (signed_level <= -7) return 0xFF;
+    // Reachable signed levels are -6..-1, so only BITMSK entries 2..7 are used.
     static constexpr std::uint8_t kBitMask[8] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
     return kBitMask[8 + signed_level];
 }

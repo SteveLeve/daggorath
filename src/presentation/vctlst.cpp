@@ -1,7 +1,5 @@
 #include "daggorath/vctlst.hpp"
 
-#include "daggorath/vctlst.hpp"
-
 namespace dag {
 namespace {
 

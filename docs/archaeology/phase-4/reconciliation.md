@@ -8,6 +8,8 @@ Bare `CLIMB` is rejected. The source branches to the command error on a null dir
 
 `VFTTAB` indexes are the ones Phase 1 recorded. Level 0's first group is "down".
 
+`INCANT`, `BURNER`, and `USE` write object types 18–24. Those rows are the `SPCXXX` block in `objects.json` `special_objects`, added with the Phase 7 table so `OCBFIL` does not index past the placed `OBJXXX` rows. See `docs/archaeology/phase-7/reconciliation.md`.
+
 ## Still deferred
 
 | Id | What | Until |

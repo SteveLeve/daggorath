@@ -45,7 +45,6 @@ int main(int argc, char** argv) {
     }
     dag::Game game(static_cast<std::uint8_t>(second), level);
     if (frozen) game.set_frozen(true);
-    game.set_frozen(true);
     int goal_row = -1;
     int goal_col = -1;
     int best = 1 << 20;
