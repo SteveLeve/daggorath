@@ -17,4 +17,16 @@ std::uint8_t dac_sample(std::uint8_t noise_high, std::uint8_t volume) {
     return static_cast<std::uint8_t>((product >> 8) & 0xFCu);
 }
 
+std::vector<std::uint8_t> rattle(std::uint16_t& state, std::uint8_t volume) {
+    std::vector<std::uint8_t> samples;
+    samples.reserve(10 * 0xC0);
+    for (int pulse = 0; pulse < 10; ++pulse) {
+        for (int i = 0; i < 0xC0; ++i) {
+            const std::uint16_t word = snoise(state);
+            samples.push_back(dac_sample(static_cast<std::uint8_t>(word >> 8), volume));
+        }
+    }
+    return samples;
+}
+
 }  // namespace dag

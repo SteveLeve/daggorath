@@ -966,6 +966,9 @@ void test_projection() {
         check(dag::snoise(noise) == value, "SNOISE matches the Python walk");
     }
     check(dag::dac_sample(0x10, 0xFF) == 0x0C, "SNOUT masks the DAC byte with $FC");
+    std::uint16_t rattle_state = 1;
+    const std::vector<std::uint8_t> pulses = dag::rattle(rattle_state, 0xFF);
+    check(pulses.size() == 10 * 0xC0, "RATTLE emits ten pulses of 192 samples");
 }
 
 }  // namespace
