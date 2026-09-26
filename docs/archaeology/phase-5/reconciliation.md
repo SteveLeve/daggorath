@@ -7,7 +7,7 @@
 | Item | Owner |
 |---|---|
 | Cassette leader bytes, video buffers, and raw queue pointers inside the `$0200`–`MM.END` image | not modeled; ADR-0005 records the modeled subset |
-| A power-on to `WINNER` playthrough script | not yet authored. A prepared hold of the level-4 supreme ring plus `INCANT FINAL` does reach `WINNER`. The ring is carried by creature type 11 (power 8000, physical defense 0, magic defense 6). At power 160 a wooden sword deals 0, an elvish sword deals 3, and the fire ring deals 14. The fire ring's exertion is large enough that the player cannot swing it repeatedly at that power. `HSLOW` recovers one sixty-fourth of damage per heartbeat and stops reducing once damage is below 64, so rest bottoms out at 63. |
+| A power-on to `WINNER` playthrough script | not yet authored. On a frozen level 4, holding the vulcan ring, `INCANT FIRE`, walking to the type-11 creature, and resting to damage 63 between swings kills it in 572 hits of 14. `ENDGAM` clears the hands. `GET RIGHT RING` takes the dropped supreme ring (spec[1] = 18) and `INCANT FINAL` emits `WINNER`. A wooden sword deals 0 and an elvish sword deals 3 at power 160, so neither finishes that creature. `HSLOW` stops reducing damage once it is below 64, so rest bottoms out at 63. The same fight with live creatures, from power-on on level 0, is still unscripted. |
 | Drawing the death and winner screens | Phase 6 |
 | SDL presentation | Phase 7 |
 

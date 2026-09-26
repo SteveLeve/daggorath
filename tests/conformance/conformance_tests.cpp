@@ -1291,20 +1291,31 @@ void test_fire_ring_reaches_wizard() {
     }
     check(game.player().row == goal_row && game.player().col == goal_col && !game.player().dead,
           "the player reaches the wizard alive");
-    line("ATTACK LEFT");
+    auto say = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        game.advance_jiffies(static_cast<std::uint64_t>(text.size()) + 2);
+    };
+    say("ATTACK LEFT");
     check(game.creatures()[static_cast<std::size_t>(wizard)].damage == 14,
           "one fire-ring swing deals 14 wizard damage");
-    for (int swing = 1; swing < 4 && !game.player().dead; ++swing) {
-        const std::uint64_t rest_start = at;
-        while (game.player().damage > 63 && at < rest_start + 30000 && !game.player().dead) {
-            at += 500;
-            game.advance_jiffies(at);
+    int swings = 1;
+    while (game.creatures()[static_cast<std::size_t>(wizard)].in_use && !game.player().dead &&
+           swings < 600) {
+        int guard = 0;
+        while (game.player().damage > 63 && !game.player().dead && guard < 80) {
+            game.advance_jiffies(200);
+            ++guard;
         }
-        line("ATTACK LEFT");
+        say("ATTACK LEFT");
+        ++swings;
     }
-    check(!game.player().dead &&
-              game.creatures()[static_cast<std::size_t>(wizard)].damage == 14 * 4,
-          "four rested fire-ring swings deal 56 wizard damage");
+    check(!game.player().dead && !game.creatures()[static_cast<std::size_t>(wizard)].in_use &&
+              swings == 572,
+          "572 rested fire-ring swings kill the wizard");
+    say("GET RIGHT RING");
+    say("INCANT FINAL");
+    check(game.player().won, "incanting the wizard's ring reaches WINNER");
 }
 
 }  // namespace
