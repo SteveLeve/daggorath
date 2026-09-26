@@ -1098,6 +1098,21 @@ void test_prepared_winner() {
         if (event.kind == "WINNER") won = true;
     }
     check(won && game.player().won, "incanting FINAL on the supreme ring wins");
+    dag::Fighter wizard;
+    wizard.power = 8000;
+    wizard.magic_defense = 6;
+    wizard.physical_defense = 0;
+    dag::Fighter wooden;
+    wooden.power = 160;
+    wooden.physical_offense = 16;
+    dag::apply_damage(wooden, wizard);
+    check(wizard.damage == 0, "a wooden sword does no damage through physical defense 0");
+    dag::Fighter magic_ring;
+    magic_ring.power = 160;
+    magic_ring.magic_offense = 255;
+    magic_ring.physical_offense = 255;
+    dag::apply_damage(magic_ring, wizard);
+    check(wizard.damage > 0, "magic offense passes the wizard's magic defense");
 }
 
 }  // namespace
