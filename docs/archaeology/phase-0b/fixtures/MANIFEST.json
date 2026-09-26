@@ -76,6 +76,11 @@
       "bytes": 1775
     },
     {
+      "file": "sounds.json",
+      "sha256": "2b2c8cd1c771468e65e7e72f249686b43fc87e3875d65946edb44b3b36b85ddd",
+      "bytes": 11635
+    },
+    {
       "file": "tokens.json",
       "sha256": "205f9951b9fd6fcfc957a09152538156d52bf8eddc0b86b4573806efa4244120",
       "bytes": 14322

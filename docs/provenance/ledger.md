@@ -7,7 +7,7 @@ SHA-256 unless stated.
 
 | Tool | Version | Used for |
 |---|---|---|
-| Python | 3.11.15 | `tools/extract_fixtures.py`, `tools/gen_lexicon_header.py` |
+| Python | 3.11.15 | `tools/extract_fixtures.py`, `tools/gen_lexicon_header.py`, `tools/extract_text.py` |
 | g++ | 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) | reference slice |
 | CMake | 3.28.3 | reference slice build |
 | Platform | Linux 6.18.44 x86_64 | build and test host |
@@ -56,6 +56,22 @@ Files read for this phase, with hashes as fetched:
 | `ONCE.ASM` | `d4420634a38b087965b409b511d8b4ebd8b122340aa2189f9defb1444fd6c19e` | `SYSTCB`, `GAME10`, `IRQSYN` |
 | `CD.ASM` | `c991fe0ba18b9ab42ac29304bd9b8f643ecad874743f9cf9ee64ff64cb88e20a` | RAM map, constants, TCB layout |
 | `MISC.ASM` | `4940b3cd058d8640424fb35a8fac2202ca6c5b3ff7640342d4a7c3309ef838cd` | `NEGRAM`, `WAITX` |
+| `VIEWER.ASM` | `726a02464364456ff9949258bd32b14f775f7409bd666e11121c0bda695e908d` | facing scale `NORSCL`, viewer |
+| `SOUNDS.ASM` | `50c30c3dd977fbec6df7e87a910952c949ad0211b04fa254e71f63351c9af78f` | `SNDTAB`, `SOUNDI`/`SOUNDX`, `SNOISE` |
+| `VARC.ASM` | `02985ad8d761733650de099a95b2282f9365c1499b37af159415faf20bf09ada` | vector arcs |
+| `VERT.ASM` | `fd829ec6afc14a080862ebe801f518ef8ee7af06ebb3e625e93cc5a0506682f1` | vertical feature vectors |
+| `VOBJ.ASM` | `77c39ac684f027208bb4063af8a3c50d7a4a25171ce39da58f41b3287a8e44dc` | object vectors |
+| `D3.ASM` | `25cc278a86686b646a46cf08242e00aad18708f3bd71579c178188fa87cc18cf` | creature geometry |
+| `D4.ASM` | `832cebb6aee497e7f76b9898429c24938e8e666d477bbf580a3f4cdec8394321` | creature geometry |
+| `VCTLST.ASM` | `79f48d385be66991277475fa5eac73c4749531c07c6f2b77608cfa419117a448` | vector-list interpreter |
+| `VECTOR.ASM` | `92617f1cd5860d03e5f5863f480bb8aef9c3398ec553de16d64c81e6ce531f95` | DDA line draw |
+| `MAPPER.ASM` | `53673595296ec26bb476b4d638e23650fbcf898880f8d32230464b16fa14ddf1` | map display |
+| `PEXAM.ASM` | `e8cf3b0351ee12594bbab3d10fa26b211b8b38470c7ba558cb7e1dc6a513fc3f` | examine display, `DSPMOD` |
+| `STATUS.ASM` | `2ac581d4175b5ea527a4feb4230dc8ae87d1efe182038fbf804b9f8da0152a79` | status line |
+| `TXTSER.ASM` | `245b178091be902af59c488ad7100727cbad6518b99ffdf46f95694664c34c75` | text output |
+| `SWCHAR.ASM` | `74dd2609442a438c696b3c87a34ff72b7ea9431ff6be1f86d20d3e260831325f` | font; `THUDD`/`BANGD` |
+| `PUPDAT.ASM` | `b412975cc799880050156ad238ccaf29d7d3895bc28f62efec4cf18f790697aa` | display swap, `SYNC` |
+| `PLOOK.ASM` | `3c0542671466246538bee4e8893fb501f971dbdfcfbf4121a15fd0fcac43c3a4` | `INIVUX`, `PLOOK` |
 | `grant_of_license.png` | `423a4c1444977be55212d81ecd21ed7fde6dfce4880d16cc163f6593e5087162` | rights evidence |
 
 ## 3. Other sources
@@ -79,11 +95,16 @@ undetermined-licence ports out of the provenance chain entirely.
 | `fixtures/rng.json`, `rng-vectors.txt` | computed by an independent transliteration of `RANDOX` | new work embedding **behaviour**, not source bytes |
 | `fixtures/mazes.json`, `maze-level-0..4.bin` | computed by an independent transliteration of `DGNGEN` from the `LVLTAB` seeds | the seed bytes (7 bytes) are copied data; the 5 KiB of maze output is computed |
 | `fixtures/tokens.json`, `parser-prefixes.json` | decoded from `TOKEN.ASM`'s packed strings | **copied data**: the player-facing lexicon is verbatim original content |
+| `docs/archaeology/phase-6/fixtures/vectors.json` and `draw-level-*-start-*.txt` | extracted vector lists and a Python `VIEWER` walk | **copied data** in the blob; draw lists are computed |
 | `fixtures/creatures.json`, `objects.json`, `vertical-features.json` | parsed from `DTABAS.ASM`, `COMDAT.ASM`, `COMCRE.ASM` macro arguments and `FCB` lists | **copied data**: original tuning tables |
 | `fixtures/clock.json`, `initial-state.json` | constants read from `COMMON.ASM`, `CD.ASM`, `ONCE.ASM`, `COMDAT.ASM` | small constants; low risk but still copied |
+| `fixtures/sounds.json` | `SNDTAB`, `SNDOBJ`, generator immediates from `SOUNDS.ASM`; `THUDD`/`BANGD` from `SWCHAR.ASM` (`tools/extract_sounds.py`) | **copied data**: original sound parameters |
+| `src/core/include/daggorath/sound_tables.hpp` | **generated** from `fixtures/sounds.json` | carries copied cue names into the build |
 | `reference/**` | written for this project from the behavioural reading | new project code |
 | `reference/include/daggorath/lexicon_tables.hpp` | **generated** from `fixtures/tokens.json` | carries copied data into the build; treat as a licensed artifact |
 | `traces/*.trace` | output of the reference slice | new work |
+| `docs/archaeology/phase-6/fixtures/text/*` | `tools/extract_text.py` from `COMDAT.ASM`, `PEXAM.ASM`, `STATUS.ASM`, `SWCHAR.ASM`, `MAPPER.ASM` plus the Phase 0b maze/population dumps | mixed: copied font/string bytes and computed occupancy lists |
+| `src/presentation/include/daggorath/text_tables.hpp` | **generated** from those text fixtures | carries copied font and region constants into the build |
 
 **Open rights question, unchanged from Phase 0 and now sharper:** the fixtures in
 the "copied data" rows are original tuning and lexicon data, not behaviour. They

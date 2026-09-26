@@ -1,7 +1,7 @@
 # dcli: headless trace harness. Runs timestamped input scripts against the core
 # and emits comparable state/event traces.
 add_executable(dcli dcli.cpp)
-target_link_libraries(dcli PRIVATE daggorath::core)
+target_link_libraries(dcli PRIVATE daggorath::core daggorath::presentation)
 
 # Closed-loop Original Mode planner: records a power-on to WINNER dcli script.
 add_executable(dplan dplan.cpp)

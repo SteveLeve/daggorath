@@ -20,7 +20,8 @@ are the eventual targets; neither is being built yet.
 | **Phase 3** | complete — combat through death; [reconciliation](docs/archaeology/phase-3/reconciliation.md) |
 | **Phase 4** | in review — object commands, torches, incant, climb; [reconciliation](docs/archaeology/phase-4/reconciliation.md) |
 | **Phase 5** | in review — endings, save, and a power-on `WINNER` script; [reconciliation](docs/archaeology/phase-5/reconciliation.md) |
-| **Phases 6–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
+| **Phase 6** | in review — logical draw list, core events, map and text; [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
+| **Phases 7–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
 to the Tandy catalog 26-3093 cartridge image. MAME 0.264 `coco2b` has run that
@@ -39,8 +40,7 @@ opening lap) and does not create a creature until the next entry.
 Every other command reports `UNIMPLEMENTED` rather than approximating.
 Creatures move by `CMOVE` (pickup, aligned approach, random preference,
 back-off) and requeue on `Q.TEN`. A same-cell action emits
-a hit or a miss, then `DAMAGE` on a hit. A kill drops loot, decrements `CMXLND`, and emits `DEFER endgame` for wizard types 10 and 11. Magic, rendering,
-audio and save/load are absent by design.
+a hit or a miss, then `DAMAGE` on a hit. A kill drops loot and decrements `CMXLND`. `dcli --present` prints the `VIEWER` draw list. `--present-map` and `--present-text` print the mapper, examine, status, and command projections. `--events` prints the core event stream. Rasterisation and SDL stay on the Phase 7 branch.
 
 `dcli` runs timestamped keystroke scripts and emits diff-friendly traces, so the
 same script can later be replayed against a ROM capture and compared line by line.

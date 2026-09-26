@@ -15,7 +15,4 @@ Rules for this module:
   display mode) belong to the **core**, not here — the original couples them to
   the scheduler, so they are not "only graphics".
 
-First work here: decode the original vector lists (`VCTLST`, `VECTOR`, `VARC`,
-`VERT`, `VOBJ`, `D3`, `D4`) into immutable model coordinates on a logical
-256×192 surface, and reproduce `VIEWER`'s range walk, lighting and
-line-of-sight stop.
+`viewer.cpp` walks `VIEWER`'s range, lighting, and line of sight. Vector bytes come from generated `vector_tables.hpp`. `mapper.hpp`, `examine.hpp`, and `text.hpp` are the character-cell projections. Rasterisation stays out.

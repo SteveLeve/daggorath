@@ -1,4 +1,11 @@
-# Placeholder for the presentation module. It carries no sources yet; the interface target
-# exists so dependents can be wired up before the implementation lands.
-add_library(daggorath_presentation INTERFACE)
+add_library(daggorath_presentation
+  render_state.cpp
+  vctlst.cpp
+  snapshot.cpp
+  viewer.cpp
+  mapper.cpp
+  examine.cpp
+  text.cpp)
+target_include_directories(daggorath_presentation PUBLIC include)
+target_link_libraries(daggorath_presentation PUBLIC daggorath::core)
 add_library(daggorath::presentation ALIAS daggorath_presentation)

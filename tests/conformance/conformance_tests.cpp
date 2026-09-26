@@ -19,6 +19,8 @@
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
+#include "daggorath/vctlst.hpp"
+#include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
 
 namespace {
@@ -985,6 +987,81 @@ void test_save_and_snapshot() {
     check(other.snapshot() == again, "snapshot round trip matches");
 }
 
+void test_projection() {
+    dag::ViewSnapshot dark;
+    check(dag::project(dark).segments.empty(), "zero light draws no vectors");
+    check(dag::project(dark).text == "VIEW rlight=0 mlight=0", "darkness names both lights");
+    dag::ViewSnapshot mapper;
+    mapper.mode = 2;
+    mapper.map_features = true;
+    check(dag::project(mapper).text == "MAP features", "map mode names features");
+    const std::uint8_t list[] = {76, 128, 76, 138, 0xFE};
+    const auto lines = dag::decode_vectors(list, 128, 128, 128, 76, 0);
+    check(lines.size() == 1 && lines[0].x0 == 128 && lines[0].x1 == 138 && lines[0].y0 == 76,
+          "an absolute list draws one scaled segment");
+    check(dag::decode_vectors(list, 128, 128, 128, 76, 0xFF).empty(),
+          "fade $FF draws no vectors");
+    const std::uint8_t relative[] = {76, 128, 0xFC, 0x11, 0x00, 0xFE};
+    const auto shifted = dag::decode_vectors(relative, 128, 128, 128, 76, 0);
+    check(shifted.size() == 1 && shifted[0].x1 == 130 && shifted[0].y1 == 78,
+          "a relative nybble pair steps by two pixels at scale 128");
+    const std::uint8_t fresh[] = {76, 128, 90, 128, 0xFF, 76, 140, 76, 150, 0xFE};
+    const auto restarted = dag::decode_vectors(fresh, 128, 128, 128, 76, 0);
+    check(restarted.size() == 2 && restarted[1].x0 == 140 && restarted[1].x1 == 150,
+          "$FF starts a new pen position");
+    const std::uint8_t subroutine[] = {0xFB, 0x00, 0x06, 0xFE, 0x00, 0x00, 76, 128, 90, 140, 0xFA};
+    const auto called = dag::decode_vectors(subroutine, 128, 128, 128, 76, 0);
+    check(called.size() == 1 && called[0].x0 == 128 && called[0].y0 == 76 && called[0].x1 == 140 &&
+              called[0].y1 == 90,
+          "an in-buffer subroutine draws its segment and returns");
+    const std::uint8_t jumped[] = {0xFD, 0x00, 0x05, 10, 10, 76, 128, 90, 140, 0xFE};
+    const auto gone = dag::decode_vectors(jumped, 128, 128, 128, 76, 0);
+    check(gone.size() == 1 && gone[0].x1 == 140 && gone[0].y1 == 90,
+          "an in-buffer jump skips the bytes before the target");
+    const std::uint8_t outside[] = {0xFD, 0x40, 0x00};
+    check(dag::decode_vectors(outside, 128, 128, 128, 76, 0).empty(),
+          "a jump past the buffer draws nothing");
+    // VOBJ.ASM FTORCH via missing-macros.asm SVORG/SVECT/SVEND.
+    const std::uint8_t torch[] = {118, 60, 0xFC, 0xF7, 0xFF, 0x2A, 0x00, 0xFE};
+    const auto torch_lines = dag::decode_vectors(torch, 128, 128, 128, 76, 0);
+    check(torch_lines.size() == 3 && torch_lines.back().x1 == 60 && torch_lines.back().y1 == 118,
+          "the forward torch list closes on its tip");
+    // VOBJ.ASM FSWORD. V$NEW is $FF.
+    const std::uint8_t sword[] = {114, 80, 124, 100, 0xFF, 118, 82, 114, 86, 0xFE};
+    const auto sword_lines = dag::decode_vectors(sword, 128, 128, 128, 76, 0);
+    check(sword_lines.size() == 2 && sword_lines[0].x0 == 80 && sword_lines[0].y0 == 114 &&
+              sword_lines[0].x1 == 100 && sword_lines[0].y1 == 124 && sword_lines[1].x0 == 82 &&
+              sword_lines[1].y0 == 118,
+          "the forward sword list has a blade and a guard");
+    const std::uint8_t flask[] = {110, 162, 0xFC, 0x51, 0x0E, 0xB1, 0x00, 0xFE};
+    const auto flask_lines = dag::decode_vectors(flask, 128, 128, 128, 76, 0);
+    check(flask_lines.size() == 3 && flask_lines.back().x1 == 162 && flask_lines.back().y1 == 110,
+          "the forward flask list closes on its top");
+    const std::uint8_t ring_shape[] = {122, 60, 0xFC, 0x11, 0x1F, 0xFF, 0xF1, 0x00, 0xFE};
+    const auto ring_lines = dag::decode_vectors(ring_shape, 128, 128, 128, 76, 0);
+    check(ring_lines.size() == 4 && ring_lines.back().x1 == 60 && ring_lines.back().y1 == 122,
+          "the forward ring list closes on its top");
+    // VOBJ.ASM FSHIEL: three absolute vertices, then SVORG/SVECT.
+    const std::uint8_t shield[] = {134, 172, 128, 192, 122, 186, 128, 168, 0xFC, 0x3E, 0x04, 0x00,
+                                   0xFE};
+    const auto shield_lines = dag::decode_vectors(shield, 128, 128, 128, 76, 0);
+    check(shield_lines.size() == 5 && shield_lines.back().x1 == 172 && shield_lines.back().y1 == 134,
+          "the forward shield list finishes at its first corner");
+    const std::uint8_t scroll[] = {118, 194, 0xFC, 0x1F, 0x34, 0xF1, 0xDC, 0x00, 0xFE};
+    const auto scroll_lines = dag::decode_vectors(scroll, 128, 128, 128, 76, 0);
+    check(scroll_lines.size() == 4 && scroll_lines.back().x1 == 194 && scroll_lines.back().y1 == 118,
+          "the forward scroll list closes on its top");
+    // VARC.ASM LPEEK and RPEEK.
+    const std::uint8_t left_peek[] = {100, 28, 0xFC, 0x44, 0x2E, 0x42, 0x4C, 0x00, 0xFE};
+    const std::uint8_t right_peek[] = {100, 228, 0xFC, 0x4C, 0x22, 0x4E, 0x44, 0x00, 0xFE};
+    const auto left_lines = dag::decode_vectors(left_peek, 128, 128, 128, 76, 0);
+    const auto right_lines = dag::decode_vectors(right_peek, 128, 128, 128, 76, 0);
+    check(left_lines.size() == 4 && left_lines.back().x1 == 28 && left_lines.back().y1 == 128,
+          "the left peek list ends at its outer corner");
+    check(right_lines.size() == 4 && right_lines.back().x1 == 228 && right_lines.back().y1 == 128,
+          "the right peek list ends at its outer corner");
+}
+
 }  // namespace
 
 int main() {
@@ -1006,6 +1083,7 @@ int main() {
     test_combat_fixtures_and_flow();
     test_objects_and_climb();
     test_save_and_snapshot();
+    test_projection();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";

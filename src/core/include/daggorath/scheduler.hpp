@@ -80,6 +80,11 @@ public:
     Task& task(int id) { return tasks_[static_cast<std::size_t>(id)]; }
 
     void set_trace(TraceFn fn) { trace_ = std::move(fn); }
+    // CLOCK work that precedes CLK40's jiffy-queue scan (CLK30 heartbeat).
+    void set_irq_hook(std::function<void()> fn) { irq_hook_ = std::move(fn); }
+    // The task SCHED is running, or empty between tasks.
+    const std::string& running() const { return running_; }
+    bool in_irq() const { return in_irq_; }
     void set_sleep(bool s) { sleep_ = s; }
     void set_faint(bool f) { faint_ = f; }
     bool faint() const { return faint_; }
@@ -147,6 +152,9 @@ private:
     Counters counters_;
     KeyboardBuffer keyboard_;
     TraceFn trace_;
+    std::function<void()> irq_hook_;
+    std::string running_;
+    bool in_irq_ = false;
     bool sleep_ = false;
     bool faint_ = false;
     bool halted_ = false;

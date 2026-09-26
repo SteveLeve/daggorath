@@ -1,5 +1,5 @@
 add_executable(conformance_tests conformance/conformance_tests.cpp)
-target_link_libraries(conformance_tests PRIVATE daggorath::core)
+target_link_libraries(conformance_tests PRIVATE daggorath::core daggorath::presentation)
 target_compile_definitions(conformance_tests
   PRIVATE DAG_FIXTURE_DIR="${DAGGORATH_FIXTURE_DIR}")
 add_test(NAME conformance COMMAND conformance_tests)
@@ -14,9 +14,28 @@ target_compile_definitions(object_regressions
   PRIVATE DAG_FIXTURE_DIR="${DAGGORATH_FIXTURE_DIR}")
 add_test(NAME object_regressions COMMAND object_regressions)
 
+add_executable(text_regressions conformance/text_regressions.cpp)
+target_link_libraries(text_regressions PRIVATE daggorath::core daggorath::presentation)
+target_compile_definitions(text_regressions
+  PRIVATE DAG_FIXTURE_DIR="${DAGGORATH_FIXTURE_DIR}"
+          DAG_TEXT_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/docs/archaeology/phase-6/fixtures/text")
+add_test(NAME text_regressions COMMAND text_regressions)
+
 add_executable(progression_regressions conformance/progression_regressions.cpp)
 target_link_libraries(progression_regressions PRIVATE daggorath::core)
 add_test(NAME progression_regressions COMMAND progression_regressions)
+
+add_executable(viewer_regressions conformance/viewer_regressions.cpp)
+target_link_libraries(viewer_regressions PRIVATE daggorath::core daggorath::presentation)
+target_compile_definitions(viewer_regressions
+  PRIVATE DAG_PHASE6_DIR="${DAGGORATH_PHASE6_DIR}")
+add_test(NAME viewer_regressions COMMAND viewer_regressions)
+
+add_executable(event_regressions conformance/event_regressions.cpp)
+target_link_libraries(event_regressions PRIVATE daggorath::core)
+target_compile_definitions(event_regressions
+  PRIVATE DAG_FIXTURE_DIR="${DAGGORATH_FIXTURE_DIR}")
+add_test(NAME event_regressions COMMAND event_regressions)
 
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)

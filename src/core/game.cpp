@@ -92,6 +92,8 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
         const auto sp = msg.find(' ');
         emit(msg.substr(0, sp), msg.substr(sp + 1));
     });
+    sched_.set_irq_hook([this] { heartbeat_interrupt(); });
+    inivu();   // ONCE.ASM GAME50: SWI INIVU
     emit("INIT", "level=" + std::to_string(level) + " row=" +
                      std::to_string(player_.row) + " col=" +
                      std::to_string(player_.col) + " dir=" + dir_name(player_.dir) +
@@ -183,11 +185,17 @@ TaskResult Game::task_cmove(int slot) {
     view.right = shield_from(objects_, player_.right_hand);
     bool heart = false;
     view.heart_update = &heart;
+    std::vector<CmoveView::Sound> sounds;
+    view.sounds = &sounds;
     view.incoming_damage_percent = incoming_damage_percent_;
     std::vector<std::string> events;
     const TaskResult r = cmove(slot, ccbs_, objects_, level_.maze, level_.rng, view, events);
     store_player_fighter(fighter);
     if (heart) update_heart_rate();
+    for (const auto& s : sounds) {
+        sound(s.cue, s.volume, s.range, slot);
+        events_.back().entry = s.entry;
+    }
     for (const std::string& e : events) {
         const auto sp = e.find(' ');
         if (sp == std::string::npos) emit(e, "");
@@ -210,6 +218,90 @@ TaskResult Game::task_cregen() {
 void Game::emit(const std::string& kind, const std::string& detail) {
     trace_.push_back({sched_.counters().total_jiffies,
                       sched_.counters().to_string(), kind, detail});
+    if (kind == "OUTPUT" || kind == "DIALOGUE") text(detail);
+}
+
+CoreEvent& Game::push_event(CoreEventKind kind) {
+    CoreEvent e;
+    e.jiffy = sched_.counters().total_jiffies;
+    e.sequence = static_cast<std::uint32_t>(events_.size());
+    if (sched_.in_irq()) e.position = "IRQ";
+    else if (!sched_.running().empty()) e.position = sched_.running();
+    else e.position = "FG";
+    e.kind = kind;
+    events_.push_back(std::move(e));
+    return events_.back();
+}
+
+void Game::sound(SoundCue cue) {
+    auto& e = push_event(CoreEventKind::Sound);
+    e.cue = static_cast<std::uint8_t>(cue);
+    e.volume = 0xFF;
+    e.entry = SoundEntry::Isound;
+    e.range = -1;
+    e.source = -1;
+    e.duration_known = false;
+}
+
+void Game::sound(std::uint8_t cue, std::uint8_t volume, int range, int source) {
+    auto& e = push_event(CoreEventKind::Sound);
+    e.cue = cue;
+    e.volume = volume;
+    e.entry = SoundEntry::Sounds;
+    e.range = range;
+    e.source = source;
+    e.duration_known = false;
+}
+
+void Game::text(const std::string& s) {
+    auto& e = push_event(CoreEventKind::Text);
+    e.text = s;
+}
+
+void Game::set_mode(DisplayMode mode) {
+    mode_ = mode;
+    auto& e = push_event(CoreEventKind::DisplayMode);
+    e.mode = mode;
+    if (mode == DisplayMode::Mapper) heart_.heartf = 0;   // PUSE.ASM:123 CLR HEARTF
+}
+
+void Game::block(BlockKind kind, std::uint32_t loops, std::uint32_t jiffies, bool known) {
+    auto& e = push_event(CoreEventKind::Block);
+    e.block = kind;
+    e.loop_count = loops;
+    e.duration_jiffies = jiffies;
+    e.duration_known = known;
+}
+
+void Game::inivu() {
+    // PLOOK.ASM INIVUX: HUPDAT, INC HEARTC, DEC HEARTF, DEC HBEATF.
+    update_heart_rate();
+    heart_.heartc = static_cast<std::uint8_t>(heart_.heartc + 1);
+    heart_.heartf = static_cast<std::uint8_t>(heart_.heartf - 1);
+    heart_.hbeatf = static_cast<std::uint8_t>(heart_.hbeatf - 1);
+}
+
+void Game::wizard_fade_in() {
+    heart_.hbeatf = 0;   // MISC.ASM WIZIX CLR HBEATF
+}
+
+void Game::heartbeat_interrupt() {
+    // COMMON.ASM CLK30. The glyph is presentation; the toggle is CLOCK.
+    if (heart_.hbeatf == 0) return;
+    heart_.heartc = static_cast<std::uint8_t>(heart_.heartc - 1);
+    if (heart_.heartc != 0) return;
+    heart_.heartc = player_.heart_rate;
+    heart_.audio_level = !heart_.audio_level;
+    const bool visual = heart_.heartf != 0;
+    bool large = false;
+    if (visual) {
+        heart_.hearts = static_cast<std::uint8_t>(~heart_.hearts);
+        large = heart_.hearts != 0;
+    }
+    auto& e = push_event(CoreEventKind::Heartbeat);
+    e.audio_level = heart_.audio_level;
+    e.visual = visual;
+    e.large = large;
 }
 
 void Game::set_incoming_damage_percent(int percent) {
@@ -245,6 +337,7 @@ void Game::advance_jiffies(std::uint64_t n) {
 
         if (sync_pending_) {       // a command ended in SYNC: it owns this jiffy
             sync_pending_ = false;
+            block(BlockKind::Sync, 1, 1, true);
             emit("SYNC", "display swap");
             continue;
         }
@@ -287,6 +380,7 @@ void Game::update_heart_rate() {
         sched_.halt();
         emit("DEATH", "power=" + std::to_string(player_.power) +
                           " damage=" + std::to_string(player_.damage));
+        wizard_fade_in();
         emit("DIALOGUE", "^ YET ANOTHER DOES NOT RETURN...");   // HUPDAT.ASM:143 OUTSTI
     }
 }
@@ -332,6 +426,7 @@ TaskResult Game::task_hslow() {
 }
 
 void Game::feed_char(std::uint8_t ch) {
+    if (heart_.heartf == 0) inivu();   // HUMAN.ASM HMAN10
     if (ch == kICr) {
         dispatch_line();
         return;
@@ -399,6 +494,7 @@ void Game::cmd_turn(const std::string& line, std::size_t& pos) {
         return;
     }
     player_.dir = static_cast<Dir>(b & 3);   // PREVU: ANDB #3 / STB PDIR
+    block(BlockKind::TurnAnimation, 8, 0, false);  // PTURN.ASM LRTURN, D-4a
     emit("TURN", "dir=" + dir_name(player_.dir));
     sync_pending_ = true;
 }
@@ -420,6 +516,7 @@ void Game::cmd_move(const std::string& line, std::size_t& pos) {
     }
     step_player(relative);
     movement_exertion();
+    block(BlockKind::MoveAnimation, 8, 0, false);  // PTURN.ASM PMOVE, D-4a
     sync_pending_ = true;
 }
 
@@ -629,6 +726,7 @@ void Game::cmd_use(const std::string& line, std::size_t& pos) {
         refresh_light();
         stow_index(right, held);
         emit("SOUND", "A$TORC");
+        sound(SoundCue::TORC);
         return;
     }
     if (object.type == kTypeFlaskThews) {
@@ -641,7 +739,8 @@ void Game::cmd_use(const std::string& line, std::size_t& pos) {
     } else if (object.type == kTypeScrollVision || object.type == kTypeScrollSeer) {
         if (object.reveal != 0) return;
         player_.map_features = object.type == kTypeScrollSeer;
-        mode_ = DisplayMode::Mapper;
+        sound(SoundCue::SCRO);   // PUSE.ASM USC210 ISOUND A$SCRO; no extra trace line
+        set_mode(DisplayMode::Mapper);
         emit("MAP", player_.map_features ? "features=1" : "features=0");
         return;
     } else {
@@ -650,6 +749,7 @@ void Game::cmd_use(const std::string& line, std::size_t& pos) {
     object.type = kTypeFlaskEmpty;
     object.reveal = 0;
     emit("SOUND", "A$FLAS");
+    sound(SoundCue::FLAS);
     update_heart_rate();
     emit("USE", "flask=" + std::to_string(held));
 }
@@ -677,6 +777,7 @@ bool Game::incant_hand(int index, std::uint8_t word) {
     fill_ocb_specific(object);
     object.spec[1] = 0;
     emit("SOUND", "A$RING");
+    sound(SoundCue::RING);
     emit("INCANT", "object=" + std::to_string(index) + " type=" + std::to_string(object.type));
     if (object.type == kTypeRingFinal) {
         player_.won = true;
@@ -697,7 +798,7 @@ void Game::cmd_incant(const std::string& line, std::size_t& pos) {
 }
 
 void Game::cmd_examine() {
-    mode_ = DisplayMode::Examine;
+    set_mode(DisplayMode::Examine);
     const int creature = find_creature(player_.row, player_.col);
     emit("EXAMINE", "creature=" + std::to_string(creature));
 }
@@ -810,6 +911,7 @@ void Game::endgame_wizard() {
     player_.left_hand = -1;
     player_.right_hand = -1;
     emit("ENDGAM", "wizard");
+    wizard_fade_in();
 }
 
 std::string Game::filename_token(const std::string& line, std::size_t& pos) const {
@@ -853,10 +955,9 @@ void Game::tape_operation() {
         restore_ram_image(*image);
         emit("ZLOAD", name);
     }
-    // LOAD90: CLR ZFLAG, INIVU (HUPDAT then PLOOK), PROMPT.
+    // LOAD90: CLR ZFLAG, INIVU, PROMPT.
     zflag_ = 0;
-    update_heart_rate();
-    mode_ = DisplayMode::Viewer;
+    inivu();
 }
 
 void Game::cmd_attack(const std::string& line, std::size_t& pos) {
@@ -884,6 +985,7 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
     player_.damage = static_cast<std::uint16_t>(player_.damage + effort);
     emit("EXERT", "damage=" + std::to_string(player_.damage));
     emit("SOUND", "class=" + std::to_string(cls));
+    sound(static_cast<std::uint8_t>(kSndObj + cls), 0xFF, -1, -1);
     if (held != nullptr && type >= kTypeRingEnergy && type <= kTypeRingFire) {
         held->spec[0] = static_cast<std::uint8_t>(held->spec[0] - 1);
         if (held->spec[0] == 0) {
@@ -919,6 +1021,7 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
         }
     }
     emit("HIT", "slot=" + std::to_string(slot));
+    sound(SoundCue::KLK2);   // PATTK.ASM ISOUND A$KLK2
     Fighter attacker;
     attacker.power = player_.power;
     attacker.magic_offense = magic;
@@ -937,7 +1040,7 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
 
 // PLOOK: return to the forward view.
 void Game::cmd_look() {
-    mode_ = DisplayMode::Viewer;
+    set_mode(DisplayMode::Viewer);
     emit("LOOK", "mode=VIEWER");
 }
 
@@ -952,6 +1055,7 @@ void Game::step_player(int relative_dir) {
                          " dir=" + dir_name(player_.dir) + " ok=1");
     } else {
         emit("SOUND", "A$THUD");        // blocked: ISOUND A$THUD
+        sound(SoundCue::THUD);
         emit("MOVE", "row=" + std::to_string(player_.row) + " col=" +
                          std::to_string(player_.col) + " dir=" + dir_name(player_.dir) +
                          " ok=0");
@@ -990,6 +1094,9 @@ void Game::save_ram(std::ostream& out) const {
         << static_cast<int>(p.regular_light) << ' ' << static_cast<int>(p.magic_light) << '\n';
     out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' '
         << level_index_ << ' ' << line_.size() << ' ' << line_ << "|\n";
+    out << static_cast<int>(heart_.heartf) << ' ' << static_cast<int>(heart_.heartc) << ' '
+        << static_cast<int>(heart_.hearts) << ' ' << static_cast<int>(heart_.hbeatf) << ' '
+        << (heart_.audio_level ? 1 : 0) << '\n';
     for (const auto& row : matrix_) {
         for (const std::uint8_t v : row) out << static_cast<int>(v) << ' ';
         out << '\n';
@@ -1048,6 +1155,13 @@ void Game::load_ram(std::istream& in) {
     line_.assign(line_size, ' ');
     in.read(line_.data(), static_cast<std::streamsize>(line_size));
     in.get();   // '|'
+    int hf = 0, hc = 0, hs = 0, hb = 0, al = 0;
+    in >> hf >> hc >> hs >> hb >> al;
+    heart_.heartf = static_cast<std::uint8_t>(hf);
+    heart_.heartc = static_cast<std::uint8_t>(hc);
+    heart_.hearts = static_cast<std::uint8_t>(hs);
+    heart_.hbeatf = static_cast<std::uint8_t>(hb);
+    heart_.audio_level = al != 0;
     int v = 0;
     for (auto& row : matrix_)
         for (std::uint8_t& cell : row) {

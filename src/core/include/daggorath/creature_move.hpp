@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "daggorath/combat.hpp"
+#include "daggorath/core_event.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/population.hpp"
 #include "daggorath/rng.hpp"
@@ -30,9 +31,24 @@ struct CmoveView {
     HeldShield left;
     HeldShield right;
     bool* heart_update = nullptr;  // set when CMOVE calls HUPDAT
+    // Sound requests in the order CMOVE makes them. `range` is -1 unless
+    // CWALK attenuated the volume by range.
+    struct Sound {
+        std::uint8_t cue = 0;
+        std::uint8_t volume = 0;
+        SoundEntry entry = SoundEntry::Sounds;
+        int range = -1;
+    };
+    std::vector<Sound>* sounds = nullptr;
     // Harness only. 100 is Original Mode (D-12). Player hits are not scaled.
     int incoming_damage_percent = 100;
 };
+
+// CWLK20 volume: B = ~(T0 * 31), low byte (CRETUR.ASM:355-358). A creature
+// in the player's cell attacks at $FF instead (CRETUR.ASM:77).
+inline std::uint8_t creature_sound_volume(int range) {
+    return static_cast<std::uint8_t>(~static_cast<std::uint8_t>(range * 31));
+}
 
 // One creature action. `events` are trace details (sound selection, pickup,
 // deferred attack). A Null queue means the task left SCDQUE for queue 0.

@@ -1,0 +1,12 @@
+VIEW rlight=7 mlight=0
+architecture -27 16 28 16 0 0
+architecture 28 16 28 135 0 0
+architecture 28 135 -30 135 0 0
+architecture -30 -18 28 16 0 0
+architecture 28 16 228 16 0 0
+architecture 28 135 228 135 0 0
+architecture 285 16 228 16 0 0
+architecture 228 16 228 135 0 0
+architecture 228 135 285 135 0 0
+architecture 285 -18 228 16 0 0
+vertical 1 1 256 1 0 0
