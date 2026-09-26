@@ -1,6 +1,7 @@
 #include "daggorath/creature_move.hpp"
 
 #include <cstdlib>
+#include <string>
 
 namespace dag {
 namespace {
@@ -59,13 +60,44 @@ bool cwalk(Ccb& self, int slot, std::array<Ccb, kCcbSlots>& ccbs, const Maze& ma
     return true;
 }
 
-void defer_attack(const Ccb& self, int slot, std::vector<std::string>& events) {
-    // Loud attack sound, then SHIELD into 0x8080. Hands are empty at game
-    // start (PLHAND/PRHAND are not written by ONCE), so the upgrade does not
-    // run. The ATTACK call itself is Phase 3.
+void apply_shield(HeldShield hand, std::uint8_t& magic, std::uint8_t& physical) {
+    // SHIELD: empty or non-shield leaves the pair. A lower (better) pair replaces it.
+    if (!hand.present || hand.cls != 3) return;
+    const unsigned current = (static_cast<unsigned>(magic) << 8) | physical;
+    const unsigned offered =
+        (static_cast<unsigned>(hand.magic_defense) << 8) | hand.physical_defense;
+    if (offered >= current) return;
+    magic = hand.magic_defense;
+    physical = hand.physical_defense;
+}
+
+void creature_attack(Ccb& self, int slot, Rng& rng, CmoveView& view,
+                     std::vector<std::string>& events) {
     events.push_back("SOUND slot=" + std::to_string(slot) +
                      " type=" + std::to_string(self.type) + " vol=255");
-    events.push_back("DEFER creature-attack " + std::to_string(slot));
+    std::uint8_t magic = 0x80;
+    std::uint8_t physical = 0x80;
+    apply_shield(view.left, magic, physical);
+    apply_shield(view.right, magic, physical);
+    if (view.player == nullptr) return;
+    view.player->magic_defense = magic;
+    view.player->physical_defense = physical;
+    Fighter attacker;
+    attacker.power = self.power;
+    attacker.damage = self.damage;
+    attacker.magic_offense = self.magic_offense;
+    attacker.magic_defense = self.magic_defense;
+    attacker.physical_offense = self.physical_offense;
+    attacker.physical_defense = self.physical_defense;
+    const std::uint8_t roll = rng.next();
+    if (!attack_hits(attacker.power, view.player->power, view.player->damage, roll)) {
+        events.push_back("MISS slot=" + std::to_string(slot) + " roll=" + std::to_string(roll));
+    } else {
+        apply_damage(attacker, *view.player);
+        events.push_back("HIT slot=" + std::to_string(slot) +
+                         " damage=" + std::to_string(view.player->damage));
+    }
+    if (view.heart_update != nullptr) *view.heart_update = true;
 }
 
 }  // namespace
@@ -92,7 +124,7 @@ Preference movement_preference(std::uint8_t random_byte) {
 }
 
 TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& objects,
-                 const Maze& maze, Rng& rng, const CmoveView& view,
+                 const Maze& maze, Rng& rng, CmoveView& view,
                  std::vector<std::string>& events) {
     Ccb& self = ccbs[static_cast<std::size_t>(slot)];
     const auto movement = TaskResult{Queue::Tenth, self.move_delay};
@@ -137,7 +169,7 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
     }
 
     if (self.row == view.player_row && self.col == view.player_col) {
-        defer_attack(self, slot, events);
+        creature_attack(self, slot, rng, view, events);
         return attack;
     }
 

@@ -77,6 +77,7 @@ void Scheduler::advance_clock_counters(std::uint32_t n) {
 }
 
 void Scheduler::interrupt(const std::vector<std::uint8_t>& keys_this_jiffy) {
+    if (halted_) return;
     ++counters_.total_jiffies;
 
     scan_queue(Queue::Jiffy);                     // CLK40: always the jiffy queue
@@ -114,7 +115,7 @@ void Scheduler::run_ready_pass() {
             if (static_cast<std::size_t>(id) >= ran.size()) ran.resize(tasks_.size(), 0);
             ran[static_cast<std::size_t>(id)] = 1;
             Task& t = tasks_[static_cast<std::size_t>(id)];
-            if (!t.alive) continue;
+            if (!t.alive || halted_) continue;
             if (trace_) trace_("TASK run " + t.name);
             const TaskResult r = t.run();
             if (r.queue == Queue::Sched) continue;

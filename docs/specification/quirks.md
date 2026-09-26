@@ -43,4 +43,4 @@ implementation artifact, comment error, or a discrepancy between two sources.
 | A dead creature returns with `B = 0`, and `SCHED` parks it on queue 0 | source behaviour | preserve by dropping the task; queue 0 is not scanned |
 | Scorpions and both wizard types do not pick objects up | source behaviour | preserve |
 | `MOVTAB` tries a side before forward when the random byte's low two bits are 0 | source behaviour | preserve; 64 of 256 |
-| `CMOVE` stops at `JSR ATTACK` | deviation of this core | D-7; Phase 3 retires it |
+| `CMOVE` stops at `JSR ATTACK` | retired 2026-09-25 | was D-7; the attack branch now calls `ATTACK` |

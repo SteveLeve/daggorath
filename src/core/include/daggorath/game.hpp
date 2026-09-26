@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "daggorath/combat.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/population.hpp"
 #include "daggorath/scheduler.hpp"
@@ -28,6 +29,10 @@ struct PlayerState {
     std::uint16_t carried_weight = 35;  // POBJWT: wooden sword 25 + pine torch 10
     std::uint8_t heart_rate = 0;    // HEARTR, in jiffies
     bool fainted = false;
+    bool dead = false;
+    int left_hand = -1;
+    int right_hand = -1;
+    int torch = -1;
 };
 
 struct TraceEvent {
@@ -92,6 +97,11 @@ public:
     void set_frozen(bool frozen) { frozen_ = frozen; }
     bool frozen() const { return frozen_; }
 
+    // PLHAND / PRHAND / PTORCH. Phase 3 has no GET; tests and later phases
+    // write the same slots the object commands will.
+    void hold(bool right, int object_index);
+    void wield_torch(int object_index);
+
     // HUPDAX: heart rate = (P*64)/(P+2D) - 19, by repeated subtraction, stored
     // in one signed byte. Faint at <= 3, recover above 4.
     void update_heart_rate();
@@ -104,6 +114,11 @@ private:
     void cmd_move(const std::string& line, std::size_t& pos);
     void cmd_turn(const std::string& line, std::size_t& pos);
     void cmd_look();
+    void cmd_attack(const std::string& line, std::size_t& pos);
+    int find_creature(int row, int col) const;
+    void kill_creature(int slot);
+    Fighter player_fighter() const;
+    void store_player_fighter(const Fighter& fighter);
     void step_player(int relative_dir);    // PSTEP
     void movement_exertion();              // PMOV90
     void emit(const std::string& kind, const std::string& detail);

@@ -9,6 +9,7 @@ add_library(daggorath_core
   parser.cpp
   population.cpp
   creature_move.cpp
+  combat.cpp
   game.cpp
 )
 target_include_directories(daggorath_core PUBLIC include)
