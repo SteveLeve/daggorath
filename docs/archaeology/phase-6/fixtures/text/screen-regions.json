@@ -1,0 +1,20 @@
+{
+  "description": "Logical 256-wide surface regions and text-block sizes",
+  "source": "COMDAT.ASM STSVDB/PRIVDB/VCNTRX/VCNTRY/TXTEXA/TXTSTS/TXTPRI; CD.ASM G6.LEN/D0.LEN",
+  "extraction_method": "EQU and FDB values read verbatim from the listing",
+  "centroid_x": 128,
+  "centroid_y": 76,
+  "centroid_source": "COMDAT.ASM:77 VCNTRX, COMDAT.ASM:78 VCNTRY",
+  "viewport_scanline_end": 152,
+  "status_scanline_end": 160,
+  "command_scanline_end": 192,
+  "stsvdb_source": "COMDAT.ASM:149",
+  "g6_len": 6144,
+  "viewport_char_rows": 19,
+  "examine_char_cells": 608,
+  "status_char_cells": 64,
+  "command_char_cells": 128,
+  "cell_pixel_w": 8,
+  "map_cell_scanlines": 6,
+  "map_source": "MAPPER.ASM DSP32 LDB #32*6"
+}

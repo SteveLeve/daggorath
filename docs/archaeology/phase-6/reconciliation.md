@@ -13,3 +13,9 @@ Default `dcli` traces (`t1`–`t5`, `idle-10min`, `fight-to-kill`, `fight-to-dea
 No default-trace line is renamed in this slice. Heartbeat toggles, `Block` events, `MODE` stores, and detailed sound payloads live only on the CoreEvent stream.
 
 `fixtures/sounds.json` is a hashed fixture (cue table and generator immediates). `make fixtures` extracts it after the Phase 0b set.
+
+## Mapper, examine and text
+
+Screen regions are **[SRC]** `COMDAT.ASM` `STSVDB`/`PRIVDB`/`VCNTRX`/`VCNTRY`: centroid (128, 76), viewer through scanline 152, status through 160, command through 192. The Phase 0 report's line numbers match those constants.
+
+`MAPPER.ASM` is a 32×32 occupancy dump (solid `$FF` versus empty) plus optional object/creature marks, not the door-colour legend in its comment. `EXAMIN` and `STATUX` are character-cell projections. Fixtures live in [`fixtures/text/`](fixtures/text/) with their own `MANIFEST.json`, produced by `tools/extract_text.py`.

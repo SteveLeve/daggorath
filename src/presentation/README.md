@@ -15,6 +15,4 @@ Rules for this module:
   display mode) belong to the **core**, not here — the original couples them to
   the scheduler, so they are not "only graphics".
 
-First work here: `VIEWER` range walk, lighting and line-of-sight stop as a
-logical draw list (`viewer.cpp`), with vector bytes generated from the listing
-(`vector_tables.hpp`). Rasterisation stays out.
+`viewer.cpp` walks `VIEWER`'s range, lighting, and line of sight. Vector bytes come from generated `vector_tables.hpp`. `mapper.hpp`, `examine.hpp`, and `text.hpp` are the character-cell projections. Rasterisation stays out.
