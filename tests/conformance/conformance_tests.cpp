@@ -1027,6 +1027,14 @@ void test_projection() {
               sword_lines[0].x1 == 100 && sword_lines[0].y1 == 124 && sword_lines[1].x0 == 82 &&
               sword_lines[1].y0 == 118,
           "the forward sword list has a blade and a guard");
+    const std::uint8_t flask[] = {110, 162, 0xFC, 0x51, 0x0E, 0xB1, 0x00, 0xFE};
+    const auto flask_lines = dag::decode_vectors(flask, 128, 128, 128, 76, 0);
+    check(flask_lines.size() == 3 && flask_lines.back().x1 == 162 && flask_lines.back().y1 == 110,
+          "the forward flask list closes on its top");
+    const std::uint8_t ring_shape[] = {122, 60, 0xFC, 0x11, 0x1F, 0xFF, 0xF1, 0x00, 0xFE};
+    const auto ring_lines = dag::decode_vectors(ring_shape, 128, 128, 128, 76, 0);
+    check(ring_lines.size() == 4 && ring_lines.back().x1 == 60 && ring_lines.back().y1 == 122,
+          "the forward ring list closes on its top");
     dag::Game keys(1, 0);
     keys.set_frozen(true);
     for (char ch : std::string("TURN RIGHT")) keys.press(static_cast<std::uint8_t>(ch));
