@@ -58,6 +58,7 @@ int main(int argc, char** argv) {
     bool present = false;
     int second = 0;
     int level = 0;
+    bool frozen = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -73,6 +74,7 @@ int main(int argc, char** argv) {
             have_second = true;
         }
         else if (a == "--level") level = std::atoi(next().c_str());
+        else if (a == "--frozen") frozen = true;
         else if (a == "--dump-maze") maze_out = next();
         else if (a == "--trace") trace_out = next();
         else if (a == "--present") present = true;
@@ -84,6 +86,7 @@ int main(int argc, char** argv) {
     if (have_second) held.emplace(static_cast<std::uint8_t>(second), level);
     else held.emplace();
     dag::Game& game = *held;
+    if (frozen) game.set_frozen(true);
 
     if (!script_path.empty()) {
         std::ifstream in(script_path);

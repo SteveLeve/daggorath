@@ -37,11 +37,14 @@ int main(int argc, char** argv) {
     const int want = std::atoi(argv[1]);
     int second = 1;
     int level = 0;
+    bool frozen = false;
     for (int i = 2; i < argc; ++i) {
         if (std::string(argv[i]) == "--second" && i + 1 < argc) second = std::atoi(argv[++i]);
         else if (std::string(argv[i]) == "--level" && i + 1 < argc) level = std::atoi(argv[++i]);
+        else if (std::string(argv[i]) == "--frozen") frozen = true;
     }
     dag::Game game(static_cast<std::uint8_t>(second), level);
+    if (frozen) game.set_frozen(true);
     game.set_frozen(true);
     int goal_row = -1;
     int goal_col = -1;
@@ -93,6 +96,7 @@ int main(int argc, char** argv) {
         };
         auto replay = [&]() {
             dag::Game simulated(static_cast<std::uint8_t>(second), level);
+            if (frozen) simulated.set_frozen(true);
             std::string error;
             simulated.load_script(dag::parse_script(script, error));
             simulated.advance_jiffies(jiffy + 2);
@@ -102,7 +106,7 @@ int main(int argc, char** argv) {
         add("USE LEFT");
         add("PULL LEFT SWORD");
         bool caught = false;
-        for (int step = 0; step < 80 && !caught; ++step) {
+        for (int step = 0; step < (frozen ? 400 : 80) && !caught; ++step) {
             dag::Game simulated = replay();
             int carrier_row = -1;
             int carrier_col = -1;
@@ -117,8 +121,8 @@ int main(int argc, char** argv) {
                 }
             }
             if (carrier_row < 0) break;
-            if (simulated.player().dead ||
-                simulated.player().damage + 15 >= simulated.player().power) {
+            if (!frozen && (simulated.player().dead ||
+                            simulated.player().damage + 15 >= simulated.player().power)) {
                 break;
             }
             if (simulated.player().row == carrier_row && simulated.player().col == carrier_col) {
@@ -211,7 +215,8 @@ int main(int argc, char** argv) {
             else if (delta == 2) add("TURN AROUND");
             add("MOVE");
             dag::Game after = replay();
-            if (after.player().dead || after.player().damage + 15 >= after.player().power) {
+            if (after.player().dead ||
+                (!frozen && after.player().damage + 15 >= after.player().power)) {
                 script = saved;
                 jiffy = saved_jiffy;
                 break;
