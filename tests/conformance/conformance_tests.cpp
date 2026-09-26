@@ -1012,6 +1012,10 @@ void test_projection() {
     const auto shifted = dag::decode_vectors(relative, 128, 128, 128, 76, 0);
     check(shifted.size() == 1 && shifted[0].x1 == 130 && shifted[0].y1 == 78,
           "a relative nybble pair steps by two pixels at scale 128");
+    const std::uint8_t fresh[] = {76, 128, 90, 128, 0xFF, 76, 140, 76, 150, 0xFE};
+    const auto restarted = dag::decode_vectors(fresh, 128, 128, 128, 76, 0);
+    check(restarted.size() == 2 && restarted[1].x0 == 140 && restarted[1].x1 == 150,
+          "$FF starts a new pen position");
 }
 
 }  // namespace

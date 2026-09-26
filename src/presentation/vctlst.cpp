@@ -36,6 +36,11 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
         const std::uint8_t yb = list[i];
         if (yb >= 0xFA) {
             if (yb == kVectorEnd) break;
+            if (yb == 0xFF) {
+                ++i;
+                have_start = false;
+                continue;
+            }
             if (yb == 0xFC) {
                 ++i;
                 while (i < list.size() && list[i] != 0) {
