@@ -77,6 +77,41 @@ std::vector<std::uint8_t> whoosh(std::uint16_t& state, std::uint8_t volume) {
     return samples;
 }
 
+// KLINK. SETNVD loads NEGONE and the $60 decay. Each pass feeds SNOISE's high
+// byte, shifted right, then a second noise byte with bit 7 set. SNENVT writes
+// one sample unless the subtract borrows or lands on zero.
+std::vector<std::uint8_t> klink(std::uint16_t& state, std::uint8_t volume) {
+    std::vector<std::uint8_t> samples;
+    std::uint16_t level = 0xFFFF;
+    auto step = [&](std::uint8_t sample) -> bool {
+        const bool borrow = level < 0x60u;
+        level = static_cast<std::uint16_t>(level - 0x60u);
+        if (borrow || level == 0) return false;
+        emit_enveloped(samples, level, sample, volume);
+        return true;
+    };
+    for (;;) {
+        const auto first = static_cast<std::uint8_t>(snoise(state) >> 8);
+        if (!step(static_cast<std::uint8_t>(first >> 1))) break;
+        const auto second = static_cast<std::uint8_t>(snoise(state) >> 8);
+        if (!step(static_cast<std::uint8_t>(second | 0x80u))) break;
+    }
+    return samples;
+}
+
+// BANG via BOOMER and SWCHAR.ASM BANGD ($0050, 5). Pitch climbs by 2 to $0150.
+// Each pitch writes `repeats` noise samples. The waits are not stored.
+std::vector<std::uint8_t> bang(std::uint16_t& state, std::uint8_t volume) {
+    std::vector<std::uint8_t> samples;
+    for (std::uint16_t pitch = 0x0050; pitch != 0x0150; pitch = static_cast<std::uint16_t>(pitch + 2)) {
+        for (int i = 0; i < 5; ++i) {
+            const std::uint16_t word = snoise(state);
+            samples.push_back(dac_sample(static_cast<std::uint8_t>(word >> 8), volume));
+        }
+    }
+    return samples;
+}
+
 std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
                                       std::uint16_t& state) {
     if (kind != "SOUND") return {};
@@ -84,6 +119,8 @@ std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string
     // PATTK emits SOUND class=<hand class>. EMPHND and a sword are class 4,
     // which is A$SWOR / WHOOSH.
     if (detail == "class=4" || detail == "A$SWOR") return whoosh(state, 0xFF);
+    if (detail == "A$KLK2") return klink(state, 0xFF);
+    if (detail == "A$EXP0") return bang(state, 0xFF);
     return {};
 }
 

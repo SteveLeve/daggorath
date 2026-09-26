@@ -871,6 +871,8 @@ void Game::kill_creature(int slot) {
     creature.in_use = 0;
     emit("KILL", "slot=" + std::to_string(slot) + " type=" + std::to_string(type) +
                      " matrix=" + std::to_string(row[type]));
+    emit("SOUND", "A$EXP0");   // PATTK.ASM PATT40 ISOUND A$EXP0
+    sound(SoundCue::EXP0);
     const std::int16_t eighth = static_cast<std::int16_t>(creature.power) >> 3;
     const std::int16_t sum =
         static_cast<std::int16_t>(static_cast<std::int16_t>(player_.power) + eighth);
@@ -1028,7 +1030,9 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
         }
     }
     emit("HIT", "slot=" + std::to_string(slot));
-    sound(SoundCue::KLK2);   // PATTK.ASM ISOUND A$KLK2
+    emit("SOUND", "A$KLK2");   // PATTK.ASM ISOUND A$KLK2
+    sound(SoundCue::KLK2);
+    emit("DIALOGUE", "!!!");   // PATTK.ASM OUTSTI
     Fighter attacker;
     attacker.power = player_.power;
     attacker.magic_offense = magic;

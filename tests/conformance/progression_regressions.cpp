@@ -115,9 +115,13 @@ void test_image_ending() {
     check(kill_type(game, 10, ring), "the wizard's image (type 10) dies");
     check(has(game, "ENDGAM", "image"), "killing type 10 runs ENDGAM");
     const auto lines = dialogue(game);
-    check(lines.size() == 2 && lines[0] == "^ ENOUGH! I TIRE OF THIS PLAY..." &&
-              lines[1] == "   PREPARE TO MEET THY DOOM!!!",
+    check(lines.size() >= 2 && lines[lines.size() - 2] == "^ ENOUGH! I TIRE OF THIS PLAY..." &&
+              lines.back() == "   PREPARE TO MEET THY DOOM!!!",
           "ENDGAM prints PATTK.ASM's two OUTSTI strings");
+    bool hits_marked = !lines.empty();
+    for (std::size_t i = 0; i + 2 < lines.size(); ++i)
+        if (lines[i] != "!!!") hits_marked = false;
+    check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
     check(game.player().carried_weight == 200, "ENDGAM sets POBJWT to 200");
     check(game.player().bag_head == torch &&

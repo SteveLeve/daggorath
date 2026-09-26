@@ -53,6 +53,13 @@ int count(const dag::Game& game, const std::string& kind, std::uint64_t from = 0
     return n;
 }
 
+int count_detail(const dag::Game& game, const std::string& kind, const std::string& detail) {
+    int n = 0;
+    for (const auto& e : game.trace())
+        if (e.kind == kind && e.detail == detail) ++n;
+    return n;
+}
+
 // Stand the player on creature `slot` with creatures frozen.
 void stand_on(dag::Game& game, int slot) {
     game.set_frozen(true);
@@ -213,7 +220,18 @@ void test_kill_then_reentry() {
     game.advance_jiffies(j + 5);
     check(count(game, "KILL") == 1, "a lit wooden sword kills the creature",
           "kills=" + std::to_string(count(game, "KILL")));
-    check(!game.creatures()[static_cast<std::size_t>(slot)].in_use, "the kill clears P.CCUSE");
+    check(count_detail(game, "SOUND", "A$KLK2") > 0, "a connecting swing emits ISOUND A$KLK2");
+    check(count_detail(game, "DIALOGUE", "!!!") == count_detail(game, "SOUND", "A$KLK2"),
+          "each hit prints OUTSTI !!!");
+    check(count_detail(game, "SOUND", "A$EXP0") == 1, "the kill emits ISOUND A$EXP0");
+    const dag::Ccb& dead = game.creatures()[static_cast<std::size_t>(slot)];
+    check(!dead.in_use, "the kill clears P.CCUSE");
+    check(dead.object_head >= 0, "the killed creature was carrying an object");
+    if (dead.object_head >= 0) {
+        const dag::Ocb& loot = game.objects()[static_cast<std::size_t>(dead.object_head)];
+        check(loot.owner == 0 && loot.row == dead.row && loot.col == dead.col,
+              "PATT30 leaves the creature's object unowned on its cell");
+    }
     check(game.matrix_row()[type] == static_cast<std::uint8_t>(before - 1),
           "the kill decrements CMXLND");
     // CREGEN runs on the opening lap and then every five minutes.

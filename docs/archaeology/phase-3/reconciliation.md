@@ -15,7 +15,7 @@ Combat follows `PATTK.ASM` and the attack branch of `CRETUR.ASM`. The independen
 | RNG draws per swing | **[SRC]** A ring swing draws no byte. Any other swing draws one byte in `ATTACK`, plus a second byte in `PATT22` when it connects without a live torch. A swing with no creature on the cell draws nothing. `tests/conformance/combat_regressions.cpp` checks the ring case against a control run. |
 | Fixture meaning | The Python generator and the C++ core are independent implementations of the same listing reading. Agreement on the 88 `S`, 240 `D`, and 256 `A` rows shows internal consistency, not agreement with the ROM. |
 | Prompt §4 regression tests | `tests/conformance/combat_regressions.cpp`: attack while fainted, the darkness gate against a lit control, empty hand, ring bypass, same-jiffy player and creature attacks, kill to `CMXLND` to re-entry, and death on the jiffy of the hit. |
-| Fight traces | `traces/fight-to-kill` (empty hand, slot 16, type 0, killed at jiffy 234) and `traces/fight-to-death` (slot 8, type 1, death at jiffy 1759). Both are Original Mode on level 0. The kill script was produced by re-simulating after each command. ctest regenerates both traces and compares them byte for byte. |
+| Fight traces | `traces/fight-to-kill` (empty hand, slot 16, type 0, killed at jiffy 234) and `traces/fight-to-death` (slot 8, type 1, death at jiffy 1759). Both are Original Mode on level 0. The kill script was produced by re-simulating after each command. ctest regenerates both traces and compares them byte for byte. A connecting swing adds `SOUND A$KLK2` and `DIALOGUE !!!`; the kill adds `SOUND A$EXP0`. Those lines are `PATTK.ASM` `PATT24` and `PATT40`, recorded in the combat specification. |
 
 ## Deviations
 

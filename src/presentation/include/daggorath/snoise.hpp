@@ -26,8 +26,9 @@ std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume);
 // loops are not stored, and this does not advance the scheduler (D-4b).
 std::vector<std::uint8_t> whoosh(std::uint16_t& state, std::uint8_t volume);
 
-// Maps a trace event onto DAC samples. A$THUD and a sword swing (class 4,
-// A$SWOR) use full volume; the listing's SNVOL byte for that call is not read here.
+// Maps a trace event onto DAC samples. A$THUD, a sword swing (class 4 /
+// A$SWOR), a connecting hit (A$KLK2 / KLINK), and a kill (A$EXP0 / BANG)
+// use full volume. The listing's SNVOL byte for that call is not read here.
 std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
                                       std::uint16_t& state);
 

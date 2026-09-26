@@ -106,7 +106,8 @@ MOVE
 
 `TURN` and `LOOK` are the other movement commands. A blocked move plays a thud.
 The heartbeat is the original one-bit toggle, a click rather than a sampled
-thump. Other sound cues are not synthesized yet.
+thump. A connecting attack plays `KLINK`, and a kill plays `BANG`. Creature
+cries and the other object cues are not synthesized yet.
 
 The same binary can replay a script without opening a window:
 

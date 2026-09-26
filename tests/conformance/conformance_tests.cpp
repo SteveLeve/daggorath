@@ -280,6 +280,10 @@ void test_attack_right_abbreviation() {
     std::uint16_t state = 1;
     check(!dag::samples_for("SOUND", "class=4", state).empty(),
           "the sword swing synthesizes WHOOSH");
+    check(dag::samples_for("SOUND", "A$KLK2", state).size() == 682,
+          "a connecting hit synthesizes KLINK");
+    check(dag::samples_for("SOUND", "A$EXP0", state).size() == 640,
+          "a kill synthesizes BANG");
 }
 
 // ------------------------------------------------------- clock / tasks
@@ -1178,6 +1182,15 @@ void test_projection() {
     int blocks = 0;
     for (std::uint8_t pixel : scaled) blocks += pixel;
     check(blocks == with_sword * 9, "each lit dot becomes a 3 by 3 block");
+    type_line("DROP LEFT");
+    const dag::ViewSnapshot dropped_view = dag::snapshot_from(lit_game);
+    bool object_segment = false;
+    for (const dag::DrawSegment& segment : dag::project(dropped_view).segments)
+        if (segment.kind == "object") object_segment = true;
+    int dropped = 0;
+    for (std::uint8_t pixel : dag::rasterize(dropped_view)) dropped += pixel;
+    check(object_segment && dropped > lit_dots, "a sword on the floor is drawn in the viewer",
+          "dots=" + std::to_string(dropped));
     bool found_wall = false;
     for (int turn = 0; turn < 4 && !found_wall; ++turn) {
         int next_row = 0;
