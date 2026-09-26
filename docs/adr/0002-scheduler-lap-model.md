@@ -1,6 +1,6 @@
 # ADR-0002 — Scheduler lap model once creature tasks run
 
-**Status:** Proposed. To be settled in Phase 2.
+**Status:** Accepted, 2026-09-25. See Resolution.
 
 ## Context
 
@@ -39,6 +39,28 @@ listing, then chooses between 1 and 3 on source evidence, recording the choice
 here with a **Resolution** section and updating D-1/D-2 labels. Whatever is
 chosen, it is one switchable policy in `scheduler.cpp` so a later ROM capture can
 flip it without rewriting tasks; Original Mode ships exactly one policy.
+
+## Resolution (2026-09-25)
+
+`SCHED` (`COMMON.ASM`) is an endless lap: the tail returns to the head with no
+wait, a task that returns `Q.SCD` stays linked, and any other return is
+`QUERMV` plus `QUEADD`. `CMOVE` returns `Q.TEN` on every live path
+(`CRETUR.ASM` `CMOV99`). A dead creature returns with `B` still holding
+`P.CCUSE` (0), which is not `Q.SCD`. Nothing in this phase returns `Q.SCD`.
+
+Option 2 stays rejected: a lap's CPU cost is not in the listing. Option 1
+matches today's tests but drops a task that another task places on `SCDQUE`
+during the lap until the next jiffy, which the source would reach when it
+walks the tail. Option 3 is the policy Original Mode runs: within one jiffy,
+repeat the lap until every task queued onto `SCDQUE` this jiffy has run once;
+a task that returns `Q.SCD` is not run a second time in that jiffy. That bound
+is inferred. How many source laps fit in a jiffy is unresolved until a capture
+measures it (C-10).
+
+Countdown scans follow `QUEADD` link order. After `PLAYER` expires it is
+appended behind tasks already on `Q.JIF`, so a later same-scan tie runs
+`HSLOW` before `PLAYER`. Cross-queue order is unchanged: the jiffy queue is
+scanned before a rollover queue.
 
 ## Consequences
 

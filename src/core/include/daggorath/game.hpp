@@ -2,8 +2,8 @@
 // Source: HUMAN.ASM, PTURN.ASM, PLOOK.ASM, COMPLR.ASM, HUPDAT.ASM, COMMON.ASM,
 //         ONCE.ASM, COMDAT.ASM, NEWLVL.ASM, COMCRE.ASM, OBIRTH.ASM.
 //
-// Deliberately out of scope: combat, creature movement, attacks, magic,
-// rendering. CREGEN updates the matrix only; see population.hpp.
+// Deliberately out of scope: combat damage, magic, rendering. CMOVE runs;
+// the attack branch is D-7. CREGEN updates the matrix only.
 #pragma once
 #include <cstdint>
 #include <string>
@@ -84,9 +84,13 @@ public:
     }
 
     // NEWLVL for `level`, using the clock's current SECOND. Does not move the
-    // player and does not reset the scheduler (deviation D-6 covers the
-    // unqueued creature tasks; system tasks keep running).
+    // player. Previous CMOVE tasks are retired and the new level's creatures
+    // are queued. System tasks are not rebuilt (SYSTCB is not re-run).
     void enter_level(int level);
+
+    // FRZFLG. Frozen creatures take the movement-delay return and do not act.
+    void set_frozen(bool frozen) { frozen_ = frozen; }
+    bool frozen() const { return frozen_; }
 
     // HUPDAX: heart rate = (P*64)/(P+2D) - 19, by repeated subtraction, stored
     // in one signed byte. Faint at <= 3, recover above 4.
@@ -104,6 +108,8 @@ private:
     void movement_exertion();              // PMOV90
     void emit(const std::string& kind, const std::string& detail);
     TaskResult task_cregen();
+    TaskResult task_cmove(int slot);
+    void queue_creatures();
     void build_level(int level, std::uint8_t second);
     void start(bool rom_build, std::uint8_t second_at_entry, int level);
 
@@ -122,6 +128,8 @@ private:
     std::vector<TraceEvent> trace_;
     int player_task_ = -1;
     int hslow_task_ = -1;
+    std::vector<int> creature_tasks_;
+    bool frozen_ = false;
     // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
     bool sync_pending_ = false;
 };

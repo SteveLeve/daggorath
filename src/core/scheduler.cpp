@@ -16,26 +16,45 @@ std::string Counters::to_string() const {
 int Scheduler::add(Task t) {
     const int id = static_cast<int>(tasks_.size());
     const bool ready_now = (t.queue == Queue::Sched);
+    const Queue q = t.queue;
     tasks_.push_back(std::move(t));
     if (ready_now) ready_.push_back(id);          // QUEADD onto SCDQUE
+    else countdown_[static_cast<std::size_t>(q)].push_back(id);
     return id;
+}
+
+void Scheduler::erase_id(std::vector<int>& ids, int id) {
+    ids.erase(std::remove(ids.begin(), ids.end(), id), ids.end());
+}
+
+void Scheduler::retire(int id) {
+    if (id < 0 || static_cast<std::size_t>(id) >= tasks_.size()) return;
+    tasks_[static_cast<std::size_t>(id)].alive = false;
+    erase_id(ready_, id);
+    for (auto& list : countdown_) erase_id(list, id);
 }
 
 void Scheduler::scan_queue(Queue q) {
     if (sleep_) return;                           // QUESCN: TST SLEEP
-    // Traverse in list order; decrement each countdown; append expired tasks to
-    // the ready list in the order encountered.
-    for (std::size_t i = 0; i < tasks_.size(); ++i) {
-        Task& t = tasks_[i];
+    // QUEADD order, not allocation order. A task readied here is appended to
+    // SCDQUE and unlinked from this countdown list (QUERMV + QUEADD).
+    std::vector<int>& list = countdown_[static_cast<std::size_t>(q)];
+    std::vector<int> stay;
+    stay.reserve(list.size());
+    for (const int id : list) {
+        Task& t = tasks_[static_cast<std::size_t>(id)];
         if (!t.alive || t.queue != q) continue;
-        if (t.countdown == 0) continue;           // defensive; 0 never queued here
+        if (t.countdown == 0) continue;
         --t.countdown;
         if (t.countdown == 0) {
             t.queue = Queue::Sched;
-            ready_.push_back(static_cast<int>(i));
+            ready_.push_back(id);
             if (trace_) trace_("QUEUE ready " + t.name);
+        } else {
+            stay.push_back(id);
         }
     }
+    list.swap(stay);
 }
 
 void Scheduler::bump_counters(bool scan_rollover_queues) {
@@ -73,19 +92,39 @@ void Scheduler::requeue(int id, TaskResult r) {
     Task& t = tasks_[static_cast<std::size_t>(id)];
     t.queue = r.queue;
     t.countdown = r.countdown;
+    if (r.queue == Queue::Null || r.queue == Queue::Sched) return;
+    countdown_[static_cast<std::size_t>(r.queue)].push_back(id);
 }
 
 void Scheduler::run_ready_pass() {
-    // Snapshot the ready list: tasks made ready by this pass run on the next one.
-    const std::vector<int> pass = ready_;
-    for (const int id : pass) {
-        Task& t = tasks_[static_cast<std::size_t>(id)];
-        if (!t.alive) continue;
-        if (trace_) trace_("TASK run " + t.name);
-        const TaskResult r = t.run();
-        if (r.queue == Queue::Sched) continue;    // stays in SCDQUE
-        ready_.erase(std::remove(ready_.begin(), ready_.end(), id), ready_.end());
-        requeue(id, r);
+    // ADR-0002 option 3. SCHED restarts at the head when the tail is reached
+    // (COMMON.ASM SCHED). A task that returns Q.SCD stays linked and would run
+    // again on the next source lap; this jiffy gives it one run. A task another
+    // task queues onto SCDQUE during the jiffy runs before the jiffy ends.
+    std::vector<char> ran(tasks_.size(), 0);
+    for (;;) {
+        std::vector<int> pass;
+        for (const int id : ready_) {
+            if (static_cast<std::size_t>(id) >= ran.size()) ran.resize(tasks_.size(), 0);
+            if (!ran[static_cast<std::size_t>(id)] && tasks_[static_cast<std::size_t>(id)].alive)
+                pass.push_back(id);
+        }
+        if (pass.empty()) break;
+        for (const int id : pass) {
+            if (static_cast<std::size_t>(id) >= ran.size()) ran.resize(tasks_.size(), 0);
+            ran[static_cast<std::size_t>(id)] = 1;
+            Task& t = tasks_[static_cast<std::size_t>(id)];
+            if (!t.alive) continue;
+            if (trace_) trace_("TASK run " + t.name);
+            const TaskResult r = t.run();
+            if (r.queue == Queue::Sched) continue;
+            erase_id(ready_, id);
+            if (r.queue == Queue::Null) {
+                t.alive = false;
+                continue;
+            }
+            requeue(id, r);
+        }
     }
 }
 

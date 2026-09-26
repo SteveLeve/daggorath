@@ -52,9 +52,13 @@ the maze, then walks creature types from 11 down to 0. For each type it calls
 4. Stores the position. Direction and damage stay 0. The movement delay is
    the definition's movement delay.
 
-`CBIRTH` then allocates a task control block for `CMOVE` on `Q.TEN` with that
-delay. **The core does not queue that task** (deviation D-6). Movement and
-attacks are not implemented. The control-block fields above are.
+`CBIRTH` then allocates a task control block for `CMOVE` on `Q.TEN` with the
+movement delay (`COMCRE.ASM` `QUEADD`). The core does that. `NEWLVL` calls
+`SYSTCB` before birth, which empties the countdown lists, so the creature
+tasks sit ahead of `LUKNEW`'s later append. This core does not re-run `SYSTCB`
+on `enter_level` (Phase 1); it retires the previous `CMOVE` tasks and appends
+the new ones. If `LUKNEW` is already on `Q.TEN`, it stays ahead of those new
+tasks. That order difference is unresolved against a re-entry capture.
 
 Fixtures: `fixtures/population-entry.txt` and `fixtures/population.json`, for
 every level at `SECOND = 1`, and for level 0 at `SECOND` = 0, 1, 7, 30, 59.
@@ -120,9 +124,59 @@ matrix (`PATT40`). The core therefore never lowers a count.
 `CREGEN` only edits the current level's row. Time spent on another level does
 not regenerate this one.
 
-## 6. Not in this specification
+## 6. Movement (`CMOVE`)
 
-`CMOVE`'s priorities, attack resolution, frozen and dead creatures, and the
-wizard-death sequences are unread for implementation purposes. Queuing `CMOVE`
-is recorded as D-6 so those routines are not smuggled in as inert tasks that
-would change the foreground order.
+**[SRC]** `CRETUR.ASM` `CMOVE` through `CWALK`. Attack resolution past the
+`JSR ATTACK` is not implemented (D-7). No ROM frame covers a creature step.
+
+The task loads the control block from `P.TCDTA`.
+
+1. **Frozen.** `TST FRZFLG` / `BNE CMOV12`. A non-zero flag skips death,
+   pickup, and movement and returns the movement delay (`CMOV90`). **[SRC]**
+2. **Dead.** `P.CCUSE` zero returns immediately. `B` is still that zero, not
+   `Q.SCD` (12), so `SCHED` unlinks the task and `QUEADD`s queue 0. `QUESCN`
+   never scans queue 0. The core drops the task. **[SRC]** for the return
+   value; **[INF]** that queue 0 is a permanent park.
+3. **Pickup.** Types 6 (scorpion) and 10–11 (wizard image, wizard) skip this
+   (`CMPA #6` / `BEQ`, `CMPA #10` / `BGE`). Other types call `OFIND` with
+   `OFINDF` cleared: the first object on this level at the creature's cell
+   whose owner byte is zero. The object is prepended to `P.CCOBJ` and its
+   owner is decremented (0 becomes `$FF`). One object per action, then the
+   movement delay. No burden change. **[SRC]**
+4. **Same cell.** `P.CCROW` equals `PROW`. The creature sound is selected with
+   type and volume `$FF`. Shielding is loaded as `$8080` and `SHIELD` runs for
+   `PLHAND` then `PRHAND`. Those pointers are not written by `ONCE`, so they
+   are empty at the start and the `$8080` values stand. The core emits
+   `DEFER creature-attack <slot>` and does not call `ATTACK`, `DAMAGE`, or
+   `HUPDAT`. It returns the attack delay (`CMOV92`). **[SRC]** up to the
+   call; the stub is D-7.
+5. **Aligned approach.** Same row, or else same column. Direction is east (1)
+   when the creature's column is west of the player, west (3) otherwise;
+   south (2) when the creature's row is north of the player, north (0)
+   otherwise (`CMOV50`–`CMOV52`, `STPTAB`). `STEPOK` walks that direction. A
+   blocked step abandons the approach. Reaching the player's cell stores the
+   facing and takes one step (`CWALK` with relative 0). **[SRC]**
+   `STEPOK` rejects a destination outside the 32-wide map or a cell whose
+   byte is `$FF`. It does not test edge bits. **[SRC]**
+6. **Random preference.** One `RANDOM` byte (`CMOV70`). Bit 7 set keeps
+   forward/left/right (`MOVTAB` bytes 0, 3, 1). Bit 7 clear uses
+   forward/right/left (the three bytes at `MOVTAB+3`). The low two bits equal
+   to zero skip the first byte, so a side turn is tried first (64 of the 256
+   byte values). Each relative turn is `CWALK` until one succeeds. Then
+   relative 2 (back-off) is tried once, success or not (`CMOV78`). **[SRC]**
+7. **Requeue.** The delay is the movement delay unless the creature's cell is
+   now the player's, or the action was the attack path. Both delays come from
+   the definition block. The queue is `Q.TEN`. **[SRC]**
+8. **Sound on a step.** After a successful `CWALK`, if the larger absolute
+   row/column delta is at most 8 and the smaller is at most 2, one `RANDOM`
+   byte is drawn. Bit 0 set selects a sound: volume is the low byte of
+   `range * 31`, complemented; the index is the creature type. Bit 0 clear
+   selects silence. Either way `NEWLUK` is decremented. The core emits
+   `SOUND` with type and volume, or `silent`, and `LOOK`. It does not play
+   audio. **[SRC]** for the selection; audio output is out of scope.
+
+`CFIND` treats a destination as blocked when any in-use block already has that
+row and column. The walker has not stored the new cell yet, so it does not
+block itself. **[SRC]**
+
+Wizard-death sequences are not specified here.

@@ -14,9 +14,9 @@ a link to the reconciliation entry. Procedure: `archaeology/phase-0b/traces/READ
 | C-06 | MOVE/TURN animation and `SNOISE` durations | D-4 | Phase 0b | measured — §1. D-4 stays a core deviation |
 | C-07 | Blocked MOVE exertion | exertion on blocked path | Phase 1 | partial — weight 35 only — §1 |
 | C-08 | `SNOISE` effect on `SEED` | RNG stream after sound | Phase 0b | captured — `SEED` unchanged. A creature sound was not separately captured |
-| C-09 | First creature move after level entry | `CBIRTH` queuing of `CMOVE` | Phase 2 (planned) | not captured |
-| C-10 | Two creatures and a keystroke expiring in one jiffy | ADR-0002 lap policy | Phase 2 (planned) | not captured |
-| C-11 | 10-minute idle run on level 0 | `CMOVE` priorities in aggregate | Phase 2 (planned) | not captured |
+| C-09 | First creature move after level entry | `CBIRTH` queuing of `CMOVE`. Source trace: level 0, vipers (`CMOVE-6` onward) ready at jiffy 85 | Phase 2 | not captured |
+| C-10 | Two creatures and a keystroke expiring in one jiffy | ADR-0002 lap policy. Source order: jiffy queue (`PLAYER`) before `Q.TEN` (`CMOVE`) | Phase 2 | not captured |
+| C-11 | 10-minute idle run on level 0 | `CMOVE` priorities in aggregate. Core trace: `docs/archaeology/phase-2/traces/idle-10min.trace` | Phase 2 | not captured |
 | C-12 | Hit/miss sequence against a spider with the wooden sword | `ATTACK`, `DAMAGE`, `SCAL16` | Phase 3 (planned) | not captured |
 | C-13 | Faint and recovery timing | `HUPDAT` hysteresis, keyboard suspension | Phase 3 (planned) | not captured |
 | C-14 | Torch burn-out across minute boundaries | `BURNER` | Phase 4 (planned) | not captured |

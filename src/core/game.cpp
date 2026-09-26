@@ -3,6 +3,7 @@
 #include <cctype>
 #include <sstream>
 
+#include "daggorath/creature_move.hpp"
 #include "daggorath/parser.hpp"
 #include "daggorath/population.hpp"
 
@@ -70,8 +71,8 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     update_heart_rate();
 
     // ONCE.ASM SYSTCB adds the TCBDAT tasks to SCDQUE in this order. LUKNEW and
-    // BURNER stay inert. CREGEN performs the matrix increment. Creature CMOVE
-    // tasks are not queued (deviation D-6).
+    // BURNER stay inert. CREGEN performs the matrix increment. CMOVE was queued
+    // on Q.TEN during birth, ahead of LUKNEW's later QUEADD onto that queue.
     player_task_ = sched_.add({"PLAYER", [this] { return task_player(); },
                               Queue::Sched, 0, true});
     sched_.add({"LUKNEW", [] { return TaskResult{Queue::Tenth, 3}; },
@@ -99,6 +100,36 @@ void Game::build_level(int level, std::uint8_t second) {
     birth_creatures(level, matrix_[static_cast<std::size_t>(level)], level_.rng,
                     level_.maze, ccbs_);
     attach_objects(level, ccbs_, objects_);
+    queue_creatures();
+}
+
+void Game::queue_creatures() {
+    for (int id : creature_tasks_) sched_.retire(id);
+    creature_tasks_.clear();
+    for (int slot = 0; slot < kCcbSlots; ++slot) {
+        if (!ccbs_[static_cast<std::size_t>(slot)].in_use) continue;
+        const std::uint8_t delay = ccbs_[static_cast<std::size_t>(slot)].move_delay;
+        const int id = sched_.add({"CMOVE-" + std::to_string(slot),
+                                   [this, slot] { return task_cmove(slot); },
+                                   Queue::Tenth, delay, true});
+        creature_tasks_.push_back(id);
+    }
+}
+
+TaskResult Game::task_cmove(int slot) {
+    CmoveView view;
+    view.frozen = frozen_;
+    view.player_row = player_.row;
+    view.player_col = player_.col;
+    view.level = level_index_;
+    std::vector<std::string> events;
+    const TaskResult r = cmove(slot, ccbs_, objects_, level_.maze, level_.rng, view, events);
+    for (const std::string& e : events) {
+        const auto sp = e.find(' ');
+        if (sp == std::string::npos) emit(e, "");
+        else emit(e.substr(0, sp), e.substr(sp + 1));
+    }
+    return r;
 }
 
 void Game::enter_level(int level) {
