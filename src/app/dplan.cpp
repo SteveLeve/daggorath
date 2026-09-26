@@ -41,7 +41,8 @@ const char* obj_name(int t) {
 
 bool dangerous(const dag::Ccb& c) {
     if (!c.in_use) return false;
-    return c.type >= 4;  // knight and up, including both wizards
+    // Blobs and up (and any magic user) one-shot or near-one-shot PPOW 160.
+    return c.type >= 3 || c.magic_offense != 0;
 }
 
 bool wizard(const dag::Ccb& c) { return c.in_use && (c.type == 10 || c.type == 11); }
@@ -185,24 +186,35 @@ struct Runner {
         return static_cast<std::uint8_t>(c);
     }
 
-    void append_cmd(std::vector<dag::KeyEvent>& keys, std::uint64_t& j, const std::string& cmd) {
+    void append_cmd(std::vector<dag::KeyEvent>& keys, std::uint64_t j, const std::string& cmd) {
         for (const char c : cmd) {
-            const dag::KeyEvent e{j++, encode(c)};
+            const dag::KeyEvent e{j, encode(c)};
             keys.push_back(e);
             log.push_back(e);
         }
-        const dag::KeyEvent cr{j++, 0x0D};
+        const dag::KeyEvent cr{j, 0x0D};
         keys.push_back(cr);
         log.push_back(cr);
     }
 
-    void type(const std::vector<std::string>& cmds, std::uint64_t extra = 4) {
+    void type(const std::vector<std::string>& cmds, std::uint64_t extra = 2) {
         std::vector<dag::KeyEvent> keys;
         std::uint64_t j = game.counters().total_jiffies;
-        for (const auto& c : cmds) append_cmd(keys, j, c);
+        std::size_t used = 0;
+        for (const auto& c : cmds) {
+            if (used + c.size() + 1 > 31) {
+                ++j;
+                used = 0;
+            }
+            append_cmd(keys, j, c);
+            used += c.size() + 1;
+        }
         game.load_script(keys);
-        const std::uint64_t span = (j - game.counters().total_jiffies) + extra;
-        game.advance_jiffies(span);
+        const std::uint64_t now = game.counters().total_jiffies;
+        std::uint64_t span = extra;
+        if (j + 1 > now) span = (j - now) + extra;
+        if (span < extra) span = extra;
+        game.advance_jiffies(span == 0 ? 1 : span);
         waits = 0;
     }
 
@@ -264,10 +276,9 @@ struct Runner {
                 if (!dag::step_ok(game.maze(), r, c, static_cast<dag::Dir>(d), nr, nc)) continue;
                 const int ni = idx(nr, nc);
                 if (parent[static_cast<std::size_t>(ni)] != -2) continue;
+                if (nr >= 31 || nr <= 0) continue;
                 if (avoid && !(nr == tr && nc == tc)) {
-                    const int sl = creature_at(game, nr, nc);
-                    if (sl >= 0 && dangerous(game.creatures()[static_cast<std::size_t>(sl)]))
-                        continue;
+                    if (creature_at(game, nr, nc) >= 0) continue;
                 }
                 parent[static_cast<std::size_t>(ni)] = cur;
                 q.push(ni);
@@ -290,8 +301,8 @@ struct Runner {
         const int delta = (want - face) & 3;
         if (delta == 1) type({"TURN RIGHT"});
         else if (delta == 3) type({"TURN LEFT"});
-        else if (delta == 2) type({"TURN AROUND"});
-        type({"MOVE"});
+        else if (delta == 2) type({"TURN AROUND"}, 2);
+        type({"MOVE"}, 2);
         return true;
     }
 
@@ -324,29 +335,48 @@ struct Runner {
                 }
             }
             if (!clear) continue;
-            type({"MOVE LEFT"});
-            if (game.player().row == pr && game.player().col == pc) type({"MOVE RIGHT"});
-            return true;
+            const int r0 = pr, c0 = pc;
+            if (dest_ok(3)) type({"MOVE LEFT"}, 2);
+            else if (dest_ok(1)) type({"MOVE RIGHT"}, 2);
+            else return false;
+            return game.player().row != r0 || game.player().col != c0;
         }
         return false;
     }
 
     bool rest_needed() const {
         const int d = game.player().damage;
-        const int p = game.player().power;
-        if (d > 63 && d * 2 > p) return true;
-        if (d > 63 && (phase == KillImage || phase == KillWizard)) return true;
+        if (d > 63) return true;
         const int hr = static_cast<int>(static_cast<std::int8_t>(game.player().heart_rate));
         return hr <= 8;
     }
 
+    bool dest_ok(int rel) const {
+        const dag::Dir d =
+            static_cast<dag::Dir>((static_cast<int>(game.player().dir) + rel) & 3);
+        int nr = 0, nc = 0;
+        if (!dag::step_ok(game.maze(), game.player().row, game.player().col, d, nr, nc))
+            return false;
+        return nr > 0 && nr < 31;
+    }
+
     bool flee() {
-        type({"MOVE BACK"});
-        if (here() < 0) return true;
-        type({"MOVE LEFT"});
-        if (here() < 0) return true;
-        type({"MOVE RIGHT"});
-        return here() < 0;
+        const int r0 = game.player().row, c0 = game.player().col;
+        const char* cmds[] = {"MOVE BACK", "MOVE LEFT", "MOVE RIGHT"};
+        const int rels[] = {2, 3, 1};
+        for (int i = 0; i < 3; ++i) {
+            if (!dest_ok(rels[i])) continue;
+            type({cmds[i]}, 2);
+            if (game.player().row != r0 || game.player().col != c0) return true;
+        }
+        for (int t = 0; t < 3; ++t) {
+            const char* turn = t == 0 ? "TURN LEFT" : t == 1 ? "TURN RIGHT" : "TURN AROUND";
+            type({turn}, 2);
+            if (!dest_ok(0)) continue;
+            type({"MOVE"}, 2);
+            if (game.player().row != r0 || game.player().col != c0) return true;
+        }
+        return false;
     }
 
     bool ring_ready() const {
@@ -391,19 +421,24 @@ struct Runner {
             const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(slot)];
             tr = c.row;
             tc = c.col;
-            if (game.player().row == tr && game.player().col == tc) {
-                if (game.player().left_hand < 0) {
-                    const int sw = obj_of(game, kWooden, 1);
-                    if (sw >= 0 && !holding(sw)) {
-                        empty_hand(false);
-                        type({"PULL LEFT SWORD"});
-                    }
-                }
+            const int pr = game.player().row, pc = game.player().col;
+            const int adj = std::abs(pr - tr) + std::abs(pc - tc);
+            if (adj == 0) {
                 mark();
-                type({"ATTACK LEFT"});
+                strike_and_clear();
                 return false;
             }
-            path_step(tr, tc, true);
+            if (adj == 1) {
+                idle(6);
+                return false;
+            }
+            if (tr >= 31 || tr <= 0) {
+                idle(20);
+                return false;
+            }
+            if (!path_step(tr, tc, true)) {
+                if (!path_step(tr, tc, false)) idle(20);
+            }
             return false;
         }
         if (game.player().row == tr && game.player().col == tc) {
@@ -413,6 +448,17 @@ struct Runner {
         }
         path_step(tr, tc, true);
         return false;
+    }
+
+    bool face_and_move(int want) {
+        const int face = static_cast<int>(game.player().dir);
+        const int delta = (want - face) & 3;
+        if (delta == 1) type({"TURN RIGHT"}, 2);
+        else if (delta == 3) type({"TURN LEFT"}, 2);
+        else if (delta == 2) type({"TURN AROUND"}, 2);
+        const int r0 = game.player().row, c0 = game.player().col;
+        type({"MOVE"}, 2);
+        return game.player().row != r0 || game.player().col != c0;
     }
 
     bool go_down() {
@@ -439,10 +485,23 @@ struct Runner {
         return false;
     }
 
+    const char* leave_cmd() const {
+        if (dest_ok(2)) return "MOVE BACK";
+        if (dest_ok(3)) return "MOVE LEFT";
+        if (dest_ok(1)) return "MOVE RIGHT";
+        if (dest_ok(0)) return "MOVE";
+        return "MOVE BACK";
+    }
+
     void hit_run() {
         const bool left = left_is_ring();
         mark();
-        type({left ? "ATTACK LEFT" : "ATTACK RIGHT", "MOVE BACK"});
+        type({left ? "ATTACK LEFT" : "ATTACK RIGHT", leave_cmd()}, 2);
+        if (here() >= 0) flee();
+    }
+
+    void strike_and_clear() {
+        type({"ATTACK LEFT", leave_cmd()}, 2);
         if (here() >= 0) flee();
     }
 
@@ -480,39 +539,59 @@ struct Runner {
     }
 
     int play(std::uint64_t max_jiffies) {
+        int ticks = 0;
+        std::uint64_t last_j = 0;
         while (!game.player().dead && !game.player().won &&
                game.counters().total_jiffies < max_jiffies) {
+            if ((++ticks % 200) == 0) {
+                std::cerr << "tick " << ticks << " phase=" << static_cast<int>(phase)
+                          << " lv=" << game.level_index() << " pos=" << game.player().row << ","
+                          << game.player().col << " p=" << game.player().power
+                          << " d=" << game.player().damage
+                          << " j=" << game.counters().total_jiffies << "\n";
+                if (ticks > 50 && game.counters().total_jiffies == last_j) {
+                    report_block("planner made no clock progress");
+                    return 1;
+                }
+                last_j = game.counters().total_jiffies;
+            }
             if (game.player().fainted) {
                 idle(20);
                 continue;
             }
+            const auto p = game.player();
+            const std::uint16_t ring_effort = dag::scal16(p.power, 63);
+            const bool ring_safe = static_cast<unsigned>(p.damage) + ring_effort < p.power;
             const int occ = here();
             if (occ >= 0) {
+                if (!ring_safe && ring_ready()) {
+                    if (!flee()) idle(20);
+                    continue;
+                }
+                if (hand_type(false) == kVulcan || hand_type(true) == kVulcan)
+                    type({"INCANT FIRE"}, 2);
+                if (hand_type(false) == kHoth || hand_type(true) == kHoth)
+                    type({"INCANT ICE"}, 2);
                 const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(occ)];
-                if (wizard(c)) {
-                    if (!ring_ready()) {
-                        report_block("on wizard without a ring");
-                        return 1;
-                    }
+                if (wizard(c) && ring_ready() && ring_safe) {
                     hit_run();
                     continue;
                 }
-                if (dangerous(c) && !ring_ready()) {
-                    if (!flee()) {
-                        report_block("cannot flee dangerous occupant");
-                        return 1;
+                if (phase == TakeVulcan || phase == TakeHoth || phase == Arm) {
+                    if (ring_ready() && ring_safe) {
+                        hit_run();
+                        continue;
                     }
+                    strike_and_clear();
                     continue;
                 }
-                if (phase == TakeVulcan || phase == TakeHoth || phase == TakeThews ||
-                    phase == Arm) {
-                    type({"ATTACK LEFT"});
-                    continue;
+                if (!flee()) {
+                    if (ring_ready() && ring_safe) hit_run();
+                    else strike_and_clear();
                 }
-                if (!flee()) type({"ATTACK LEFT"});
                 continue;
             }
-            if (rest_needed() && phase != Light) {
+            if ((rest_needed() || (ring_ready() && !ring_safe)) && phase != Light) {
                 idle(40);
                 if (waits > 400) {
                     report_block("rest not reducing damage");
@@ -548,18 +627,21 @@ struct Runner {
                     break;
                 }
                 case TakeVulcan: {
-                    if (owned_by_player(game, find_obj(game, kVulcan))) {
-                        if (!holding(find_obj(game, kVulcan))) {
+                    const int v = find_obj(game, kVulcan);
+                    const int fire = find_obj(game, kFire);
+                    if (owned_by_player(game, v) || owned_by_player(game, fire) ||
+                        hand_type(false) == kFire || hand_type(true) == kFire ||
+                        hand_type(false) == kVulcan || hand_type(true) == kVulcan) {
+                        if (hand_type(false) == kVulcan) type({"INCANT FIRE"}, 2);
+                        if (hand_type(true) == kVulcan) type({"INCANT FIRE"}, 2);
+                        if (hand_type(false) != kFire && hand_type(true) != kFire) {
                             empty_hand(false);
-                            type({"PULL LEFT RING"});
+                            type({"PULL LEFT RING", "INCANT FIRE"}, 2);
                         }
-                        if (!is_incanted(game, game.player().left_hand, kFire) &&
-                            hand_type(false) == kVulcan)
-                            type({"INCANT FIRE"});
                         phase = Down1;
                         break;
                     }
-                    if (!take_object(kVulcan, "VULCAN RING") && waits > 200) idle(20);
+                    take_object(kVulcan, "VULCAN RING");
                     if (waits > 2000) {
                         report_block("cannot take VULCAN");
                         return 1;
@@ -570,6 +652,9 @@ struct Runner {
                     if (game.level_index() >= 1) {
                         phase = TakeHoth;
                         break;
+                    }
+                    if (game.player().row >= 28) {
+                        if (face_and_move(0)) break;
                     }
                     if (!go_down() && waits > 2000) {
                         report_block("cannot climb to 1");
@@ -595,7 +680,7 @@ struct Runner {
                         phase = Down2;
                         break;
                     }
-                    take_object(kHoth, "HOTH RING");
+                    take_object(kHoth, "RIME RING");
                     if (waits > 3000) {
                         report_block("cannot take HOTH");
                         return 1;
@@ -618,20 +703,7 @@ struct Runner {
                     break;
                 }
                 case TakeThews: {
-                    const int th = find_obj(game, kThews);
-                    if (th < 0 || owned_by_player(game, th) ||
-                        game.objects()[static_cast<std::size_t>(th)].level != 2 ||
-                        waits > 800) {
-                        phase = KillImage;
-                        break;
-                    }
-                    if (owned_by_player(game, th)) {
-                        empty_hand(true);
-                        type({"PULL RIGHT FLASK", "USE RIGHT"});
-                        phase = KillImage;
-                        break;
-                    }
-                    take_object(kThews, "THEWS FLASK");
+                    phase = KillImage;
                     break;
                 }
                 case KillImage: {
