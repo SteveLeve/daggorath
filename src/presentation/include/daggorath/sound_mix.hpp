@@ -34,16 +34,24 @@ inline void overlay_dac(std::vector<std::uint8_t>& timeline, std::vector<std::ui
     effect.erase(effect.begin(), effect.begin() + static_cast<std::ptrdiff_t>(n));
 }
 
-// A new generator takes the DAC now. The original plays one sound at a time in
-// the foreground, so queueing this behind a rattle that has not finished yet
-// would make the next creature silent until that rattle drained. One second at
-// 6000 Hz is the longest tail kept.
+// The original plays one sound at a time and each one blocks the foreground until
+// it ends, so a bite's rattle is always followed by its clank before the next
+// bite can start. A new cue therefore queues behind what is still playing. Only
+// when more than two seconds (12000 samples at 6000 Hz) would be pending does it
+// take the DAC now, keeping at most one second, so a crowd of creatures cannot
+// leave later ones silent. The backlog limit and the one-second preempt tail are
+// [INF]; D-4b already leaves sound time out of the simulation.
 inline void start_dac(std::vector<std::uint8_t>& carry, const std::vector<std::uint8_t>& incoming) {
     if (incoming.empty()) return;
+    constexpr std::size_t kMaxBacklog = 12000;
+    constexpr std::size_t kMaxPreempt = 6000;
+    if (carry.size() + incoming.size() <= kMaxBacklog) {
+        carry.insert(carry.end(), incoming.begin(), incoming.end());
+        return;
+    }
     if (carry.size() < incoming.size()) carry.resize(incoming.size());
     for (std::size_t i = 0; i < incoming.size(); ++i) carry[i] = incoming[i];
-    constexpr std::size_t kMaxSamples = 6000;
-    if (carry.size() > kMaxSamples) carry.resize(kMaxSamples);
+    if (carry.size() > kMaxPreempt) carry.resize(kMaxPreempt);
 }
 
 }  // namespace dag

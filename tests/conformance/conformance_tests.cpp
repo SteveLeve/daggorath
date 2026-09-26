@@ -1264,8 +1264,12 @@ void test_projection() {
           "a sound replaces the heartbeat already queued for this slice");
     std::vector<std::uint8_t> carry{1, 1, 1, 1, 1};
     dag::start_dac(carry, std::vector<std::uint8_t>{4, 4});
-    check(carry.size() == 5 && carry[0] == 4 && carry[1] == 4 && carry[2] == 1,
-          "a new creature sound starts now instead of after the one still playing");
+    check(carry.size() == 7 && carry[0] == 1 && carry[4] == 1 && carry[5] == 4,
+          "a new sound plays after the one still playing, as the foreground does");
+    std::vector<std::uint8_t> backlog(11000, 1);
+    dag::start_dac(backlog, std::vector<std::uint8_t>(3000, 4));
+    check(backlog.size() == 6000 && backlog[0] == 4 && backlog[2999] == 4 && backlog[3000] == 1,
+          "a backlog past two seconds is preempted so later creatures are not silent");
     for (std::uint8_t cue = 0; cue < 12; ++cue) {
         std::uint16_t noise = 1;
         const auto near = dag::samples_for_cue(cue, 0xFF, noise);

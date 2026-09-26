@@ -362,6 +362,11 @@ including the `SECOND` = 1 row `cregen 24 24 25 9 25`. The `SECOND` = 0, 1,
 7, 30, 59 spins are the same harness path. Neither is Original Mode.
 
 **Cross-reference:** the DAC mixdown policy in `overlay_dac`/`start_dac`
-(`src/presentation/include/daggorath/sound_mix.hpp`) — one foreground sound
-at a time, a new cue taking the DAC immediately, and at most a 1 s (6000
-sample) queued heartbeat tail — is **[INF]**, not timed from the listing.
+(`src/presentation/include/daggorath/sound_mix.hpp`) is **[INF]**, not timed from the
+listing. **[SRC]** each `SOUNDS`/`ISOUND` runs to completion in the foreground, so a
+creature's attack cue and the `A$KLK3` clank that follows a hit play back to back
+(about 41 + 17 jiffies for a viper at the 6000 Hz rate that reproduces the measured
+14-15 jiffy `THUD`). The presentation queues a new cue behind the one still playing
+and preempts only when more than 12000 samples (2 s) would be pending, keeping at
+most 6000. Core time is unchanged (D-4b), so attacks still repeat on their table
+delay while the audio may trail by a fraction of a second.
