@@ -5,9 +5,60 @@
 
 #include <SDL3/SDL.h>
 
+#include <fstream>
+#include <iostream>
+#include <optional>
+#include <sstream>
+#include <string>
 #include <vector>
 
-int main() {
+namespace {
+
+int headless(int argc, char** argv) {
+    std::string script_path;
+    std::uint64_t jiffies = 80;
+    bool have_second = false;
+    int second = 0;
+    for (int i = 2; i < argc; ++i) {
+        const std::string arg = argv[i];
+        auto next = [&]() -> std::string {
+            if (i + 1 >= argc) return {};
+            return argv[++i];
+        };
+        if (arg == "--script") script_path = next();
+        else if (arg == "--jiffies") jiffies = std::strtoull(next().c_str(), nullptr, 10);
+        else if (arg == "--second") {
+            second = std::atoi(next().c_str());
+            have_second = true;
+        }
+    }
+    std::optional<dag::Game> held;
+    if (have_second) held.emplace(static_cast<std::uint8_t>(second), 0);
+    else held.emplace();
+    dag::Game& game = *held;
+    if (!script_path.empty()) {
+        std::ifstream in(script_path);
+        if (!in) return 1;
+        std::ostringstream text;
+        text << in.rdbuf();
+        std::string error;
+        auto keys = dag::parse_script(text.str(), error);
+        if (!error.empty()) return 1;
+        game.load_script(std::move(keys));
+    }
+    game.advance_jiffies(jiffies);
+    std::cout << "# jiffy\tclock\tevent\tdetail\n";
+    for (const auto& event : game.trace()) std::cout << event.to_line() << "\n";
+    std::cout << "# final\trow=" << game.player().row << "\tcol=" << game.player().col
+              << "\tdir=" << static_cast<int>(game.player().dir)
+              << "\tdamage=" << game.player().damage << "\n";
+    return 0;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "--headless") return headless(argc, argv);
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) return 1;
     constexpr int kScale = 3;
     SDL_Window* window = SDL_CreateWindow("Dungeons of Daggorath",
