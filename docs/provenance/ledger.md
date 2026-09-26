@@ -79,6 +79,7 @@ undetermined-licence ports out of the provenance chain entirely.
 | `fixtures/rng.json`, `rng-vectors.txt` | computed by an independent transliteration of `RANDOX` | new work embedding **behaviour**, not source bytes |
 | `fixtures/mazes.json`, `maze-level-0..4.bin` | computed by an independent transliteration of `DGNGEN` from the `LVLTAB` seeds | the seed bytes (7 bytes) are copied data; the 5 KiB of maze output is computed |
 | `fixtures/tokens.json`, `parser-prefixes.json` | decoded from `TOKEN.ASM`'s packed strings | **copied data**: the player-facing lexicon is verbatim original content |
+| `docs/archaeology/phase-6/fixtures/vectors.json` and `draw-level-*-start-*.txt` | extracted vector lists and a Python `VIEWER` walk | **copied data** in the blob; draw lists are computed |
 | `fixtures/creatures.json`, `objects.json`, `vertical-features.json` | parsed from `DTABAS.ASM`, `COMDAT.ASM`, `COMCRE.ASM` macro arguments and `FCB` lists | **copied data**: original tuning tables |
 | `fixtures/clock.json`, `initial-state.json` | constants read from `COMMON.ASM`, `CD.ASM`, `ONCE.ASM`, `COMDAT.ASM` | small constants; low risk but still copied |
 | `reference/**` | written for this project from the behavioural reading | new project code |

@@ -25,6 +25,8 @@ option(DAGGORATH_BUILD_TESTS "Build the conformance tests" ON)
 # so they are located at configure time rather than copied into the build.
 set(DAGGORATH_FIXTURE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/docs/archaeology/phase-0b/fixtures"
     CACHE PATH "Directory holding the extracted fixtures")
+set(DAGGORATH_PHASE6_DIR "${CMAKE_CURRENT_SOURCE_DIR}/docs/archaeology/phase-6/fixtures"
+    CACHE PATH "Directory holding Phase 6 draw-list fixtures")
 
 add_subdirectory(src/core)          # simulation: no SDL, no platform APIs
 add_subdirectory(src/presentation)  # placeholder: vector/audio presentation state

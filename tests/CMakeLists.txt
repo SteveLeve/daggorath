@@ -18,6 +18,12 @@ add_executable(progression_regressions conformance/progression_regressions.cpp)
 target_link_libraries(progression_regressions PRIVATE daggorath::core)
 add_test(NAME progression_regressions COMMAND progression_regressions)
 
+add_executable(viewer_regressions conformance/viewer_regressions.cpp)
+target_link_libraries(viewer_regressions PRIVATE daggorath::core daggorath::presentation)
+target_compile_definitions(viewer_regressions
+  PRIVATE DAG_PHASE6_DIR="${DAGGORATH_PHASE6_DIR}")
+add_test(NAME viewer_regressions COMMAND viewer_regressions)
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")

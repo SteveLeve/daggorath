@@ -23,7 +23,7 @@ int scale_coord(std::uint8_t coord, std::uint8_t scale, int centroid) {
 
 std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std::uint8_t x_scale,
                                         std::uint8_t y_scale, int centroid_x, int centroid_y,
-                                        std::uint8_t fade) {
+                                        std::uint8_t fade, std::size_t start) {
     std::vector<DrawSegment> out;
     if (static_cast<std::uint8_t>(fade + 1u) == 0) return out;
     bool have_start = false;
@@ -31,7 +31,7 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
     int y0 = 0;
     std::uint8_t x_raw = 0;
     std::uint8_t y_raw = 0;
-    std::size_t i = 0;
+    std::size_t i = start;
     std::vector<std::size_t> returns;
     int steps = 0;
     while (i < list.size() && steps++ < 10000) {
@@ -72,7 +72,7 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
                     const auto raw_x = static_cast<std::uint8_t>(x_raw + x_delta);
                     const int y = scale_coord(raw_y, y_scale, centroid_y);
                     const int x = scale_coord(raw_x, x_scale, centroid_x);
-                    if (have_start) out.push_back(DrawSegment{x0, y0, x, y, "vector"});
+                    if (have_start) out.push_back(DrawSegment{x0, y0, x, y, 0, fade, "vector"});
                     x0 = x;
                     y0 = y;
                     y_raw = raw_y;
@@ -97,7 +97,7 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
             have_start = true;
             continue;
         }
-        out.push_back(DrawSegment{x0, y0, x, y, "vector"});
+        out.push_back(DrawSegment{x0, y0, x, y, 0, fade, "vector"});
         x0 = x;
         y0 = y;
         x_raw = list[i - 1];

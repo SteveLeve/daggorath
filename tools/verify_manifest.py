@@ -122,7 +122,8 @@ def main() -> int:
         print(f"UNLISTED {extra}")
         bad += 1
 
-    bad += check_population(d)
+    if "population.json" in listed:
+        bad += check_population(d)
 
     print(f"{'FAILED' if bad else 'OK'}: {len(listed)} fixtures, {bad} problems")
     return 1 if bad else 0

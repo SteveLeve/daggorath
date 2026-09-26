@@ -40,8 +40,7 @@ opening lap) and does not create a creature until the next entry.
 Every other command reports `UNIMPLEMENTED` rather than approximating.
 Creatures move by `CMOVE` (pickup, aligned approach, random preference,
 back-off) and requeue on `Q.TEN`. A same-cell action emits
-a hit or a miss, then `DAMAGE` on a hit. A kill drops loot, decrements `CMXLND`, and emits `DEFER endgame` for wizard types 10 and 11. Magic, rendering,
-audio and save/load are absent by design.
+a hit or a miss, then `DAMAGE` on a hit. A kill drops loot, decrements `CMXLND`, and emits `DEFER endgame` for wizard types 10 and 11. `dcli --present` prints the `VIEWER` logical draw list. Rasterisation, SDL and audio output are absent by design.
 
 `dcli` runs timestamped keystroke scripts and emits diff-friendly traces, so the
 same script can later be replayed against a ROM capture and compared line by line.

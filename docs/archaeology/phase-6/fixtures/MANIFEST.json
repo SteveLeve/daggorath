@@ -1,0 +1,84 @@
+{
+  "fixtures": [
+    {
+      "file": "draw-level-0-start-dark.txt",
+      "sha256": "5276d67bb741920164a2de9332b3ce72ed30e05bf9c16a147f128c4da509e657",
+      "bytes": 23
+    },
+    {
+      "file": "draw-level-0-start-magic.txt",
+      "sha256": "c30913d7c1e55d492d2e2dd3a5242584516534c2374e06040d64af30f29d1096",
+      "bytes": 86
+    },
+    {
+      "file": "draw-level-0-start-regular.txt",
+      "sha256": "a89469541531535ee50f1546fdac0261346a40bcc05a9c9b0917f6858e25da0a",
+      "bytes": 1645
+    },
+    {
+      "file": "draw-level-1-start-dark.txt",
+      "sha256": "5276d67bb741920164a2de9332b3ce72ed30e05bf9c16a147f128c4da509e657",
+      "bytes": 23
+    },
+    {
+      "file": "draw-level-1-start-magic.txt",
+      "sha256": "9dce317357f202851dfd0c7fd5b0bdabf09d0b3e51e74bb991bb0934f0b300a4",
+      "bytes": 24
+    },
+    {
+      "file": "draw-level-1-start-regular.txt",
+      "sha256": "3f9acd72c3068e653310986047fb71f7f873c6bbac9878acbffaa01b05ceb9f9",
+      "bytes": 298
+    },
+    {
+      "file": "draw-level-2-start-dark.txt",
+      "sha256": "5276d67bb741920164a2de9332b3ce72ed30e05bf9c16a147f128c4da509e657",
+      "bytes": 23
+    },
+    {
+      "file": "draw-level-2-start-magic.txt",
+      "sha256": "9dce317357f202851dfd0c7fd5b0bdabf09d0b3e51e74bb991bb0934f0b300a4",
+      "bytes": 24
+    },
+    {
+      "file": "draw-level-2-start-regular.txt",
+      "sha256": "af6ac76af80b170258e9b7f130bda10f37fd79d05519f80f6149436820a2f681",
+      "bytes": 450
+    },
+    {
+      "file": "draw-level-3-start-dark.txt",
+      "sha256": "5276d67bb741920164a2de9332b3ce72ed30e05bf9c16a147f128c4da509e657",
+      "bytes": 23
+    },
+    {
+      "file": "draw-level-3-start-magic.txt",
+      "sha256": "9dce317357f202851dfd0c7fd5b0bdabf09d0b3e51e74bb991bb0934f0b300a4",
+      "bytes": 24
+    },
+    {
+      "file": "draw-level-3-start-regular.txt",
+      "sha256": "3f9acd72c3068e653310986047fb71f7f873c6bbac9878acbffaa01b05ceb9f9",
+      "bytes": 298
+    },
+    {
+      "file": "draw-level-4-start-dark.txt",
+      "sha256": "5276d67bb741920164a2de9332b3ce72ed30e05bf9c16a147f128c4da509e657",
+      "bytes": 23
+    },
+    {
+      "file": "draw-level-4-start-magic.txt",
+      "sha256": "9dce317357f202851dfd0c7fd5b0bdabf09d0b3e51e74bb991bb0934f0b300a4",
+      "bytes": 24
+    },
+    {
+      "file": "draw-level-4-start-regular.txt",
+      "sha256": "f45b43d8c25c641092eb103484c3b64a64a813d7d6a62bf07707f2640e8f70a0",
+      "bytes": 359
+    },
+    {
+      "file": "vectors.json",
+      "sha256": "0d7d5db4d14fb59a4826e902ee3554942a1cd9370fc7e5eb196fa78717bf44a0",
+      "bytes": 11320
+    }
+  ]
+}

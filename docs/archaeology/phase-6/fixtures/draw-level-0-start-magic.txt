@@ -1,0 +1,3 @@
+VIEW rlight=0 mlight=13
+architecture 126 79 128 75 6 0
+architecture 128 75 129 79 6 0

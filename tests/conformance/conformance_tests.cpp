@@ -989,15 +989,8 @@ void test_save_and_snapshot() {
 
 void test_projection() {
     dag::ViewSnapshot dark;
-    dark.ahead[1] = 0;
-    check(dag::project(dark).segments.empty(), "zero light draws no walls");
-    dag::ViewSnapshot lit;
-    lit.regular_light = 7;
-    lit.ahead[1] = 0;
-    lit.ahead[2] = 0xFF;
-    const dag::RenderState state = dag::project(lit);
-    check(state.segments.size() == 1, "one open cell draws one wall");
-    check(state.segments[0].x0 == 128 - dag::kNormalScale[1] / 2, "wall uses NORSCL");
+    check(dag::project(dark).segments.empty(), "zero light draws no vectors");
+    check(dag::project(dark).text == "VIEW rlight=0 mlight=0", "darkness names both lights");
     dag::ViewSnapshot mapper;
     mapper.mode = 2;
     mapper.map_features = true;
