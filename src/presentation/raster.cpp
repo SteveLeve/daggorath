@@ -132,6 +132,10 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnaps
     for (const DrawSegment& segment : project(view).segments) draw_segment(pixels, segment, fade);
     for (const DrawSegment& segment : forward_object(view.foreground))
         draw_segment(pixels, segment, fade);
+    for (const DrawSegment& segment : forward_object(view.left_class))
+        draw_segment(pixels, segment, fade);
+    for (const DrawSegment& segment : forward_object(view.right_class))
+        draw_segment(pixels, segment, fade);
     return pixels;
 }
 

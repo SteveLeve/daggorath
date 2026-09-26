@@ -31,7 +31,9 @@ struct ViewSnapshot {
     int magic_light = 0;
     int mode = 0;  // 0 viewer, 1 examine, 2 mapper
     bool map_features = false;
-    int foreground = -1;  // object class to draw in front, or -1
+    int foreground = -1;  // lit torch class, or -1
+    int left_class = -1;
+    int right_class = -1;
     // Cell underfoot and the next four cells along the facing, 0xFF = solid.
     int ahead[5] = {0, 0, 0, 0, 0};
 };

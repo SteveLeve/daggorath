@@ -1074,11 +1074,15 @@ void test_projection() {
     int lit_dots = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) lit_dots += pixel;
     check(lit_dots == 173, "a lit level-0 view has 173 dots", "dots=" + std::to_string(lit_dots));
+    type_line("PULL LEFT SWORD");
+    int with_sword = 0;
+    for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) with_sword += pixel;
+    check(with_sword > lit_dots, "the held sword adds its glyph", "dots=" + std::to_string(with_sword));
     const auto scaled = dag::scale_frame(dag::rasterize(dag::snapshot_from(lit_game)), 3);
     check(scaled.size() == 256u * 3u * 192u * 3u, "integer scale triples each axis");
     int blocks = 0;
     for (std::uint8_t pixel : scaled) blocks += pixel;
-    check(blocks == 173 * 9, "each lit dot becomes a 3 by 3 block");
+    check(blocks == with_sword * 9, "each lit dot becomes a 3 by 3 block");
     bool found_wall = false;
     for (int turn = 0; turn < 4 && !found_wall; ++turn) {
         int next_row = 0;
