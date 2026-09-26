@@ -555,7 +555,20 @@ struct Runner {
     }
 
     bool adjacent_to(int r, int c) const {
-        return std::abs(game.player().row - r) + std::abs(game.player().col - c) == 1;
+        if (std::abs(game.player().row - r) + std::abs(game.player().col - c) != 1)
+            return false;
+        const int pr = game.player().row, pc = game.player().col;
+        dag::Dir face = dag::Dir::North;
+        if (r < pr)
+            face = dag::Dir::North;
+        else if (c > pc)
+            face = dag::Dir::East;
+        else if (r > pr)
+            face = dag::Dir::South;
+        else
+            face = dag::Dir::West;
+        int nr = 0, nc = 0;
+        return dag::step_ok(game.maze(), pr, pc, face, nr, nc) && nr == r && nc == c;
     }
 
     bool go_adjacent(int tr, int tc) {
@@ -744,6 +757,12 @@ struct Runner {
             std::cerr << " occupant " << type_name(c.type) << " dmg=" << c.damage
                       << " p=" << c.power << "\n";
         }
+        for (int i = 0; i < dag::kCcbSlots; ++i) {
+            const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(i)];
+            if (!c.in_use) continue;
+            std::cerr << " live " << type_name(c.type) << " r=" << static_cast<int>(c.row)
+                      << " c=" << static_cast<int>(c.col) << " dmg=" << c.damage << "\n";
+        }
         for (int t : {kVulcan, kHoth, kJoule, kElvish, kThews, kSupreme, kFire, kIce,
                       kEnergy, kIron, kBronze}) {
             const int i = find_obj(game, t);
@@ -890,19 +909,15 @@ struct Runner {
                         phase = Loot;
                         break;
                     }
-                    if (rest_needed() && here() < 0) {
+                    if (!torch_live()) {
+                        light_pine() || light_named(kLunar, "LUNAR TORCH");
+                        break;
+                    }
+                    if (rest_needed() && here() < 0 && live_count(game) > 2) {
                         idle(40);
                         break;
                     }
-                    if (camp_r >= 0 && !at_camp()) {
-                        return_camp();
-                        break;
-                    }
-                    if (lethal_aligned() && floor_here() == 0) seed_bait();
-                    idle(20);
-                    if (waits > 2500) {
-                        // Someone never walked in. Step toward the nearest live
-                        // creature just far enough to share a line, then camp.
+                    if (live_count(game) <= 2) {
                         int br = -1, bc = -1, bd = 1e9;
                         const int pr = game.player().row, pc = game.player().col;
                         for (int i = 0; i < dag::kCcbSlots; ++i) {
@@ -915,8 +930,19 @@ struct Runner {
                                 bc = c.col;
                             }
                         }
-                        if (br >= 0 && bd > 1) go_adjacent(br, bc);
+                        if (br >= 0 && bd > 1) {
+                            if (!go_adjacent(br, bc)) path_step(br, bc, false);
+                        } else {
+                            idle(20);
+                        }
+                        break;
                     }
+                    if (camp_r >= 0 && !at_camp()) {
+                        return_camp();
+                        break;
+                    }
+                    if (lethal_aligned() && floor_here() == 0) seed_bait();
+                    idle(20);
                     break;
                 }
                 case Loot: {
