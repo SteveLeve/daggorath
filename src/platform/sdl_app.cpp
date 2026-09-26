@@ -17,6 +17,7 @@ namespace {
 
 int headless(int argc, char** argv) {
     std::string script_path;
+    std::string samples_path;
     std::uint64_t jiffies = 80;
     bool have_second = false;
     int second = 0;
@@ -27,6 +28,7 @@ int headless(int argc, char** argv) {
             return argv[++i];
         };
         if (arg == "--script") script_path = next();
+        else if (arg == "--samples") samples_path = next();
         else if (arg == "--jiffies") jiffies = std::strtoull(next().c_str(), nullptr, 10);
         else if (arg == "--second") {
             second = std::atoi(next().c_str());
@@ -53,6 +55,14 @@ int headless(int argc, char** argv) {
     std::cout << "# final\trow=" << game.player().row << "\tcol=" << game.player().col
               << "\tdir=" << static_cast<int>(game.player().dir)
               << "\tdamage=" << game.player().damage << "\n";
+    if (!samples_path.empty()) {
+        dag::SoundMix mix;
+        mix.consume(game.trace());
+        std::ofstream out(samples_path, std::ios::binary);
+        if (!out) return 1;
+        out.write(reinterpret_cast<const char*>(mix.pending().data()),
+                  static_cast<std::streamsize>(mix.pending().size()));
+    }
     return 0;
 }
 
