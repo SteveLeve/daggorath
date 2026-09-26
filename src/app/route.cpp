@@ -95,6 +95,8 @@ int main(int argc, char** argv) {
             simulated.advance_jiffies(jiffy + 2);
             return simulated;
         };
+        add("PULL LEFT TORCH");
+        add("USE LEFT");
         add("PULL LEFT SWORD");
         bool caught = false;
         for (int step = 0; step < 80 && !caught; ++step) {
@@ -118,6 +120,37 @@ int main(int argc, char** argv) {
             }
             if (simulated.player().row == carrier_row && simulated.player().col == carrier_col) {
                 caught = true;
+                for (int swing = 0; swing < 20; ++swing) {
+                    const std::string saved = script;
+                    const std::uint64_t saved_jiffy = jiffy;
+                    add("ATTACK LEFT");
+                    dag::Game after = replay();
+                    bool killed = false;
+                    for (const auto& event : after.trace()) {
+                        if (event.kind == "KILL") killed = true;
+                    }
+                    if (after.player().dead || after.player().damage + 15 >= after.player().power) {
+                        script = saved;
+                        jiffy = saved_jiffy;
+                        break;
+                    }
+                    if (killed) break;
+                }
+                dag::Game after_kill = replay();
+                bool killed = false;
+                for (const auto& event : after_kill.trace()) {
+                    if (event.kind == "KILL") killed = true;
+                }
+                if (killed && after_kill.player().right_hand < 0) {
+                    const std::string saved = script;
+                    const std::uint64_t saved_jiffy = jiffy;
+                    add("GET RIGHT RING");
+                    dag::Game got = replay();
+                    if (got.player().right_hand < 0) {
+                        script = saved;
+                        jiffy = saved_jiffy;
+                    }
+                }
                 break;
             }
             std::vector<Node> nodes;
