@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <iosfwd>
 #include <string>
 #include <vector>
 
@@ -57,6 +58,9 @@ public:
         return ch;
     }
     std::uint64_t puts() const { return puts_; }
+    // KBDBUF, KBDHDR, KBDTAL.
+    void save_state(std::ostream& out) const;
+    void load_state(std::istream& in);
 
 private:
     std::array<std::uint8_t, 32> buf_{};
@@ -82,6 +86,7 @@ public:
     // DEATH's BRA *: the CPU never returns to CLOCK. Later tasks in this
     // jiffy do not run, and later interrupts are not taken.
     void halt() { halted_ = true; }
+    void set_halted(bool halted) { halted_ = halted; }   // suspend-snapshot restore
     bool halted() const { return halted_; }
 
     Counters& counters() { return counters_; }
@@ -111,6 +116,24 @@ public:
 
     const std::vector<int>& ready() const { return ready_; }
 
+    // SYSTCB: clear every queue and TCB, then flag a SCHED restart (RSTART).
+    // The task that caused it is not requeued: SCHED tests RSTART before the
+    // disposition, and its TCB is gone. The lap then starts again at the head
+    // of SCDQUE in the same jiffy.
+    void reset_tasks();
+
+    // SCHED1 tests ZFLAG after each task is requeued. A task that calls
+    // end_lap() ends this jiffy's lap there; `hook` then runs the tape
+    // operation. The remaining ready tasks run after the next interrupt,
+    // which LOAD90's IRQSYN waits for.
+    void end_lap(std::function<void()> hook) { lap_hook_ = std::move(hook); }
+
+    // TCBs, queue lists, clock, keyboard, and flags. Task bodies are not
+    // data: `resolve` rebuilds each one from its name.
+    using Resolver = std::function<std::function<TaskResult()>(const std::string&)>;
+    void save_state(std::ostream& out) const;
+    void load_state(std::istream& in, const Resolver& resolve);
+
 private:
     void scan_queue(Queue q);
     void requeue(int id, TaskResult r);
@@ -127,6 +150,8 @@ private:
     bool sleep_ = false;
     bool faint_ = false;
     bool halted_ = false;
+    bool restart_ = false;                // RSTART
+    std::function<void()> lap_hook_;
 };
 
 }  // namespace dag

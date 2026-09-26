@@ -1,6 +1,8 @@
 #include "daggorath/population.hpp"
 
 #include <cassert>
+#include <cstdlib>
+#include <iterator>
 
 namespace dag {
 namespace {
@@ -17,8 +19,11 @@ struct ObjDef {
     std::uint8_t initial_level, count;
 };
 
-// OBJXXX lines, DTABAS.ASM. Special-parameter symbols are the T.* indices:
-// T.RN15=18, T.RN11=19, T.RN13=20, T.RN12=21.
+// Placed rows are OBJXXX lines in DTABAS.ASM. Rows 18-24 are the SPCXXX
+// special objects (objects.json special_objects): types created by INCANT,
+// BURNER, and USE, not placed by GENXXX. Special-parameter symbols are the
+// T.* indices: T.RN15=18, T.RN11=19, T.RN13=20, T.RN12=21, T.RN20=22,
+// T.FLA4=23, T.TOR5=24.
 constexpr ObjDef kObjects[] = {
     {Ring, 255, 0, 5, {3, 18, 0}, true, 4, 1},    // SUPREME
     {Ring, 170, 0, 5, {3, 19, 0}, true, 3, 1},    // JOULE
@@ -38,6 +43,13 @@ constexpr ObjDef kObjects[] = {
     {Torch, 5, 0, 5, {15, 7, 0}, true, 0, 8},     // PINE  (T.TOR4 = 15)
     {Shield, 5, 0, 10, {108, 128, 0}, true, 0, 3}, // LEATHER (T.SHI4 = 16)
     {Sword, 5, 0, 16, {0, 0, 0}, false, 0, 4},    // WOODEN (T.SWO3 = 17)
+    {Ring, 0, 0, 0, {0, 0, 0}, false, 0, 0},      // FINAL (T.RN15 = 18)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // ENERGY (T.RN11 = 19)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // ICE (T.RN13 = 20)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // FIRE (T.RN12 = 21)
+    {Ring, 0, 0, 5, {0, 0, 0}, false, 0, 0},      // GOLD (T.RN20 = 22)
+    {Flask, 0, 0, 5, {0, 0, 0}, false, 0, 0},     // EMPTY (T.FLA4 = 23)
+    {Torch, 5, 0, 5, {0, 0, 0}, true, 0, 0},      // DEAD (T.TOR5 = 24)
 };
 
 constexpr int kPine = 15, kLeather = 16, kWooden = 17;
@@ -57,6 +69,8 @@ struct Filled {
 };
 
 Filled ocbfil(int type) {
+    // ODBTAB ends at T.TOR5. Release builds drop assert, so this stays live.
+    if (type < 0 || type >= static_cast<int>(std::size(kObjects))) std::abort();
     const ObjDef& d = kObjects[type];
     Filled f{d.cls, d.reveal, d.mgo, d.pho, {d.spec[0], d.spec[1], d.spec[2]}, d.spec_valid};
     if (!d.spec_valid) {
@@ -161,10 +175,9 @@ void birth_creatures(int level, const std::array<std::uint8_t, kCreatureTypes>& 
 }
 
 void attach_objects(int level, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& objects) {
-    for (Ocb& o : objects) {
-        o.next = -1;
-        o.carrier = -1;
-    }
+    // NLVL40 writes P.OCPTR only for creature-owned objects on this level, so
+    // the player's bag chain survives a level change.
+    for (Ocb& o : objects) o.carrier = -1;
     for (Ccb& c : ccbs) c.object_head = -1;
     int u = -1;
     int idx = -1;
