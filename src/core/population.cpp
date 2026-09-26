@@ -38,6 +38,13 @@ constexpr ObjDef kObjects[] = {
     {Torch, 5, 0, 5, {15, 7, 0}, true, 0, 8},     // PINE  (T.TOR4 = 15)
     {Shield, 5, 0, 10, {108, 128, 0}, true, 0, 3}, // LEATHER (T.SHI4 = 16)
     {Sword, 5, 0, 16, {0, 0, 0}, false, 0, 4},    // WOODEN (T.SWO3 = 17)
+    {Ring, 0, 0, 0, {0, 0, 0}, false, 0, 0},      // FINAL (T.RN15 = 18)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // ENERGY (T.RN11 = 19)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // ICE (T.RN13 = 20)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // FIRE (T.RN12 = 21)
+    {Ring, 0, 0, 5, {0, 0, 0}, false, 0, 0},      // GOLD (T.RN20 = 22)
+    {Flask, 0, 0, 5, {0, 0, 0}, false, 0, 0},     // EMPTY (T.FLA4 = 23)
+    {Torch, 5, 0, 5, {0, 0, 0}, true, 0, 0},      // DEAD (T.TOR5 = 24)
 };
 
 constexpr int kPine = 15, kLeather = 16, kWooden = 17;
