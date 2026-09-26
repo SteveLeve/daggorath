@@ -11,9 +11,10 @@ SHA-256 unless stated.
 | g++ | 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) | reference slice |
 | CMake | 3.28.3 | reference slice build |
 | Platform | Linux 6.18.44 x86_64 | build and test host |
-| `lwasm` | **not run** | no assembly of the listing was attempted; see §5 |
-| Emulator | **none available** | see §5 |
-| Retail ROM | **none available** | see §5 |
+| `lwasm` | LWTOOLS 4.25, built 2026-09-25 from the upstream tarball. Not installed on `PATH` | assembled the pinned listing. Byte comparison with catalog 26-3093 is in [`rom-diff.md`](rom-diff.md) |
+| Emulator | MAME 0.264, Ubuntu package `mame 0.264+dfsg.1-1`. Driver `coco2b` (“Color Computer 2B”, clone of `coco`, same `trs/coco12.cpp` and keyboard matrix): MC6809E at 894886 Hz, 64K RAM (driver default), Color BASIC 1.3 and Extended Color BASIC 1.1 (no BIOS options), cartridge passed as `-cart`. Chosen 2026-09-25 to match the owner's CoCo 2. The first invocation used `coco` (default BIOS `b12e11`, Color BASIC 1.2) and is superseded. XRoar is not in the Ubuntu noble archive that was queried | First invoked 2026-09-25 as `coco` with `-video none -sound none -skip_gameinfo -seconds_to_run 1` and an empty ROM path. Exited before a frame: `bas12.rom` and `extbas11.rom` were missing. No capture was produced. See [`rom-diff.md`](rom-diff.md) |
+| CoCo firmware | `bas13.rom` (Color BASIC 1.3) and `extbas11.rom` (Extended Color BASIC 1.1), 8192 bytes each. MAME 0.264 `coco2b` expects SHA-1 `28b92bebe35fa4f026a084416d6ea3b1552b63d3` and `ad927fb4f30746d820cb8b860ebb585e7f095dea`. Files used, both matching those SHA-1s: `bas13.rom` (archive filename `coco.rom`, from the archive's `coco2b.zip`) SHA-256 `5375b1caef9df815b781d9cd6df81ecdaddd2642b06a01adac521e40f1329751`; `extbas11.rom` SHA-256 `a18f270d3495d82b9f515de049f46253a623a2d9b1bb226c9ad338508344c5ee` | Rights basis: the owner holds a physical TRS-80 Color Computer 2 whose startup banner reports Color BASIC 1.3, a “B” model with the later video chip that `coco2b` emulates (owner report, 2026-09-25). Same basis as the cartridge row: the bytes are the Color Computer Archive images, not a dump of that machine. Microsoft/Tandy copyright; no redistribution grant. Held outside the repository in `DOD_FIRMWARE`, never committed. Used only to boot the emulator for captures |
+| Retail ROM | `Dungeons of Daggorath (1982) (26-3093) (Tandy).ccc`, 8192 bytes, SHA-256 `35e6a77354dcf1a3048f276824b7a0f9f759115fdd40603664cebfb3a7da6571` | Owner states they hold a physical Tandy cartridge. Bytes are the Color Computer Archive file for catalog 26-3093, kept in gitignored `captures/`, not a dump of that cartridge and not committed. Byte-identical to the LWTOOLS 4.25 image. See [`rom-diff.md`](rom-diff.md). Not an emulator capture |
 
 ## 2. Primary evidence — reconstructed assembly listing
 
@@ -92,22 +93,13 @@ the generated `lexicon_tables.hpp` clearly marked as generated, and put both in
 front of counsel before any public distribution. Nothing in this pack should be
 relicensed under the project's eventual terms without that review.
 
-## 5. ROM and emulator: blocked
+## 5. ROM and emulator
 
-No retail Dungeons of Daggorath ROM image and no CoCo emulator were available in
-this environment, and the environment's network egress reaches package registries
-and GitHub only, so neither could be obtained. `lwasm` was likewise not run, so
-the listing was not assembled and no cartridge hash comparison was made.
-
-Consequences, stated plainly:
-
-- **No claim in this pack is verified against a retail ROM.** Everything is
-  source-derived from a reconstructed listing that carries 2022 edits.
-- The maze hashes are hashes of *this pack's* serialization of the generator's
-  output. They are reproducible and independently cross-checked between two
-  implementations (Python and C++), but they are not evidence about the ROM.
-- Phase 0's blocker "are the listing/`lwasm` fixes behaviour-equivalent to the
-  retail ROM?" remains **open and untouched**.
-
-`traces/README.md` records the exact procedure to run once a ROM and emulator are
-available, so the comparison can be executed without redesigning it.
+Phase 0b found no ROM, no emulator, and did not run `lwasm`. Phase 1 recorded
+the later measurement in [`rom-diff.md`](rom-diff.md). The assembled listing
+matches the catalog 26-3093 image byte for byte. MAME 0.264 was then invoked
+on that image and exited before a frame, because Color BASIC 1.2 and Extended
+Color BASIC 1.1 were not legally obtained. No frame was captured, so
+behavioural claims are not ROM-observed. Maze hashes remain hashes of this
+project's serialization, cross-checked between the Python extractor and the
+C++ core.

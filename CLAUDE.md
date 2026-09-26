@@ -13,6 +13,17 @@ because a plausible-looking guess is worse than an admitted gap.
    and four Phase 0 statements the source contradicts.
 4. `docs/provenance/ledger.md` — before touching anything derived from an outside
    source.
+5. `docs/adr/` and `docs/planning/` — phase sequence, ROM observation track
+   (ADR-0003) and the capture backlog.
+
+## Commands
+
+`make all` runs fixtures, build, test, traces and verify; use it as the gate.
+`make sources` fetches the pinned listing into `third_party/` (never committed).
+ROM captures: `tools/rom/assemble.sh && tools/rom/run-capture.sh`, with
+`DOD_FIRMWARE`, `DOD_MAME` and `DOD_HASHPATH` set — see `tools/rom/README.md`.
+Before committing behaviour, fixture, spec or provenance changes, run the
+`evidence-auditor` agent; after `src/` boundary changes, `boundary-checker`.
 
 ## Evidence rules
 
@@ -27,6 +38,10 @@ because a plausible-looking guess is worse than an admitted gap.
   baseline to make a diff pass.
 - No ROM image, no emulator capture and no third-party port source enters the
   repository.
+- Firmware and the cartridge image live outside the tree (`captures/` is
+  gitignored). Direct MAME's cfg/snapshot output out of the repo.
+- An obstacle is recorded once, in one place, with its reason. Do not re-check
+  or restate it every turn; mark the item "not run: <reason>" and move on.
 
 ## Code rules
 
@@ -35,7 +50,7 @@ because a plausible-looking guess is worse than an admitted gap.
 - Input reaches the simulation as timestamped keystrokes or parsed commands, never
   by a side door.
 - Preserve original quirks. Do not "fix" a mechanic because it looks primitive;
-  classify it in the quirks ledger and decide deliberately.
+  classify it in `docs/specification/quirks.md` and decide deliberately.
 - Keep changes small and independently testable, with a regression test for each
   discovered historical behaviour.
 - Document deviations from the original explicitly, in
@@ -46,5 +61,5 @@ because a plausible-looking guess is worse than an admitted gap.
 ## Scope discipline
 
 Work the phase that is open. The current phase and its prompt are named in
-`README.md`. Do not expand into combat, creatures or mobile UI ahead of the
-sequence in the charter.
+`README.md`. Do not expand into creature movement, attacks, combat or UI ahead
+of the sequence in the charter.

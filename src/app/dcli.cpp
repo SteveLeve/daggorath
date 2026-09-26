@@ -1,12 +1,14 @@
 // dcli — headless trace harness for the Phase 0b reference slice.
 //
 //   dcli --script FILE [--jiffies N] [--second S] [--dump-maze FILE] [--trace FILE]
+// Omitting --second is Original Mode: 377 build interrupts, SECOND = 6.
 //   dcli --maze-hashes            (prints cleared-cell counts and RNG spin states)
 //
 // Emits a tab-separated trace: jiffy, clock counters, event kind, detail.
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -17,7 +19,9 @@ namespace {
 int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
                  "            [--dump-maze FILE] [--trace FILE]\n"
-                 "       dcli --maze-summary\n";
+                 "       dcli --maze-summary\n"
+                 "       --second sets a harness SECOND and skips the 377-interrupt\n"
+                 "       Original Mode build clock.\n";
     return 2;
 }
 
@@ -47,7 +51,8 @@ int maze_summary() {
 int main(int argc, char** argv) {
     std::string script_path, maze_out, trace_out;
     std::uint64_t jiffies = 600;
-    int second = 1;
+    bool have_second = false;
+    int second = 0;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -58,13 +63,19 @@ int main(int argc, char** argv) {
         if (a == "--maze-summary") return maze_summary();
         else if (a == "--script") script_path = next();
         else if (a == "--jiffies") jiffies = std::strtoull(next().c_str(), nullptr, 10);
-        else if (a == "--second") second = std::atoi(next().c_str());
+        else if (a == "--second") {
+            second = std::atoi(next().c_str());
+            have_second = true;
+        }
         else if (a == "--dump-maze") maze_out = next();
         else if (a == "--trace") trace_out = next();
         else return usage();
     }
 
-    dag::Game game(static_cast<std::uint8_t>(second), 0);
+    std::optional<dag::Game> held;
+    if (have_second) held.emplace(static_cast<std::uint8_t>(second), 0);
+    else held.emplace();
+    dag::Game& game = *held;
 
     if (!script_path.empty()) {
         std::ifstream in(script_path);

@@ -53,8 +53,8 @@ test: build
 
 traces: build $(TRACEFILES)
 
-%.trace: %.script
-	./$(BUILD)/src/app/dcli --script $< --jiffies 200 --second 1 --trace $@
+%.trace: %.script $(BUILD)/src/app/dcli
+	./$(BUILD)/src/app/dcli --script $< --jiffies 200 --trace $@
 
 verify:
 	python3 tools/verify_manifest.py "$(FIXTURES)"

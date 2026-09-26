@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "daggorath/parser.hpp"
+#include "daggorath/population.hpp"
 
 namespace dag {
 namespace {
@@ -37,17 +38,40 @@ std::string TraceEvent::to_line() const {
     return os.str();
 }
 
+Game::Game() { start(true, 0, 0); }
+
 Game::Game(std::uint8_t second_at_entry, int level) {
+    start(false, second_at_entry, level);
+}
+
+void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     // The clock is already running when NEWLVL builds the maze, so the SECOND
     // counter at level entry is an input to DGEN90, not to the maze itself.
-    level_ = generate_level(level, second_at_entry);
-    sched_.counters().second = second_at_entry;
+    // Original Mode applies the measured build interrupts first. SECOND is
+    // already 6 at DGEN90 and still 6 at GAME50, so the whole count lands
+    // before the maze spin. Foreground tasks are added after that, because
+    // SCHED has not started and the capture's matrix is still the CMTTAB row.
+    matrix_ = kCmtTab;
+    objects_ = create_dungeon_objects();
+    if (rom_build) {
+        sched_.advance_clock_counters(kLevel0BuildInterrupts);
+    } else {
+        sched_.counters().second = second_at_entry;
+    }
+    const std::uint8_t second_now = sched_.counters().second;
+    build_level(level, second_now);
+    // GAME30 runs after NEWLVL, so these two are absent from the first attachment.
+    for (const std::uint8_t type : {std::uint8_t{17}, std::uint8_t{15}}) {  // WOODEN, PINE
+        Ocb bag = birth_player_object(type, 0);
+        bag.owner = 1;                       // INC of the zeroed ownership byte
+        objects_.push_back(bag);
+    }
 
     update_heart_rate();
 
-    // ONCE.ASM SYSTCB adds the TCBDAT tasks to SCDQUE in this order. Only the
-    // two in scope for this slice are present; LUKNEW, BURNER and CREGEN are
-    // registered as inert placeholders so the ready-list order is preserved.
+    // ONCE.ASM SYSTCB adds the TCBDAT tasks to SCDQUE in this order. LUKNEW and
+    // BURNER stay inert. CREGEN performs the matrix increment. Creature CMOVE
+    // tasks are not queued (deviation D-6).
     player_task_ = sched_.add({"PLAYER", [this] { return task_player(); },
                               Queue::Sched, 0, true});
     sched_.add({"LUKNEW", [] { return TaskResult{Queue::Tenth, 3}; },
@@ -56,7 +80,7 @@ Game::Game(std::uint8_t second_at_entry, int level) {
                               Queue::Sched, 0, true});
     sched_.add({"BURNER", [] { return TaskResult{Queue::Minute, 1}; },
                 Queue::Sched, 0, true});
-    sched_.add({"CREGEN", [] { return TaskResult{Queue::Minute, 5}; },
+    sched_.add({"CREGEN", [this] { return task_cregen(); },
                 Queue::Sched, 0, true});
 
     sched_.set_trace([this](const std::string& msg) {
@@ -66,7 +90,26 @@ Game::Game(std::uint8_t second_at_entry, int level) {
     emit("INIT", "level=" + std::to_string(level) + " row=" +
                      std::to_string(player_.row) + " col=" +
                      std::to_string(player_.col) + " dir=" + dir_name(player_.dir) +
-                     " second=" + std::to_string(static_cast<int>(second_at_entry)));
+                     " second=" + std::to_string(static_cast<int>(second_now)));
+}
+
+void Game::build_level(int level, std::uint8_t second) {
+    level_index_ = level;
+    level_ = generate_level(level, second);
+    birth_creatures(level, matrix_[static_cast<std::size_t>(level)], level_.rng,
+                    level_.maze, ccbs_);
+    attach_objects(level, ccbs_, objects_);
+}
+
+void Game::enter_level(int level) {
+    build_level(level, sched_.counters().second);
+}
+
+TaskResult Game::task_cregen() {
+    // The opening lap runs this because the task was born in Q.SCD. A later
+    // NEWLVL is what turns the incremented matrix entry into a live creature.
+    cregen_increment(matrix_[static_cast<std::size_t>(level_index_)], level_.rng);
+    return {Queue::Minute, 5};
 }
 
 void Game::emit(const std::string& kind, const std::string& detail) {

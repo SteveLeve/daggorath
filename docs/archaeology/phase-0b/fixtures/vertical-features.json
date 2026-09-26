@@ -124,5 +124,12 @@
       ]
     }
   ],
-  "note": "Group-to-level mapping is INFERRED from the source comment columns and is an open item; the byte values are source-proven."
+  "note": "Bytes are source-proven. newlvl_vftptr is the byte index NEWLVL leaves in VFTPTR, computed by the NLVL10/NLVL12 walk (COMCRE.ASM VFTTAB, NEWLVL.ASM NLVL10). An index that lands on $80 means that direction's search is empty.",
+  "newlvl_vftptr_byte_index": [
+    0,
+    1,
+    14,
+    27,
+    28
+  ]
 }

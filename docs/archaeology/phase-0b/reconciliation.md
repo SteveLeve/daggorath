@@ -119,3 +119,29 @@ entry. A port that ships `HOTH` as a typed word gets it wrong.
 | High | Is the manual's bare `CLIMB` inconsistent with the game? | Needs a ROM probe; `PCLIMB` not analysed this phase. |
 | Medium | Whether a task returning `Q.SCD` is re-entered within the same jiffy in practice | Spec deviation D-2; measurable only against a ROM trace. |
 | Distribution | Rights for the extracted lexicon and tuning tables | See [`../../provenance/ledger.md`](../../provenance/ledger.md) §4. Needs counsel. |
+
+## 4. Phase 1 pointer
+
+Phase 1's reconciliation is
+[`../phase-1/reconciliation.md`](../phase-1/reconciliation.md). It does not
+edit the sections above. Phase 1 counts the 377 level-0 build interrupts;
+the reference traces open at `0:0:6.2.5`.
+
+The quirks ledger for Phase 0b is §2 of this file and is left as dated. The
+canonical ledger, which includes those rows and the Phase 1 rows, is
+[`../../specification/quirks.md`](../../specification/quirks.md). Deviation D-6
+is in [`../../specification/clock-and-scheduler.md`](../../specification/clock-and-scheduler.md)
+§13. The `CREGEN` blocker and the `VFTTAB` mapping row in §3 above are answered
+in that Phase 1 document; this table stays the Phase 0b record.
+
+Two fixture facts belong here because `make verify` requires the reason beside
+this pack:
+
+- `vertical-features.json` gained `newlvl_vftptr_byte_index`, computed by the
+  `NEWLVL` walk. The raw bytes and the grouped records are the same.
+- `population.json` and `population-entry.txt` were added. No existing fixture
+  hash was replaced to make a comparison pass.
+
+The ROM measurement was not made. The record is
+[`../../provenance/rom-diff.md`](../../provenance/rom-diff.md), not a second
+copy of that text.

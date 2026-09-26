@@ -90,6 +90,11 @@ public:
     //   3. poll the keyboard unless fainted
     void interrupt(const std::vector<std::uint8_t>& keys_this_jiffy);
 
+    // Advance the counter chain `n` times without scanning queues, polling the
+    // keyboard, or counting a scheduler-entry jiffy. The level-0 build runs
+    // CLOCK before SCHED starts, so those interrupts move the clock only.
+    void advance_clock_counters(std::uint32_t n);
+
     // The foreground SCHED pass: run every task currently ready, in list order.
     // A task returning Queue::Sched stays ready and runs again on the next pass
     // (see docs/.../clock-scheduler-spec.md, deviation D-2).
@@ -100,6 +105,7 @@ public:
 private:
     void scan_queue(Queue q);
     void requeue(int id, TaskResult r);
+    void bump_counters(bool scan_rollover_queues);
 
     std::vector<Task> tasks_;
     std::vector<int> ready_;             // SCDQUE, in order

@@ -56,6 +56,16 @@
       "bytes": 5960
     },
     {
+      "file": "population-entry.txt",
+      "sha256": "26ab90e96be04d3a6a196c2d3ffe225f66e8257500fb20eb87eeaa6c0521f263",
+      "bytes": 15073
+    },
+    {
+      "file": "population.json",
+      "sha256": "be5295c5fe2b1ba46b5735a7af071c3eb3d13768a904882dd951d1075a3a5fb4",
+      "bytes": 43982
+    },
+    {
       "file": "rng-vectors.txt",
       "sha256": "cccc1c07e97c65b3b114f5aaf14ea8d495af606f560ca618bb2180c06a20ceba",
       "bytes": 265
@@ -72,8 +82,8 @@
     },
     {
       "file": "vertical-features.json",
-      "sha256": "6a6628483fc14201e20e16e9389a794ce4f27e636be9822778a8581413000e4b",
-      "bytes": 2151
+      "sha256": "8204c4469fb71d142b6bdfade8ba595aaa516406cdf8f95e07a038d466bd1134",
+      "bytes": 2326
     }
   ]
 }
