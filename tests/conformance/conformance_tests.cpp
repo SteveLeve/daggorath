@@ -965,6 +965,7 @@ void test_projection() {
     for (int value : expect) {
         check(dag::snoise(noise) == value, "SNOISE matches the Python walk");
     }
+    check(dag::dac_sample(0x10, 0xFF) == 0x0C, "SNOUT masks the DAC byte with $FC");
 }
 
 }  // namespace

@@ -12,4 +12,9 @@ std::uint16_t snoise(std::uint16_t& state) {
     return value;
 }
 
+std::uint8_t dac_sample(std::uint8_t noise_high, std::uint8_t volume) {
+    const std::uint16_t product = static_cast<std::uint16_t>(noise_high) * volume;
+    return static_cast<std::uint8_t>((product >> 8) & 0xFCu);
+}
+
 }  // namespace dag
