@@ -1045,6 +1045,15 @@ void test_projection() {
     const auto scroll_lines = dag::decode_vectors(scroll, 128, 128, 128, 76, 0);
     check(scroll_lines.size() == 4 && scroll_lines.back().x1 == 194 && scroll_lines.back().y1 == 118,
           "the forward scroll list closes on its top");
+    // VARC.ASM LPEEK and RPEEK.
+    const std::uint8_t left_peek[] = {100, 28, 0xFC, 0x44, 0x2E, 0x42, 0x4C, 0x00, 0xFE};
+    const std::uint8_t right_peek[] = {100, 228, 0xFC, 0x4C, 0x22, 0x4E, 0x44, 0x00, 0xFE};
+    const auto left_lines = dag::decode_vectors(left_peek, 128, 128, 128, 76, 0);
+    const auto right_lines = dag::decode_vectors(right_peek, 128, 128, 128, 76, 0);
+    check(left_lines.size() == 4 && left_lines.back().x1 == 28 && left_lines.back().y1 == 128,
+          "the left peek list ends at its outer corner");
+    check(right_lines.size() == 4 && right_lines.back().x1 == 228 && right_lines.back().y1 == 128,
+          "the right peek list ends at its outer corner");
     dag::Game keys(1, 0);
     keys.set_frozen(true);
     for (char ch : std::string("TURN RIGHT")) keys.press(static_cast<std::uint8_t>(ch));
