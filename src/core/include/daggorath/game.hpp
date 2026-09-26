@@ -13,13 +13,12 @@
 #include <vector>
 
 #include "daggorath/combat.hpp"
+#include "daggorath/core_event.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/population.hpp"
 #include "daggorath/scheduler.hpp"
 
 namespace dag {
-
-enum class DisplayMode : std::uint8_t { Viewer = 0, Examine = 1, Mapper = 2 };
 
 struct PlayerState {
     int row = 0x10;                 // ONCE.ASM GAME10: LDD #$100B / STD PROW
@@ -41,6 +40,16 @@ struct PlayerState {
     bool map_features = false;
     std::uint8_t regular_light = 0;
     std::uint8_t magic_light = 0;
+};
+
+// CD.ASM:510-514 heartbeat bytes, plus the PIA single-bit sound output that
+// CLK30 flips (COMMON.ASM:437-439).
+struct HeartState {
+    std::uint8_t heartf = 0;   // HEARTF: status-line flash on/off (0 in map mode)
+    std::uint8_t heartc = 0;   // HEARTC: countdown to the next beat
+    std::uint8_t hearts = 0;   // HEARTS: heart size flag
+    std::uint8_t hbeatf = 0;   // HBEATF: audio heartbeat on/off
+    bool audio_level = false;  // PIA1 port B BIT1
 };
 
 struct TraceEvent {
@@ -87,6 +96,9 @@ public:
     const GeneratedLevel& level() const { return level_; }
     int level_index() const { return level_index_; }
     const std::vector<TraceEvent>& trace() const { return trace_; }
+    // ADR-0004 rule 1: the ordered, stamped event stream. Read-only.
+    const std::vector<CoreEvent>& events() const { return events_; }
+    const HeartState& heart() const { return heart_; }
     const Counters& counters() const { return sched_.counters(); }
     DisplayMode display_mode() const { return mode_; }
 
@@ -182,6 +194,15 @@ private:
     void step_player(int relative_dir);    // PSTEP
     void movement_exertion();              // PMOV90
     void emit(const std::string& kind, const std::string& detail);
+    CoreEvent& push_event(CoreEventKind kind);
+    void sound(SoundCue cue);                               // ISOUND, B = $FF
+    void sound(std::uint8_t cue, std::uint8_t volume, int range, int source);  // SOUNDS
+    void text(const std::string& s);                        // OUTSTI
+    void set_mode(DisplayMode mode);                        // STX DSPMOD
+    void block(BlockKind kind, std::uint32_t loops, std::uint32_t jiffies, bool known);
+    void inivu();                                           // PLOOK.ASM INIVUX
+    void wizard_fade_in();                                  // MISC.ASM WIZIX
+    void heartbeat_interrupt();                             // COMMON.ASM CLK30
     TaskResult task_cregen();
     TaskResult task_cmove(int slot);
     void queue_creatures();
@@ -202,6 +223,8 @@ private:
     std::vector<KeyEvent> script_;
     std::size_t script_pos_ = 0;
     std::vector<TraceEvent> trace_;
+    std::vector<CoreEvent> events_;
+    HeartState heart_;
     int player_task_ = -1;
     int hslow_task_ = -1;
     std::vector<int> creature_tasks_;
