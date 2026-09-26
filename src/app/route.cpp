@@ -77,6 +77,107 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    if (carried) {
+        std::string script;
+        std::uint64_t jiffy = 1;
+        auto add = [&](const std::string& text) {
+            for (char ch : text) {
+                script += std::to_string(jiffy) + ' ' + (ch == ' ' ? "SPACE" : std::string(1, ch)) + '\n';
+                ++jiffy;
+            }
+            script += std::to_string(jiffy) + " CR\n";
+            jiffy += 15;
+        };
+        auto replay = [&]() {
+            dag::Game simulated(static_cast<std::uint8_t>(second), 0);
+            std::string error;
+            simulated.load_script(dag::parse_script(script, error));
+            simulated.advance_jiffies(jiffy + 2);
+            return simulated;
+        };
+        add("PULL LEFT SWORD");
+        bool caught = false;
+        for (int step = 0; step < 80 && !caught; ++step) {
+            dag::Game simulated = replay();
+            int carrier_row = -1;
+            int carrier_col = -1;
+            for (int slot = 0; slot < dag::kCcbSlots; ++slot) {
+                const dag::Ccb& creature = simulated.creatures()[static_cast<std::size_t>(slot)];
+                if (!creature.in_use) continue;
+                for (int obj = creature.object_head; obj >= 0;
+                     obj = simulated.objects()[static_cast<std::size_t>(obj)].next) {
+                    if (simulated.objects()[static_cast<std::size_t>(obj)].type != want) continue;
+                    carrier_row = creature.row;
+                    carrier_col = creature.col;
+                }
+            }
+            if (carrier_row < 0) break;
+            if (simulated.player().dead ||
+                simulated.player().damage + 15 >= simulated.player().power) {
+                break;
+            }
+            if (simulated.player().row == carrier_row && simulated.player().col == carrier_col) {
+                caught = true;
+                break;
+            }
+            std::vector<Node> nodes;
+            std::vector<int> queue;
+            std::vector<char> seen(32 * 32, 0);
+            nodes.push_back({simulated.player().row, simulated.player().col, -1});
+            queue.push_back(0);
+            seen[simulated.player().row * 32 + simulated.player().col] = 1;
+            int found = -1;
+            for (std::size_t qi = 0; qi < queue.size() && found < 0; ++qi) {
+                const Node here = nodes[static_cast<std::size_t>(queue[qi])];
+                if (here.row == carrier_row && here.col == carrier_col) {
+                    found = queue[qi];
+                    break;
+                }
+                for (int dir = 0; dir < 4; ++dir) {
+                    int nr = 0;
+                    int nc = 0;
+                    if (!dag::step_ok(simulated.maze(), here.row, here.col, static_cast<dag::Dir>(dir), nr, nc))
+                        continue;
+                    const int key = nr * 32 + nc;
+                    if (seen[static_cast<std::size_t>(key)]) continue;
+                    seen[static_cast<std::size_t>(key)] = 1;
+                    nodes.push_back({nr, nc, queue[qi]});
+                    queue.push_back(static_cast<int>(nodes.size()) - 1);
+                }
+            }
+            if (found < 0) break;
+            int next = found;
+            while (nodes[static_cast<std::size_t>(next)].parent > 0) next = nodes[static_cast<std::size_t>(next)].parent;
+            const Node& step_to = nodes[static_cast<std::size_t>(next)];
+            int step_dir = 0;
+            const int drow = step_to.row - simulated.player().row;
+            const int dcol = step_to.col - simulated.player().col;
+            if (drow == -1) step_dir = 0;
+            else if (dcol == 1) step_dir = 1;
+            else if (drow == 1) step_dir = 2;
+            else step_dir = 3;
+            const int facing = static_cast<int>(simulated.player().dir);
+            const int delta = (step_dir - facing) & 3;
+            const std::string saved = script;
+            const std::uint64_t saved_jiffy = jiffy;
+            if (delta == 1) add("TURN RIGHT");
+            else if (delta == 3) add("TURN LEFT");
+            else if (delta == 2) add("TURN AROUND");
+            add("MOVE");
+            dag::Game after = replay();
+            if (after.player().dead || after.player().damage + 15 >= after.player().power) {
+                script = saved;
+                jiffy = saved_jiffy;
+                break;
+            }
+        }
+        std::cout << script;
+        dag::Game done = replay();
+        std::cerr << "pursue row=" << done.player().row << " col=" << done.player().col
+                  << " jiffies " << jiffy << "\n";
+        return 0;
+    }
+
     std::vector<Node> nodes;
     std::vector<int> queue;
     std::vector<char> seen(32 * 32, 0);
