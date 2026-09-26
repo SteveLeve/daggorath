@@ -29,4 +29,13 @@ std::vector<std::uint8_t> noise_pulses(std::uint16_t& state, std::uint8_t volume
     return samples;
 }
 
+std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume) {
+    std::vector<std::uint8_t> samples;
+    for (std::uint16_t pitch = 0x0080; pitch != 0x0150; pitch = static_cast<std::uint16_t>(pitch + 2)) {
+        const std::uint16_t word = snoise(state);
+        samples.push_back(dac_sample(static_cast<std::uint8_t>(word >> 8), volume));
+    }
+    return samples;
+}
+
 }  // namespace dag
