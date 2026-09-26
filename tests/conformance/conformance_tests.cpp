@@ -1054,6 +1054,10 @@ void test_projection() {
     const auto shield_lines = dag::decode_vectors(shield, 128, 128, 128, 76, 0);
     check(shield_lines.size() == 5 && shield_lines.back().x1 == 172 && shield_lines.back().y1 == 134,
           "the forward shield list finishes at its first corner");
+    const std::uint8_t scroll[] = {118, 194, 0xFC, 0x1F, 0x34, 0xF1, 0xDC, 0x00, 0xFE};
+    const auto scroll_lines = dag::decode_vectors(scroll, 128, 128, 128, 76, 0);
+    check(scroll_lines.size() == 4 && scroll_lines.back().x1 == 194 && scroll_lines.back().y1 == 118,
+          "the forward scroll list closes on its top");
 }
 
 }  // namespace
