@@ -322,6 +322,7 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-8 | Retired 2026-09-25 | Killing type 10 runs `ENDGAM` and type 11 runs the ring riddle (`PATTK.ASM`). Phase 5. |
 | D-9 | Retired 2026-09-25 | Incanting `FINAL` runs `WINNER` (`PINCAN.ASM`). Phase 5. |
 | D-11 | `ZLOAD` of a name that is not on the cassette reports `???` | **[SRC]** `LOAD` reads blocks until a header's name matches and never gives up. The core's cassette is an in-memory list, so an absent name would hang forever. ADR-0005. |
+| D-12 | `FUDGE incoming <percent>` scales creature damage applied to the player by percent/100; `FUDGE rest` sets `PDAM` to 63 | **Not source behaviour.** Harness script lines, ignored by the command parser. Default construction stays at 100 (Original Mode). ADR-0007: `Game::set_incoming_damage_percent` is a harness API; player hits are not scaled. Phase 5 playthrough. |
 
 ### Initial clock (applied)
 

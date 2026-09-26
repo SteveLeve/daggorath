@@ -137,6 +137,23 @@ public:
         update_heart_rate();
     }
 
+    // Harness only (ADR-0007). Default 100 is Original Mode. Creature damage
+    // applied to the player is multiplied by percent/100. Player hits are not
+    // scaled. Used only when a FUDGE line is replayed.
+    void set_incoming_damage_percent(int percent);
+    int incoming_damage_percent() const { return incoming_damage_percent_; }
+
+    enum class HarnessFudge { Incoming, Rest };
+    struct HarnessEvent {
+        std::uint64_t jiffy = 0;
+        HarnessFudge kind = HarnessFudge::Incoming;
+        int percent = 100;
+    };
+    void load_harness(std::vector<HarnessEvent> events) {
+        harness_ = std::move(events);
+        harness_pos_ = 0;
+    }
+
     // What ZSAVE writes: the direct page and common RAM, DP.BEG ($0200)
     // through MM.END (COMMON.ASM SAVE). That range holds the player, clock,
     // SEED, queue heads and TCBs, keyboard and line buffers, CMXLND, CCBLND,
@@ -237,10 +254,17 @@ private:
     std::string tape_name_;
     // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
     bool sync_pending_ = false;
+    int incoming_damage_percent_ = 100;
+    std::vector<HarnessEvent> harness_;
+    std::size_t harness_pos_ = 0;
+    void apply_due_harness(std::uint64_t now);
 };
 
 // Input script format: one event per line, "<jiffy> <KEY>" where KEY is a single
 // character, or the words SPACE, CR or BS. '#' starts a comment.
+// `FUDGE incoming <percent>` and `FUDGE rest` (optional leading jiffy) are
+// harness lines: parse_script ignores them. parse_harness collects them.
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error);
+std::vector<Game::HarnessEvent> parse_harness(const std::string& text, std::string& error);
 
 }  // namespace dag

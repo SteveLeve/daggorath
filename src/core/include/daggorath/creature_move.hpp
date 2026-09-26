@@ -40,6 +40,8 @@ struct CmoveView {
         int range = -1;
     };
     std::vector<Sound>* sounds = nullptr;
+    // Harness only. 100 is Original Mode (D-12). Player hits are not scaled.
+    int incoming_damage_percent = 100;
 };
 
 // CWLK20 volume: B = ~(T0 * 31), low byte (CRETUR.ASM:355-358). A creature

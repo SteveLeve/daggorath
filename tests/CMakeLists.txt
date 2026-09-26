@@ -51,3 +51,11 @@ add_test(NAME trace_diff_identity
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/rom/trace_diff.py
           ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-0b/traces/t1-move-turn-look.trace
           ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-0b/traces/t1-move-turn-look.trace)
+
+# Power-on to WINNER. Two dcli replays must emit WINNER and match byte for byte.
+# The script contains D-12 FUDGE lines (not source behaviour).
+set(PHASE5_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-5/traces)
+set(WINNER_SCRIPT ${PHASE5_TRACES}/power-on-to-winner.script)
+add_test(NAME playthrough_power_on_to_winner
+  COMMAND sh -c "\"$<TARGET_FILE:dcli>\" --script \"${WINNER_SCRIPT}\" --jiffies 230000 --trace \"${CMAKE_CURRENT_BINARY_DIR}/winner-a.trace\" && \"$<TARGET_FILE:dcli>\" --script \"${WINNER_SCRIPT}\" --jiffies 230000 --trace \"${CMAKE_CURRENT_BINARY_DIR}/winner-b.trace\" && grep -q WINNER \"${CMAKE_CURRENT_BINARY_DIR}/winner-a.trace\" && grep -q WINNER \"${CMAKE_CURRENT_BINARY_DIR}/winner-b.trace\" && cmp \"${CMAKE_CURRENT_BINARY_DIR}/winner-a.trace\" \"${CMAKE_CURRENT_BINARY_DIR}/winner-b.trace\"")
+set_tests_properties(playthrough_power_on_to_winner PROPERTIES TIMEOUT 120)

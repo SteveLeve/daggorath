@@ -19,8 +19,8 @@ are the eventual targets; neither is being built yet.
 | **Phase 2** | complete — `CMOVE` without attack; [reconciliation](docs/archaeology/phase-2/reconciliation.md) |
 | **Phase 3** | complete — combat through death; [reconciliation](docs/archaeology/phase-3/reconciliation.md) |
 | **Phase 4** | in review — object commands, torches, incant, climb; [reconciliation](docs/archaeology/phase-4/reconciliation.md) |
-| **Phase 5** | in review — endings and save; [reconciliation](docs/archaeology/phase-5/reconciliation.md) |
-| **Phase 6** | in review — logical draw list; 6a CoreEvent stream | [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
+| **Phase 5** | in review — endings, save, and a power-on `WINNER` script; [reconciliation](docs/archaeology/phase-5/reconciliation.md) |
+| **Phase 6** | in review — logical draw list, core events, map and text; [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
 | **Phases 7–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
