@@ -13,6 +13,7 @@
 #include <string>
 
 #include "daggorath/game.hpp"
+#include "daggorath/raster.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/snapshot.hpp"
 
@@ -20,7 +21,7 @@ namespace {
 
 int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
-                 "            [--dump-maze FILE] [--trace FILE] [--present]\n"
+                 "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE]\n"
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n";
@@ -51,7 +52,7 @@ int maze_summary() {
 }  // namespace
 
 int main(int argc, char** argv) {
-    std::string script_path, maze_out, trace_out;
+    std::string script_path, maze_out, trace_out, bitmap_out;
     std::uint64_t jiffies = 600;
     bool have_second = false;
     bool present = false;
@@ -73,6 +74,7 @@ int main(int argc, char** argv) {
         else if (a == "--dump-maze") maze_out = next();
         else if (a == "--trace") trace_out = next();
         else if (a == "--present") present = true;
+        else if (a == "--bitmap") bitmap_out = next();
         else return usage();
     }
 
@@ -121,6 +123,14 @@ int main(int argc, char** argv) {
     }
     if (present) {
         std::cout << dag::project(dag::snapshot_from(game)).to_text();
+    }
+    if (!bitmap_out.empty()) {
+        std::ofstream image(bitmap_out);
+        if (!image) {
+            std::cerr << "cannot write " << bitmap_out << "\n";
+            return 1;
+        }
+        image << dag::bitmap_pbm(dag::rasterize(dag::snapshot_from(game)));
     }
     return 0;
 }
