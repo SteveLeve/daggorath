@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
                 ++jiffy;
             }
             script += std::to_string(jiffy) + " CR\n";
-            jiffy += 15;
+            jiffy += 1;
         };
         auto replay = [&]() {
             dag::Game simulated(static_cast<std::uint8_t>(second), 0);
