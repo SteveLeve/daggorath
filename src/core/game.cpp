@@ -84,20 +84,6 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
 
     update_heart_rate();
 
-    // ONCE.ASM SYSTCB adds the TCBDAT tasks to SCDQUE in this order. LUKNEW and
-    // BURNER stay inert. CREGEN performs the matrix increment. CMOVE was queued
-    // on Q.TEN during birth, ahead of LUKNEW's later QUEADD onto that queue.
-    player_task_ = sched_.add({"PLAYER", [this] { return task_player(); },
-                              Queue::Sched, 0, true});
-    sched_.add({"LUKNEW", [] { return TaskResult{Queue::Tenth, 3}; },
-                Queue::Sched, 0, true});
-    hslow_task_ = sched_.add({"HSLOW", [this] { return task_hslow(); },
-                              Queue::Sched, 0, true});
-    sched_.add({"BURNER", [this] { return task_burner(); },
-                Queue::Sched, 0, true});
-    sched_.add({"CREGEN", [this] { return task_cregen(); },
-                Queue::Sched, 0, true});
-
     sched_.set_trace([this](const std::string& msg) {
         const auto sp = msg.find(' ');
         emit(msg.substr(0, sp), msg.substr(sp + 1));
@@ -108,8 +94,28 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
                      " second=" + std::to_string(static_cast<int>(second_now)));
 }
 
+// ONCE.ASM SYSTCB: every queue and TCB is cleared, then the TCBDAT tasks go
+// onto SCDQUE in this order. LUKNEW stays inert. CREGEN performs the matrix
+// increment. CBIRTH later queues CMOVE on Q.TEN, ahead of LUKNEW's QUEADD.
+void Game::systcb() {
+    sched_.reset_tasks();
+    creature_tasks_.clear();
+    player_task_ = sched_.add({"PLAYER", [this] { return task_player(); },
+                              Queue::Sched, 0, true});
+    sched_.add({"LUKNEW", [] { return TaskResult{Queue::Tenth, 3}; },
+                Queue::Sched, 0, true});
+    hslow_task_ = sched_.add({"HSLOW", [this] { return task_hslow(); },
+                              Queue::Sched, 0, true});
+    sched_.add({"BURNER", [this] { return task_burner(); },
+                Queue::Sched, 0, true});
+    sched_.add({"CREGEN", [this] { return task_cregen(); },
+                Queue::Sched, 0, true});
+}
+
+// NEWLVL: zero the CCBs, SYSTCB, DGNGEN, CBIRTH per CMXLND, attach objects.
 void Game::build_level(int level, std::uint8_t second) {
     level_index_ = level;
+    systcb();
     level_ = generate_level(level, second);
     birth_creatures(level, matrix_[static_cast<std::size_t>(level)], level_.rng,
                     level_.maze, ccbs_);
@@ -118,8 +124,6 @@ void Game::build_level(int level, std::uint8_t second) {
 }
 
 void Game::queue_creatures() {
-    for (int id : creature_tasks_) sched_.retire(id);
-    creature_tasks_.clear();
     for (int slot = 0; slot < kCcbSlots; ++slot) {
         if (!ccbs_[static_cast<std::size_t>(slot)].in_use) continue;
         const std::uint8_t delay = ccbs_[static_cast<std::size_t>(slot)].move_delay;

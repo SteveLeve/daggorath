@@ -55,10 +55,13 @@ the maze, then walks creature types from 11 down to 0. For each type it calls
 `CBIRTH` then allocates a task control block for `CMOVE` on `Q.TEN` with the
 movement delay (`COMCRE.ASM` `QUEADD`). The core does that. `NEWLVL` calls
 `SYSTCB` before birth, which empties the countdown lists, so the creature
-tasks sit ahead of `LUKNEW`'s later append. This core does not re-run `SYSTCB`
-on `enter_level` (Phase 1); it retires the previous `CMOVE` tasks and appends
-the new ones. If `LUKNEW` is already on `Q.TEN`, it stays ahead of those new
-tasks. That order difference is unresolved against a re-entry capture.
+tasks sit ahead of `LUKNEW`'s later append. The core re-runs `SYSTCB` on every
+`NEWLVL`, including `CLIMB` and `ENDGAM`. **[SRC]** `SYSTCB` sets `RSTART`, and
+`SCHED` tests `RSTART` before a task's disposition, so the task that called
+`NEWLVL` is not requeued. The fresh `PLAYER`, `LUKNEW`, `HSLOW`, `BURNER`, and
+`CREGEN` all run on that jiffy, so a lit torch loses one `BURNER` unit per level
+change. `NLVL40` rewrites `P.OCPTR` only for creature-owned objects on the new
+level; the player's bag chain is untouched.
 
 Fixtures: `fixtures/population-entry.txt` and `fixtures/population.json`, for
 every level at `SECOND = 1`, and for level 0 at `SECOND` = 0, 1, 7, 30, 59.

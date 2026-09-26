@@ -34,6 +34,13 @@ void Scheduler::retire(int id) {
     for (auto& list : countdown_) erase_id(list, id);
 }
 
+void Scheduler::reset_tasks() {
+    tasks_.clear();
+    ready_.clear();
+    for (auto& list : countdown_) list.clear();
+    restart_ = true;
+}
+
 void Scheduler::scan_queue(Queue q) {
     if (sleep_) return;                           // QUESCN: TST SLEEP
     // QUEADD order, not allocation order. A task readied here is appended to
@@ -103,6 +110,7 @@ void Scheduler::run_ready_pass() {
     // again on the next source lap; this jiffy gives it one run. A task another
     // task queues onto SCDQUE during the jiffy runs before the jiffy ends.
     std::vector<char> ran(tasks_.size(), 0);
+    restart_ = false;                             // SCHED: CLR RSTART
     for (;;) {
         std::vector<int> pass;
         for (const int id : ready_) {
@@ -118,6 +126,12 @@ void Scheduler::run_ready_pass() {
             if (!t.alive || halted_) continue;
             if (trace_) trace_("TASK run " + t.name);
             const TaskResult r = t.run();
+            if (restart_) {
+                // `t` no longer exists. Every new TCB is unrun this jiffy.
+                restart_ = false;
+                ran.assign(tasks_.size(), 0);
+                break;
+            }
             if (r.queue == Queue::Sched) continue;
             erase_id(ready_, id);
             if (r.queue == Queue::Null) {

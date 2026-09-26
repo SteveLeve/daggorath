@@ -456,6 +456,39 @@ void test_climb_every_feature() {
           "bare CLIMB on a ladder is rejected");
 }
 
+void test_climb_keeps_bag_and_runs_systcb() {
+    dag::Game game = frozen_game();
+    const int sword = player_object(game, kWooden);
+    const int pine = player_object(game, kPine);
+    run(game, {"PULL LEFT TORCH", "USE LEFT"});
+    const std::uint8_t timer = obj(game, pine).spec[0];
+    game.place_player(0, 23);
+    run(game, {"CLIMB DOWN"});
+    check(game.level_index() == 1, "the ladder leads to level 1");
+    // NLVL40 relinks only creature-owned objects on the new level.
+    std::vector<int> bag;
+    for (int i = game.player().bag_head; i >= 0; i = obj(game, i).next) bag.push_back(i);
+    check(bag.size() == 2 && bag[0] == pine && bag[1] == sword,
+          "the bag chain survives NEWLVL");
+    // SYSTCB queues fresh system TCBs on SCDQUE and sets RSTART, so they all
+    // run on the CLIMB's jiffy, and BURNER burns one unit.
+    std::uint64_t at = 0;
+    for (const auto& e : game.trace())
+        if (e.kind == "CLIMB") at = e.jiffy;
+    std::vector<std::string> ran;
+    bool after = false;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "CLIMB") after = true;
+        if (after && e.jiffy == at && e.kind == "TASK") ran.push_back(e.detail);
+    }
+    const std::vector<std::string> want = {"run PLAYER", "run LUKNEW", "run HSLOW",
+                                           "run BURNER", "run CREGEN"};
+    check(ran == want, "SYSTCB's tasks run in TCBDAT order on the CLIMB jiffy",
+          std::to_string(ran.size()) + " tasks");
+    check(obj(game, pine).spec[0] == timer - 1, "the fresh BURNER burns one torch unit",
+          std::to_string(obj(game, pine).spec[0]));
+}
+
 void test_burden() {
     // POBJWT drives PMOV90: PDAM += POBJWT / 8 + 3.
     dag::Game game = frozen_game();
@@ -483,6 +516,7 @@ int main() {
     test_each_scroll();
     test_each_ring_word();
     test_climb_every_feature();
+    test_climb_keeps_bag_and_runs_systcb();
     test_burden();
     test_incant_fire();
     test_incant_final_winner();
