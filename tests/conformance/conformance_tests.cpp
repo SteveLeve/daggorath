@@ -1009,6 +1009,17 @@ void test_projection() {
     const dag::ViewSnapshot seen = dag::snapshot_from(keys);
     check(seen.ahead[0] != 0xFF, "the cell underfoot is open");
     check(seen.dir == static_cast<int>(dag::Dir::East), "the snapshot faces the way the player turned");
+    dag::Game lit_game(1, 0);
+    lit_game.set_frozen(true);
+    auto type_line = [&](const std::string& text) {
+        lit_game.load_script(type_at(lit_game.counters().total_jiffies, text));
+        lit_game.advance_jiffies(40);
+    };
+    type_line("PULL LEFT TORCH");
+    type_line("USE LEFT");
+    int lit_dots = 0;
+    for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) lit_dots += pixel;
+    check(lit_dots == 147, "a lit level-0 view has 147 dots", "dots=" + std::to_string(lit_dots));
 }
 
 }  // namespace
