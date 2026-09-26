@@ -28,7 +28,7 @@ Labels: **[SRC]** read from the pinned listing; **[INF]** inferred; **[OPEN]** u
 | Id | Owner |
 |---|---|
 | D-11 `ZLOAD` of an absent name reports `???` | Permanent, Original Mode cassette substitute (ADR-0005) |
-| D-12 `FUDGE incoming` / `FUDGE rest` | **Not source behaviour.** Harness API only (ADR-0007). Default `Game()` stays at 100% incoming damage. `FUDGE incoming 25` multiplies creature-to-player damage by 1/4. `FUDGE rest` writes `PDAM = 63` (the HSLOW floor) instead of simulating hours of recovery. Player hits are not scaled. Checkpoints under `.cache/playthrough/` restore `snapshot()` and are not a game command. |
+| D-12 `FUDGE incoming` / `FUDGE rest` | **Not source behaviour.** Harness API only (ADR-0007). Default `Game()` stays at 100% incoming damage. `FUDGE incoming 25` multiplies creature-to-player damage by 1/4. `FUDGE rest` writes `PDAM = 63`, a harness value that skips waiting out recovery (the HSLOW stall at 63 was a core bug, corrected 2026-09-26; see phase-3 reconciliation). Player hits are not scaled. Checkpoints under `.cache/playthrough/` restore `snapshot()` and are not a game command. |
 | D-1, D-2 lap model | ADR-0002, Track R |
 | D-3 `HSLOW` zero-countdown clamp | Track R |
 | D-4 animation and sound durations | Phase 6 (listing-derived part), Track R (measured part) |
@@ -70,12 +70,12 @@ Authored by `src/app/dplan.cpp`. Committed script:
 
 | | |
 |---|---|
-| Jiffies at `WINNER` | 222514 (clock `1:1:54.8.3`) |
-| Final power / damage | 8660 / 3901 |
-| Final cell | level 4, row 31, col 7 |
+| Jiffies at `WINNER` | 190875 (clock `0:53:7.5.2`), re-planned 2026-09-26 after the HSLOW correction |
+| Final damage | 63 (trace `# final` line; the last `FUDGE rest` set it) |
+| Final cell | row 14, col 6, dir 1 (trace `# final` line) |
 | `FUDGE incoming 25` | one line, jiffy 90400 (D-12, not source behaviour) |
-| `FUDGE rest` | 2589 lines (D-12, HSLOW floor) |
-| Two-replay sha256 | `d4952406e8c3c330e5ccb39ad8322e2af2637cf2a6e44a217eb8df2f2e426b3f` |
+| `FUDGE rest` | 2290 lines (D-12, harness). Without `--fudge` the planner clears levels 0-2, then dies on level 3 |
+| Two-replay sha256 | `be5409e516d2d77cb38cba2bb83ee5086fffbdbfada438c9ccec8c2235be0ead` |
 
 | Stage | Fudge | Notes |
 |---|---|---|

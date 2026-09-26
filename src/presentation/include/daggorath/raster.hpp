@@ -36,7 +36,7 @@ int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us);
 // P1 portable bitmap, one character per pixel. Used by the offscreen tests.
 std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels);
 
-// Project the view and plot every segment. Fade comes from SETFAX with range 0.
+// Project the view and plot every segment with the fade SETFAX stored on it.
 std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view);
 
 // Integer scale. Each source dot becomes a factor-by-factor block. Factor 1 copies.

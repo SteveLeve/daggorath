@@ -52,6 +52,8 @@ struct ViewSnapshot {
     int left_class = -1;
     int right_class = -1;
     int level = 0;
+    // 0 standing (NORSCL), 1 forward half-step (HLFSCL), 2 back half-step (BAKSCL).
+    int scale = 0;
     Maze maze;
     std::vector<SeenCreature> creatures;
     std::vector<SeenObject> objects;

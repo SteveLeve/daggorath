@@ -115,9 +115,13 @@ void test_image_ending() {
     check(kill_type(game, 10, ring), "the wizard's image (type 10) dies");
     check(has(game, "ENDGAM", "image"), "killing type 10 runs ENDGAM");
     const auto lines = dialogue(game);
-    check(lines.size() == 2 && lines[0] == "^ ENOUGH! I TIRE OF THIS PLAY..." &&
-              lines[1] == "   PREPARE TO MEET THY DOOM!!!",
+    check(lines.size() >= 2 && lines[lines.size() - 2] == "^ ENOUGH! I TIRE OF THIS PLAY..." &&
+              lines.back() == "   PREPARE TO MEET THY DOOM!!!",
           "ENDGAM prints PATTK.ASM's two OUTSTI strings");
+    bool hits_marked = !lines.empty();
+    for (std::size_t i = 0; i + 2 < lines.size(); ++i)
+        if (lines[i] != "!!!") hits_marked = false;
+    check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
     check(game.player().carried_weight == 200, "ENDGAM sets POBJWT to 200");
     check(game.player().bag_head == torch &&
@@ -158,6 +162,28 @@ void test_winner() {
     const std::uint64_t at = game.counters().total_jiffies;
     game.advance_jiffies(100);
     check(game.counters().total_jiffies == at, "WINNER ends in BRA *");
+}
+
+void test_death_load_resumes() {
+    dag::Game game(1, 0);
+    game.load_script(keys_for(10, {"ZSAVE QUEST"}));
+    game.advance_jiffies(80);
+    const std::string* saved = game.cassette_image("QUEST");
+    check(saved != nullptr && saved->rfind("DAGRAM 1", 0) == 0,
+          "ZSAVE keeps a named cassette image");
+    if (saved == nullptr) return;
+    const std::string image = *saved;
+    game.set_player_damage(static_cast<std::uint16_t>(game.player().power + 1));
+    game.advance_jiffies(2);
+    check(game.player().dead, "damage past power is death");
+    const auto frozen = game.counters().total_jiffies;
+    game.advance_jiffies(30);
+    check(game.counters().total_jiffies == frozen, "DEATH's BRA * takes no further interrupts");
+    game.restore_ram_image(image);
+    check(!game.player().dead, "the cassette image is the living game");
+    game.advance_jiffies(30);
+    check(game.counters().total_jiffies == frozen + 30,
+          "restoring a living image returns to SCHED");
 }
 
 void test_death_line() {
@@ -299,19 +325,23 @@ void test_fudge_harness_is_not_source_behaviour() {
     const dag::Ccb& c = a.creatures()[static_cast<std::size_t>(sl)];
     a.place_player(c.row, c.col);
     const std::string snap = a.snapshot();
-    const std::uint16_t before = a.player().damage;
-    a.advance_jiffies(400);
-    const unsigned full =
-        static_cast<unsigned>(a.player().damage) + (a.player().damage < before ? 65536u : 0u) -
-        before;
+    const auto first_hit_damage = [](dag::Game& g) {
+        const auto hits = [&g] {
+            std::size_t n = 0;
+            for (const auto& e : g.trace()) n += e.kind == "HIT";
+            return n;
+        };
+        const std::size_t seen = hits();
+        const std::uint16_t before = g.player().damage;
+        for (int i = 0; i < 400 && hits() == seen; ++i) g.advance_jiffies(1);
+        return static_cast<unsigned>(g.player().damage) - before;
+    };
+    const unsigned full = first_hit_damage(a);
     dag::Game b;
     b.restore_snapshot(snap);
     check(b.incoming_damage_percent() == 100, "snapshot default incoming stays 100");
     b.set_incoming_damage_percent(25);
-    const std::uint16_t b0 = b.player().damage;
-    b.advance_jiffies(400);
-    const unsigned quarter =
-        static_cast<unsigned>(b.player().damage) + (b.player().damage < b0 ? 65536u : 0u) - b0;
+    const unsigned quarter = first_hit_damage(b);
     check(full > 0, "a creature hit the player at 100%", "added=" + std::to_string(full));
     check(quarter == full * 25u / 100u, "FUDGE incoming 25 scales creature-to-player damage",
           "full=" + std::to_string(full) + " quarter=" + std::to_string(quarter));
@@ -325,6 +355,7 @@ int main() {
     test_wizard_ending();
     test_winner();
     test_death_line();
+    test_death_load_resumes();
     test_save_load_resumes_at_the_save();
     test_ram_image_is_the_whole_state();
     test_snapshot_round_trip_and_replay();

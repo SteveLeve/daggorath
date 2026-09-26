@@ -256,6 +256,39 @@ void test_parser() {
           "DIRTAB rejects BACKWARD: the table entry is BACK");
 }
 
+std::vector<dag::KeyEvent> type_at(std::uint64_t start, const std::string& text);
+
+void test_attack_right_abbreviation() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    game.load_script(type_at(1, "PULL RIGHT SWORD"));
+    game.advance_jiffies(40);
+    const std::uint16_t before = game.player().damage;
+    game.load_script(type_at(game.counters().total_jiffies, "A R"));
+    game.advance_jiffies(20);
+    bool exert = false;
+    bool sword = false;
+    for (const auto& event : game.trace()) {
+        if (event.kind == "EXERT") exert = true;
+        if (event.kind == "SOUND" && event.detail == "class=4") sword = true;
+    }
+    check(game.line_buffer().empty(), "A R is dispatched, not left in the line");
+    check(exert && sword, "A R swings the right-hand sword",
+          "damage=" + std::to_string(game.player().damage));
+    std::string exert_detail;
+    for (const auto& event : game.trace())
+        if (event.kind == "EXERT") exert_detail = event.detail;
+    check(exert_detail.rfind("damage=" + std::to_string(before + 2), 0) == 0,
+          "a wooden sword adds two damage", exert_detail);
+    std::uint16_t state = 1;
+    check(!dag::samples_for("SOUND", "class=4", state).empty(),
+          "the sword swing synthesizes WHOOSH");
+    check(dag::samples_for("SOUND", "A$KLK2", state).size() == 682,
+          "a connecting hit synthesizes KLINK");
+    check(dag::samples_for("SOUND", "A$EXP0", state).size() == 640,
+          "a kill synthesizes BANG");
+}
+
 // ------------------------------------------------------- clock / tasks
 int live_count(const dag::Game& game);
 int matrix_sum(const dag::Game& game);
@@ -1045,12 +1078,52 @@ void test_projection() {
     std::uint16_t hiss = 1;
     check(dag::noise_pulses(hiss, 0xFF, 1).size() == 0xC0, "PSSHT emits one pulse");
     check(dag::noise_pulses(hiss, 0xFF, 2).size() == 2 * 0xC0, "PSSST emits two pulses");
+    std::uint16_t near_state = 1;
+    std::uint16_t far_state = 1;
+    const auto near_rattle = dag::samples_for("SOUND", "slot=1 type=1 vol=255", near_state);
+    const auto far_rattle = dag::samples_for("SOUND", "slot=1 type=1 vol=7", far_state);
+    // Ten bursts of 192 samples, each followed by SNWT1K held for 220 steps.
+    check(near_rattle.size() == 10 * 0xC0 + 10 * 220,
+          "a viper's approach sound is a rattle with silence between pulses");
+    int near_peak = 0;
+    int far_peak = 0;
+    for (const std::uint8_t s : near_rattle) near_peak = std::max(near_peak, static_cast<int>(s));
+    for (const std::uint8_t s : far_rattle) far_peak = std::max(far_peak, static_cast<int>(s));
+    check(near_peak > far_peak && far_peak > 0,
+          "the same creature is louder at range 0 than at range 8",
+          "near=" + std::to_string(near_peak) + " far=" + std::to_string(far_peak));
+    std::uint16_t spider_state = 1;
+    check(!dag::samples_for("SOUND", "slot=0 type=0 vol=255", spider_state).empty(),
+          "a spider's approach sound is synthesized");
     std::uint16_t thud_state = 1;
     check(dag::thud(thud_state, 0xFF).size() == (0x150 - 0x80) / 2, "THUD writes one sample per pitch step");
+    std::uint16_t thud_play = 1;
+    const auto thud_held = dag::samples_for_cue(static_cast<std::uint8_t>(dag::SoundCue::THUD), 0xFF, thud_play);
+    // ROM: a blocked-move THUD holds the foreground for 14 or 15 jiffies.
+    // 100 samples per jiffy at 6000 Hz, so the held buffer should land near that.
+    check(thud_held.size() > 1000 && thud_held.size() < 2000,
+          "played THUD lasts about the ROM-measured foreground time",
+          "samples=" + std::to_string(thud_held.size()));
+    std::uint16_t clank_state = 1;
+    const auto clank = dag::samples_for_cue(static_cast<std::uint8_t>(dag::SoundCue::KLK3), 0xFF, clank_state);
+    check(clank.size() == 1724, "a creature clank holds each half-period instead of one sample",
+          "samples=" + std::to_string(clank.size()));
+    std::uint16_t whoosh_state = 1;
+    // Attack emits until the $80 add carries (511 samples). Decay emits until
+    // $FFFF - n*$A0 borrows (409 samples).
+    check(dag::whoosh(whoosh_state, 0xFF).size() == 511u + 409u,
+          "WHOOSH writes one sample per SNOUT of the attack and the decay");
     check(dag::set_fade(7, 0) == 0, "light 7 at range 0 is full brightness");
     check(dag::set_fade(0, 0) == 0xFF, "light 0 is darkness");
     check(dag::set_fade(6, 0) == 0x01, "one step below full brightness uses BIT0");
     check(dag::set_fade(1, 0) == 0x20, "signed fade -6 uses BITMSK entry 2");
+    // SETFAX / the port's SETFAD. A pine torch (light 7) is solid only at the
+    // player's cell, then BIT0..BIT5, and invisible from range 7 on.
+    static constexpr std::uint8_t kPineReach[10] = {0, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0xFF, 0xFF, 0xFF};
+    for (std::uint8_t range = 0; range < 10; ++range) {
+        check(dag::set_fade(7, range) == kPineReach[range],
+              "pine torch reach at range " + std::to_string(range));
+    }
     const std::uint8_t list[] = {76, 128, 76, 138, 0xFE};
     const auto lines = dag::decode_vectors(list, 128, 128, 128, 76, 0);
     check(lines.size() == 1 && lines[0].x0 == 128 && lines[0].x1 == 138 && lines[0].y0 == 76,
@@ -1135,16 +1208,29 @@ void test_projection() {
     type_line("USE LEFT");
     int lit_dots = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) lit_dots += pixel;
-    check(lit_dots == 1799, "a lit level-0 view has 1799 dots", "dots=" + std::to_string(lit_dots));
+    // 1773 is every kept segment drawn solid (SETFAX range 0). Light 7 fades
+    // ranges 1–6 and drops ranges 7–9, which is 967 dots from this cell.
+    check(lit_dots == 967, "pine-torch light fades with range",
+          "dots=" + std::to_string(lit_dots));
     type_line("PULL LEFT SWORD");
     int with_sword = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) with_sword += pixel;
-    check(with_sword > lit_dots, "the held sword adds its glyph", "dots=" + std::to_string(with_sword));
+    check(with_sword == lit_dots, "a carried sword is not drawn in the viewer",
+          "dots=" + std::to_string(with_sword));
     const auto scaled = dag::scale_frame(dag::rasterize(dag::snapshot_from(lit_game)), 3);
     check(scaled.size() == 256u * 3u * 192u * 3u, "integer scale triples each axis");
     int blocks = 0;
     for (std::uint8_t pixel : scaled) blocks += pixel;
     check(blocks == with_sword * 9, "each lit dot becomes a 3 by 3 block");
+    type_line("DROP LEFT");
+    const dag::ViewSnapshot dropped_view = dag::snapshot_from(lit_game);
+    bool object_segment = false;
+    for (const dag::DrawSegment& segment : dag::project(dropped_view).segments)
+        if (segment.kind == "object") object_segment = true;
+    int dropped = 0;
+    for (std::uint8_t pixel : dag::rasterize(dropped_view)) dropped += pixel;
+    check(object_segment && dropped > lit_dots, "a sword on the floor is drawn in the viewer",
+          "dots=" + std::to_string(dropped));
     bool found_wall = false;
     for (int turn = 0; turn < 4 && !found_wall; ++turn) {
         int next_row = 0;
@@ -1170,6 +1256,29 @@ void test_projection() {
     dag::SoundMix mix;
     mix.consume(lit_game.trace());
     check(mix.pending().size() == 104, "the mixer queues the blocked-move THUD");
+    std::vector<std::uint8_t> timeline{1, 1, 1, 1};
+    std::vector<std::uint8_t> effect{9, 8, 7, 6, 5};
+    dag::overlay_dac(timeline, effect);
+    check(timeline.size() == 4 && timeline[0] == 9 && timeline[3] == 6 && effect.size() == 1 &&
+              effect[0] == 5,
+          "a sound replaces the heartbeat already queued for this slice");
+    std::vector<std::uint8_t> carry{1, 1, 1, 1, 1};
+    dag::start_dac(carry, std::vector<std::uint8_t>{4, 4});
+    check(carry.size() == 5 && carry[0] == 4 && carry[1] == 4 && carry[2] == 1,
+          "a new creature sound starts now instead of after the one still playing");
+    for (std::uint8_t cue = 0; cue < 12; ++cue) {
+        std::uint16_t noise = 1;
+        const auto near = dag::samples_for_cue(cue, 0xFF, noise);
+        std::uint16_t far_noise = 1;
+        const auto far = dag::samples_for_cue(cue, dag::creature_sound_volume(8), far_noise);
+        int near_peak = 0;
+        int far_peak = 0;
+        for (const std::uint8_t s : near) near_peak = std::max(near_peak, static_cast<int>(s));
+        for (const std::uint8_t s : far) far_peak = std::max(far_peak, static_cast<int>(s));
+        check(!near.empty() && near_peak > far_peak,
+              "creature " + std::to_string(cue) + " has an approach sound that is louder nearby",
+              "near=" + std::to_string(near_peak) + " far=" + std::to_string(far_peak));
+    }
 }
 
 void test_incant_fire_script() {
@@ -1251,7 +1360,7 @@ void test_prepared_winner() {
     check(fresh.damage == 14, "the fire ring deals 14 damage to the wizard at power 160");
 }
 
-void test_hslow_floor() {
+void test_hslow_recovery() {
     dag::Game game(1, 0);
     game.set_frozen(true);
     std::uint64_t at = 0;
@@ -1263,10 +1372,13 @@ void test_hslow_floor() {
     };
     line("TURN RIGHT");
     for (int i = 0; i < 15; ++i) line("MOVE");
-    check(game.player().damage == 71, "fifteen wall bumps add 71 damage");
+    check(game.player().damage > 0 && game.player().damage <= 71,
+          "fifteen wall bumps leave damage that HSLOW is already healing",
+          std::to_string(game.player().damage));
     game.advance_jiffies(at + 8000);
-    check(game.player().damage == 63 && !game.player().dead,
-          "resting while frozen heals down to 63 and then stops");
+    check(game.player().damage == 0 && !game.player().dead,
+          "resting while frozen heals all the way to 0 (HSLOW removes ceil(PDAM/64))",
+          std::to_string(game.player().damage));
 }
 
 void test_fire_ring_reaches_wizard() {
@@ -1389,6 +1501,7 @@ int main() {
     test_entry_time_invariance();
     test_movement_rule();
     test_parser();
+    test_attack_right_abbreviation();
     test_rom_level0_entry();
     test_clock_rollovers();
     test_turn_and_move();
@@ -1404,7 +1517,7 @@ int main() {
     test_projection();
     test_incant_fire_script();
     test_prepared_winner();
-    test_hslow_floor();
+    test_hslow_recovery();
     test_fire_ring_reaches_wizard();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks

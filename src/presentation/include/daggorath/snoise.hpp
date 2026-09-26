@@ -20,8 +20,21 @@ std::vector<std::uint8_t> noise_pulses(std::uint16_t& state, std::uint8_t volume
 // Each pitch writes one noise sample. The waits between samples are not stored.
 std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume);
 
-// Maps a trace event onto DAC samples. A$THUD uses full volume; the listing's
-// SNVOL byte for that call is not read here.
+// WHOOSH then CHUCK (SOUNDS.ASM). Attack envelope starts at BIGZER and adds
+// $80 until that add carries. Decay starts at NEGONE and subtracts $A0 until
+// the subtract borrows or lands on zero. One DAC byte per SNOUT. The wait
+// loops are not stored, and this does not advance the scheduler (D-4b).
+std::vector<std::uint8_t> whoosh(std::uint16_t& state, std::uint8_t volume);
+
+// SNDTAB generator for one cue at SNVOL. Creature types 0–11 are cues 0–11.
+// Volume is the caller's B register: $FF on the same cell, quieter with range.
+std::vector<std::uint8_t> samples_for_cue(std::uint8_t cue, std::uint8_t volume,
+                                          std::uint16_t& state);
+
+// Maps a trace event onto DAC samples. A$THUD, a sword swing (class 4 /
+// A$SWOR), a connecting hit (A$KLK2 / KLINK), a creature clank (A$KLK3),
+// and a kill (A$EXP0 / BANG) use full volume. A creature "slot=" line uses
+// the volume in that detail.
 std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
                                       std::uint16_t& state);
 

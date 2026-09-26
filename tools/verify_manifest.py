@@ -119,7 +119,8 @@ def main() -> int:
             print(f"SIZE     {entry['file']}: {len(blob)} bytes, manifest says {entry['bytes']}")
             bad += 1
 
-    present = {n for n in os.listdir(d) if n != "MANIFEST.json"}
+    present = {n for n in os.listdir(d)
+               if n != "MANIFEST.json" and not os.path.isdir(os.path.join(d, n))}
     for extra in sorted(present - listed):
         print(f"UNLISTED {extra}")
         bad += 1
