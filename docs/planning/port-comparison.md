@@ -285,3 +285,16 @@ every action and console line under `captures/compare/` (gitignored).
 FUDGE lines are dropped because the port has no equivalent. The port's
 millisecond scheduler and different pacing mean an open-loop replay diverges
 once creatures act, so treat any divergence as port behaviour, not evidence.
+
+`tools/compare_port_creatures.py` is a narrower, offline check: it reads a
+local checkout's `CDBTAB` (power, magic and physical offense/defense,
+move and attack delay in milliseconds) and the leather shield's `XDB` bytes,
+and compares them against this project's own listing-derived tables in
+`population.hpp` and `population.cpp`, tenths of a second against
+milliseconds. It found all 12 creature stat rows matching, and the leather
+shield's magic 108 and physical 128 bytes matching on both sides. The port's
+`conf/opts.ini` default `creatureSpeed=200` scales its move and attack
+periods, and its snakes also reschedule the next bite only after the move
+that follows a hit lands; both together explain why the port's snakes read
+slower than this core's listing-timed cadence. It runs as the ctest
+`port_creature_stats` and no-ops when the checkout is absent.

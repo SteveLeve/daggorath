@@ -324,6 +324,7 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-9 | Retired 2026-09-25 | Incanting `FINAL` runs `WINNER` (`PINCAN.ASM`). Phase 5. |
 | D-11 | `ZLOAD` of a name that is not on the cassette reports `???` | **[SRC]** `LOAD` reads blocks until a header's name matches and never gives up. The core's cassette is an in-memory list, so an absent name would hang forever. ADR-0005. |
 | D-12 | `FUDGE incoming <percent>` scales creature damage applied to the player by percent/100; `FUDGE rest` sets `PDAM` to 63 | **Not source behaviour.** Harness script lines, ignored by the command parser. Default construction stays at 100 (Original Mode). ADR-0007: `Game::set_incoming_damage_percent` is a harness API; player hits are not scaled. Phase 5 playthrough. |
+| D-13 | Desktop-only presentation of a forward/back half-step and of a turn/sidestep wipe | **Not source behaviour; presentation only, no simulated time.** `src/platform/sdl_app.cpp` draws an extra intermediate frame between the cell being left and the cell entered: `HLFSCL` (`half_scale = 1`, forward) or `BAKSCL` (`half_scale = 2`, backward) for a straight move, held one video frame (`SDL_Delay(12)`, ~1/60 s) before the standing view; and, for a turn or a `MOVE LEFT`/`MOVE RIGHT` sidestep, a wipe bar (`turn_wipe`) starting at screen x=8 for a left turn or `MOVE LEFT` and x=248 for a right turn, about-face or `MOVE RIGHT`, also held 12 ms. **[INF]** the hold duration and the two x-origins are not timed or positioned from the listing; they render the `Block(MoveAnimation)`/`Block(TurnAnimation)` events from D-4a on screen. This is presentation only: it adds no jiffy and changes no core state. |
 
 ### Initial clock (applied)
 
@@ -356,3 +357,8 @@ A harness `Game(second, level)` sets only `SECOND` and leaves the other
 counters at 0. `population-entry.txt` is that source-derived comparison,
 including the `SECOND` = 1 row `cregen 24 24 25 9 25`. The `SECOND` = 0, 1,
 7, 30, 59 spins are the same harness path. Neither is Original Mode.
+
+**Cross-reference:** the DAC mixdown policy in `overlay_dac`/`start_dac`
+(`src/presentation/include/daggorath/sound_mix.hpp`) — one foreground sound
+at a time, a new cue taking the DAC immediately, and at most a 1 s (6000
+sample) queued heartbeat tail — is **[INF]**, not timed from the listing.

@@ -94,6 +94,14 @@ On 2026-09-26 the gondur, BlatantlyX, and website trees were read locally for
 is reference-only. No port source, sample, or binary was copied into this
 repository, and no Original Mode rule was taken from them.
 
+`tools/compare_port_creatures.py` reads a local, reference-only Hunerlach-lineage
+port checkout at run time (a sibling `dungeons-of-daggorath` directory, an
+argument, or `DAGGORATH_PORT`) with regular expressions over `CDBTAB` and
+`ShieldFix` in `object.cpp`/`creature.cpp` and `creatureSpeed` in
+`conf/opts.ini`. It copies no port source or data into the repository; if the
+checkout is absent it checks only this project's own listing tables and the
+same-cell attack-delay return, and exits 0.
+
 ## 4. Derived artifacts produced in this phase
 
 | Artifact | Derivation | Rights character |
@@ -111,6 +119,7 @@ repository, and no Original Mode rule was taken from them.
 | `traces/*.trace` | output of the reference slice | new work |
 | `docs/archaeology/phase-6/fixtures/text/*` | `tools/extract_text.py` from `COMDAT.ASM`, `PEXAM.ASM`, `STATUS.ASM`, `SWCHAR.ASM`, `MAPPER.ASM` plus the Phase 0b maze/population dumps | mixed: copied font/string bytes and computed occupancy lists |
 | `src/presentation/include/daggorath/text_tables.hpp` | **generated** from those text fixtures | carries copied font and region constants into the build |
+| `tools/compare_port_creatures.py` | reads a local Hunerlach-lineage port checkout at run time and compares it against `fixtures`-derived core tables; runs as ctest `port_creature_stats` (`tests/CMakeLists.txt`) | new project code; imports no port source or data |
 
 **Open rights question, unchanged from Phase 0 and now sharper:** the fixtures in
 the "copied data" rows are original tuning and lexicon data, not behaviour. They
