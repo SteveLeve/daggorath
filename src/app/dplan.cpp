@@ -111,6 +111,13 @@ bool owned_by_player(const dag::Game& g, int index) {
     return false;
 }
 
+int find_owned(const dag::Game& g, int type) {
+    const auto& o = g.objects();
+    for (int i = 0; i < static_cast<int>(o.size()); ++i)
+        if (o[static_cast<std::size_t>(i)].type == type && owned_by_player(g, i)) return i;
+    return -1;
+}
+
 int dump_world() {
     dag::Game g;
     const auto& p = g.player();
@@ -462,8 +469,7 @@ struct Runner {
     void ensure_sword() {
         const int lt = hand_type(false), rt = hand_type(true);
         if (lt == kIron || lt == kElvish || rt == kIron || rt == kElvish) return;
-        if (owned_by_player(game, find_obj(game, kIron)) ||
-            owned_by_player(game, find_obj(game, kElvish))) {
+        if (find_owned(game, kIron) >= 0 || find_owned(game, kElvish) >= 0) {
             empty_hand(false);
             type({"PULL LEFT IRON SWORD"});
             if (hand_type(false) != kIron && hand_type(false) != kElvish)
@@ -793,7 +799,7 @@ struct Runner {
     }
 
     bool get_if_here(int obj_type, const char* specific) {
-        if (owned_by_player(game, find_obj(game, obj_type))) return true;
+        if (find_owned(game, obj_type) >= 0) return true;
         int tr = 0, tc = 0;
         const int slot = object_cell(find_obj(game, obj_type), tr, tc);
         if (slot != -1) return false;
@@ -804,7 +810,7 @@ struct Runner {
     }
 
     bool collect(int obj_type, const char* specific) {
-        if (owned_by_player(game, find_obj(game, obj_type))) return true;
+        if (find_owned(game, obj_type) >= 0) return true;
         int tr = 0, tc = 0;
         const int slot = object_cell(find_obj(game, obj_type), tr, tc);
         if (slot == -2) return false;
