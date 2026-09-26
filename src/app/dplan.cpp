@@ -10,9 +10,12 @@
 #include <array>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <queue>
+#include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -47,6 +50,10 @@ const char* obj_name(int t) {
 bool wizard(const dag::Ccb& c) { return c.in_use && (c.type == 10 || c.type == 11); }
 
 bool scorpion(const dag::Ccb& c) { return c.in_use && c.type == 6; }
+
+// Scorpions and worse: do not walk onto their cell. Their CMOVE can fire
+// on the same jiffy as the landing MOVE.
+bool stingy(const dag::Ccb& c) { return c.in_use && c.type >= 6 && c.type < 10; }
 
 // Community "wimp": spider or viper. They miss often enough that a dark park
 // is survivable. Creatures have no darkness gate; the miss is ATTACK's roll.
@@ -118,6 +125,26 @@ int find_owned(const dag::Game& g, int type) {
     return -1;
 }
 
+
+int obj_pho(const dag::Game& g, int index) {
+    if (index < 0) return -1;
+    return g.objects()[static_cast<std::size_t>(index)].physical_offense;
+}
+
+int obj_reveal(const dag::Game& g, int index) {
+    if (index < 0) return -1;
+    return g.objects()[static_cast<std::size_t>(index)].reveal;
+}
+
+// Sword/shield/torch rows start as the class generic (WOODEN/LEATHER/PINE).
+// IRON's specific pho is 40 only after REVEAL; 13 * 25 = 325 power.
+bool can_reveal(const dag::Game& g, int index) {
+    if (index < 0) return false;
+    const auto& o = g.objects()[static_cast<std::size_t>(index)];
+    if (o.reveal == 0) return false;
+    return static_cast<unsigned>(o.reveal) * 25u <= g.player().power;
+}
+
 int dump_world() {
     dag::Game g;
     const auto& p = g.player();
@@ -174,6 +201,16 @@ struct Runner {
         Win
     } phase = Opening;
 
+    bool use_fudge = false;
+    bool allow_resume = true;
+    std::string cache_dir = ".cache/playthrough";
+    std::set<std::string> saved_stages;
+    struct Anno {
+        std::uint64_t jiffy = 0;
+        std::string line;
+    };
+    std::vector<Anno> annos;
+
     std::uint8_t encode(char c) const {
         if (c == ' ') return 0x20;
         return static_cast<std::uint8_t>(c);
@@ -216,6 +253,169 @@ struct Runner {
         ++waits;
     }
 
+    void note(const std::string& line) {
+        annos.push_back({game.counters().total_jiffies, line});
+    }
+
+    void apply_fudge_incoming(int percent) {
+        note("FUDGE incoming " + std::to_string(percent));
+        game.set_incoming_damage_percent(percent);
+    }
+
+    void fudge_rest_now() {
+        note("FUDGE rest");
+        game.set_player_damage(63);
+        waits = 0;
+    }
+
+    void recover() {
+        if (use_fudge)
+            fudge_rest_now();
+        else
+            recover();
+    }
+
+    std::filesystem::path stage_path(const std::string& stage, const char* ext) const {
+        return std::filesystem::path(cache_dir) / (stage + ext);
+    }
+
+    void write_script_to(const std::string& path) const {
+        std::ofstream out(path);
+        out << "# Original Mode power-on to WINNER. Authored by src/app/dplan.cpp.\n";
+        out << "# FUDGE lines are harness-only (D-12), not command-parser tokens.\n";
+        std::size_t ai = 0;
+        for (const auto& k : log) {
+            while (ai < annos.size() && annos[ai].jiffy < k.jiffy) {
+                out << annos[ai].jiffy << ' ' << annos[ai].line << '\n';
+                ++ai;
+            }
+            out << k.jiffy << ' ';
+            if (k.ch == 0x20)
+                out << "SPACE";
+            else if (k.ch == 0x0D)
+                out << "CR";
+            else if (k.ch == 0x08)
+                out << "BS";
+            else
+                out << static_cast<char>(k.ch);
+            out << '\n';
+        }
+        while (ai < annos.size()) {
+            out << annos[ai].jiffy << ' ' << annos[ai].line << '\n';
+            ++ai;
+        }
+    }
+
+    void load_sidecar(const std::string& path) {
+        std::ifstream in(path);
+        if (!in) return;
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        std::string err;
+        log = dag::parse_script(ss.str(), err);
+        const auto ev = dag::parse_harness(ss.str(), err);
+        annos.clear();
+        for (const auto& e : ev) {
+            if (e.kind == dag::Game::HarnessFudge::Incoming)
+                annos.push_back({e.jiffy, "FUDGE incoming " + std::to_string(e.percent)});
+            else
+                annos.push_back({e.jiffy, "FUDGE rest"});
+        }
+    }
+
+    void checkpoint(const std::string& stage) {
+        if (saved_stages.count(stage)) return;
+        std::filesystem::create_directories(cache_dir);
+        std::ofstream snap(stage_path(stage, ".snap"));
+        snap << game.snapshot();
+        std::ofstream meta(stage_path(stage, ".meta"));
+        meta << "phase " << static_cast<int>(phase) << "\n";
+        meta << "camp_r " << camp_r << "\n";
+        meta << "camp_c " << camp_c << "\n";
+        meta << "last_floor " << last_floor << "\n";
+        meta << "hold_since " << hold_since << "\n";
+        meta << "phase_since " << phase_since << "\n";
+        meta << "level " << game.level_index() << "\n";
+        std::string zname = stage;
+        if (zname.size() > 8) zname.resize(8);
+        for (char& c : zname)
+            if (c == '-') c = 'X';
+        type({"ZSAVE " + zname});
+        write_script_to(stage_path(stage, ".script").string());
+        saved_stages.insert(stage);
+        std::cerr << "checkpoint " << stage << " j=" << game.counters().total_jiffies
+                  << " p=" << game.player().power << " d=" << game.player().damage << "\n";
+    }
+
+    bool restore_stage(const std::string& stage) {
+        const auto snap_p = stage_path(stage, ".snap");
+        std::ifstream snap(snap_p);
+        if (!snap) return false;
+        std::ostringstream ss;
+        ss << snap.rdbuf();
+        game.restore_snapshot(ss.str());
+        seen = game.trace().size();
+        waits = 0;
+        std::ifstream meta(stage_path(stage, ".meta"));
+        std::string key;
+        int ph = static_cast<int>(phase);
+        while (meta >> key) {
+            if (key == "phase")
+                meta >> ph;
+            else if (key == "camp_r")
+                meta >> camp_r;
+            else if (key == "camp_c")
+                meta >> camp_c;
+            else if (key == "last_floor")
+                meta >> last_floor;
+            else if (key == "hold_since")
+                meta >> hold_since;
+            else if (key == "phase_since")
+                meta >> phase_since;
+            else {
+                std::string skip;
+                meta >> skip;
+            }
+        }
+        phase = static_cast<Phase>(ph);
+        load_sidecar(stage_path(stage, ".script").string());
+        saved_stages.insert(stage);
+        std::cerr << "restore " << stage << " phase=" << ph
+                  << " lv=" << game.level_index() << " j=" << game.counters().total_jiffies
+                  << "\n";
+        return true;
+    }
+
+    bool resume_latest() {
+        if (!allow_resume) return false;
+        static const char* kOrder[] = {"cleared-0", "cleared-1", "cleared-2", "pre-image",
+                                       "cleared-3", "pre-wizard"};
+        std::string latest;
+        for (const char* s : kOrder)
+            if (std::filesystem::exists(stage_path(s, ".snap"))) latest = s;
+        if (latest.empty()) return false;
+        return restore_stage(latest);
+    }
+
+    bool fallback_l1_fudge() {
+        if (use_fudge) return false;
+        static const char* kOrder[] = {"pre-wizard", "cleared-3", "endgam", "pre-image",
+                                       "cleared-2", "cleared-1"};
+        std::string stage;
+        for (const char* s : kOrder)
+            if (std::filesystem::exists(stage_path(s, ".snap"))) {
+                stage = s;
+                break;
+            }
+        if (stage.empty()) return false;
+        if (!restore_stage(stage)) return false;
+        use_fudge = true;
+        apply_fudge_incoming(25);
+        fudge_rest_now();
+        std::cerr << "death without fudge; resuming latest checkpoint with FUDGE incoming 25\n";
+        return true;
+    }
+
     bool saw_kind(const std::string& kind) {
         bool hit = false;
         for (std::size_t i = seen; i < game.trace().size(); ++i)
@@ -225,6 +425,25 @@ struct Runner {
     }
 
     int here() const { return creature_at(game, game.player().row, game.player().col); }
+
+    int clearable() const {
+        int n = 0;
+        for (int i = 0; i < dag::kCcbSlots; ++i) {
+            const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(i)];
+            if (!c.in_use) continue;
+            if (wizard(c) && phase != KillImage && phase != KillWizard) continue;
+            ++n;
+        }
+        return n;
+    }
+
+    bool relight() {
+        if (torch_live()) return true;
+        if (game.level_index() >= 2)
+            return light_named(kLunar, "LUNAR TORCH") || light_named(kSolar, "SOLAR TORCH") ||
+                   light_pine();
+        return light_pine() || light_named(kLunar, "LUNAR TORCH");
+    }
 
     int hand_type(bool right) const {
         const int h = right ? game.player().right_hand : game.player().left_hand;
@@ -466,21 +685,52 @@ struct Runner {
                cls_of(game.player().right_hand) == kClassSword;
     }
 
-    void ensure_sword() {
+    bool holding_iron() const {
         const int lt = hand_type(false), rt = hand_type(true);
-        if (lt == kIron || lt == kElvish || rt == kIron || rt == kElvish) return;
+        return lt == kIron || lt == kElvish || rt == kIron || rt == kElvish;
+    }
+
+    bool iron_ready() const {
+        if (!holding_iron()) return false;
+        const int idx = hand_type(false) == kIron || hand_type(false) == kElvish
+                            ? game.player().left_hand
+                            : game.player().right_hand;
+        return obj_reveal(game, idx) == 0 && obj_pho(game, idx) >= 40;
+    }
+
+    void reveal_hand(bool right) {
+        const int h = right ? game.player().right_hand : game.player().left_hand;
+        if (!can_reveal(game, h)) return;
+        type({right ? "REVEAL RIGHT" : "REVEAL LEFT"});
+    }
+
+    void reveal_held() {
+        reveal_hand(false);
+        reveal_hand(true);
+    }
+
+    // IRON is born with WOODEN stats (pho 16). Without REVEAL a scorpion
+    // survives the swing and its 4-tenth sting connects.
+    void ensure_sword() {
+        if (holding_iron()) {
+            reveal_held();
+            return;
+        }
         if (find_owned(game, kIron) >= 0 || find_owned(game, kElvish) >= 0) {
             empty_hand(false);
             type({"PULL LEFT IRON SWORD"});
             if (hand_type(false) != kIron && hand_type(false) != kElvish)
                 type({"PULL LEFT ELVISH SWORD"});
-            if (hand_type(false) != kIron && hand_type(false) != kElvish)
-                type({"PULL LEFT SWORD"});
+            reveal_held();
             return;
         }
-        if (have_sword()) return;
+        if (have_sword()) {
+            reveal_held();
+            return;
+        }
         empty_hand(false);
         type({"PULL LEFT SWORD"});
+        reveal_held();
     }
 
     void douse_torch() {
@@ -560,9 +810,11 @@ struct Runner {
             }
         if (br < 0) return false;
         if (pr == br && pc == bc) {
-            // Tour: turn right before climbing the hole two paces from the
-            // level-0 intersection, so we arrive facing a long corridor.
-            type({"TURN RIGHT", "CLIMB DOWN"});
+            // Tour: turn right before the level-0 hole. TURN SYNC would
+            // separate CLIMB from ATTACK+MOVE, so the turn is its own burst.
+            if (game.level_index() == 0) type({"TURN RIGHT"});
+            // CLIMB has no SYNC: ATTACK+MOVE BACK leave before CMOVE.
+            type({"CLIMB DOWN", attack_cmd(false), "MOVE BACK"}, 1);
             return true;
         }
         if (!path_step(br, bc, true)) idle(20);
@@ -702,14 +954,29 @@ struct Runner {
             return false;
         }
         const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(occ)];
+        if (!torch_live() && !wimp(c)) {
+            relight();
+            if (!torch_live() && c.type >= 2) {
+                hit_run(false);
+                return true;
+            }
+            if (!torch_live()) {
+                type({leave_cmd()});
+                return true;
+            }
+        }
         const int floor = floor_here();
         const bool pickup = saw_kind("PICKUP") || (last_floor >= 0 && floor < last_floor);
         last_floor = floor;
 
         if (scorpion(c)) {
-            ensure_sword();
-            swing();
-            if (here() >= 0) type({leave_cmd()});
+            // Do not PULL on this cell: that burns jiffies before the swing.
+            // ATTACK has no SYNC, so ATTACK+MOVE leaves before CMOVE.
+            if (!torch_live()) {
+                type({leave_cmd()});
+                return true;
+            }
+            hit_run(false);
             return true;
         }
         if (wizard(c)) {
@@ -738,11 +1005,15 @@ struct Runner {
             return true;
         }
         if (phase == Clear || phase == LightUp || phase == Survive3) {
-            ensure_sword();
+            // Do not PULL here: a shared cell with a ready CMOVE is fatal.
             // Club giants and worse: hit and leave before CMOVE's attack
             // delay (23 tenths for type 2). Sitting through EXAMINE lets them
             // swing. Wimps still wait on a pickup.
             if (c.type >= 2) {
+                if (!torch_live() && !wimp(c)) {
+                    type({leave_cmd()});
+                    return true;
+                }
                 hit_run(false);
                 return true;
             }
@@ -772,9 +1043,18 @@ struct Runner {
                   << " fainted=" << p.fainted << " dead=" << p.dead
                   << " jiffy=" << game.counters().total_jiffies << " live=" << live_count(game)
                   << "\n";
-        std::cerr << " hands L=" << p.left_hand << " R=" << p.right_hand
+        std::cerr << " hands L=" << p.left_hand << " t=" << hand_type(false)
+                  << " pho=" << obj_pho(game, p.left_hand)
+                  << " rev=" << obj_reveal(game, p.left_hand)
+                  << " R=" << p.right_hand << " t=" << hand_type(true)
+                  << " pho=" << obj_pho(game, p.right_hand)
                   << " torch=" << p.torch << " bag=" << p.bag_head
-                  << " camp=" << camp_r << "," << camp_c << "\n";
+                  << " camp=" << camp_r << "," << camp_c
+                  << " iron_ready=" << iron_ready() << "\n";
+        std::cerr << " bag";
+        for (int i = p.bag_head; i >= 0; i = game.objects()[static_cast<std::size_t>(i)].next)
+            std::cerr << " " << i << ":" << obj_name(game.objects()[static_cast<std::size_t>(i)].type);
+        std::cerr << "\n";
         const int sl = creature_at(game, p.row, p.col);
         if (sl >= 0) {
             const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(sl)];
@@ -788,13 +1068,27 @@ struct Runner {
                       << " c=" << static_cast<int>(c.col) << " dmg=" << c.damage << "\n";
         }
         for (int t : {kVulcan, kHoth, kJoule, kElvish, kThews, kSupreme, kFire, kIce,
-                      kEnergy, kIron, kBronze}) {
-            const int i = find_obj(game, t);
+                      kEnergy, kBronze}) {
+            const int owned = find_owned(game, t);
+            const int i = owned >= 0 ? owned : find_obj(game, t);
             if (i < 0) continue;
             const dag::Ocb& o = game.objects()[static_cast<std::size_t>(i)];
             std::cerr << "  obj " << obj_name(t) << " owner=" << static_cast<int>(o.owner)
                       << " lv=" << static_cast<int>(o.level) << " r=" << static_cast<int>(o.row)
-                      << " c=" << static_cast<int>(o.col) << " carrier=" << o.carrier << "\n";
+                      << " c=" << static_cast<int>(o.col) << " carrier=" << o.carrier
+                      << " pho=" << static_cast<int>(o.physical_offense)
+                      << " rev=" << static_cast<int>(o.reveal) << "\n";
+        }
+        const auto& objs = game.objects();
+        for (int i = 0; i < static_cast<int>(objs.size()); ++i) {
+            const dag::Ocb& o = objs[static_cast<std::size_t>(i)];
+            if (o.type != kIron) continue;
+            std::cerr << "  iron[" << i << "] owner=" << static_cast<int>(o.owner)
+                      << " lv=" << static_cast<int>(o.level) << " r=" << static_cast<int>(o.row)
+                      << " c=" << static_cast<int>(o.col) << " pho="
+                      << static_cast<int>(o.physical_offense) << " rev="
+                      << static_cast<int>(o.reveal) << " owned=" << owned_by_player(game, i)
+                      << "\n";
         }
     }
 
@@ -830,8 +1124,14 @@ struct Runner {
     int play(std::uint64_t max_jiffies) {
         int ticks = 0;
         std::uint64_t last_j = 0;
-        while (!game.player().dead && !game.player().won &&
-               game.counters().total_jiffies < max_jiffies) {
+        resume_latest();
+        if (use_fudge && game.incoming_damage_percent() == 100) apply_fudge_incoming(25);
+        while (!game.player().won && game.counters().total_jiffies < max_jiffies) {
+            if (game.player().dead) {
+                if (fallback_l1_fudge()) continue;
+                report_block("player died");
+                return 1;
+            }
             if ((++ticks % 200) == 0) {
                 std::cerr << "tick " << ticks << " phase=" << static_cast<int>(phase)
                           << " lv=" << game.level_index() << " pos=" << game.player().row
@@ -889,7 +1189,7 @@ struct Runner {
                         break;
                     }
                     if (rest_needed()) {
-                        idle(40);
+                        recover();
                         break;
                     }
                     if (game.counters().total_jiffies - phase_since > 8000 ||
@@ -921,10 +1221,15 @@ struct Runner {
                 }
                 case LightUp: {
                     if (rest_needed()) {
-                        idle(40);
+                        recover();
                         break;
                     }
                     ensure_sword();
+                    if (game.level_index() >= 4) {
+                        relight();
+                        phase = Clear;
+                        break;
+                    }
                     seed_bait();
                     bool lit = torch_live();
                     if (!lit && game.level_index() >= 2)
@@ -939,43 +1244,69 @@ struct Runner {
                         lit = torch_live();
                     }
                     if (!lit) {
-                        report_block("could not light a torch");
-                        return 1;
+                        // Level 4 after ENDGAM may have no live torch. Hunt
+                        // with the sword and GET one off the floor.
+                        phase = Clear;
+                        break;
                     }
                     last_floor = floor_here();
                     phase = Clear;
                     break;
                 }
                 case Clear: {
-                    if (live_count(game) == 0) {
+                    if (clearable() == 0) {
                         phase = Loot;
                         break;
                     }
+                    if (game.level_index() >= 2 && !iron_ready()) {
+                        ensure_sword();
+                        break;
+                    }
                     if (!torch_live()) {
-                        light_pine() || light_named(kLunar, "LUNAR TORCH");
+                        relight();
                         break;
                     }
-                    if (rest_needed() && here() < 0 && live_count(game) > 2) {
-                        idle(40);
+                    if (rest_needed() && here() < 0 && clearable() > 2) {
+                        recover();
                         break;
                     }
-                    if (live_count(game) <= 2) {
-                        int br = -1, bc = -1, bd = 1e9;
+                    if (game.level_index() >= 4) {
+                        if (lethal_aligned()) {
+                            sidestep();
+                            break;
+                        }
+                        idle(8);
+                        break;
+                    }
+                    if (clearable() <= 2) {
+                        int br = -1, bc = -1, bd = 1e9, bt = -1;
                         const int pr = game.player().row, pc = game.player().col;
                         for (int i = 0; i < dag::kCcbSlots; ++i) {
                             const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(i)];
                             if (!c.in_use) continue;
+                            if (wizard(c) && phase != KillImage && phase != KillWizard)
+                                continue;
                             const int d = std::abs(c.row - pr) + std::abs(c.col - pc);
                             if (d < bd) {
                                 bd = d;
                                 br = c.row;
                                 bc = c.col;
+                                bt = c.type;
                             }
                         }
-                        // 0,0 is a normal walkable cell. CBIRTH skips it;
-                        // walking onto it is the way to finish a straggler.
+                        // Scorpions attack on a shared landing jiffy. Stand
+                        // next to them and let CMOVE walk on (PUPDAT, no sting).
                         if (br >= 0 && bd > 0) {
-                            if (!path_step(br, bc, false)) idle(20);
+                            const int occ = creature_at(game, br, bc);
+                            const bool kite = occ >= 0 && stingy(
+                                game.creatures()[static_cast<std::size_t>(occ)]);
+                            if (kite || bt >= 6) {
+                                if (!adjacent_to(br, bc)) go_adjacent(br, bc);
+                                else
+                                    idle(8);
+                            } else if (!path_step(br, bc, false)) {
+                                idle(20);
+                            }
                         } else {
                             idle(8);
                         }
@@ -994,39 +1325,45 @@ struct Runner {
                     // Thews, bronze, and spare torches. Do not INCANT yet.
                     if (game.level_index() == 0) {
                         if (rest_needed()) {
-                            idle(40);
+                            recover();
                             break;
                         }
                         if (hand_type(false) == kVulcan) type({"INCANT FIRE"});
                         if (hand_type(true) == kVulcan) type({"INCANT FIRE"});
                         if (hand_type(false) == kFire) empty_hand(false);
                         if (hand_type(true) == kFire) empty_hand(true);
-                        if (!owned_by_player(game, find_obj(game, kIron))) {
+                        if (find_owned(game, kIron) < 0) {
                             collect(kIron, "IRON SWORD");
                             break;
                         }
-                        if (!owned_by_player(game, find_obj(game, kFire))) {
-                            if (!owned_by_player(game, find_obj(game, kVulcan))) {
+                        if (!holding_iron() || !iron_ready()) {
+                            ensure_sword();
+                            break;
+                        }
+                        if (find_owned(game, kFire) < 0) {
+                            if (find_owned(game, kVulcan) < 0) {
                                 collect(kVulcan, "VULCAN RING");
                                 break;
                             }
-                            empty_hand(false);
-                            type({"PULL LEFT VULCAN RING"});
-                            if (hand_type(false) != kVulcan) type({"PULL LEFT RING"});
-                            if (hand_type(false) == kVulcan) type({"INCANT FIRE"});
-                            if (hand_type(false) == kFire) empty_hand(false);
+                            empty_hand(true);
+                            type({"PULL RIGHT VULCAN RING"});
+                            if (hand_type(true) != kVulcan) type({"PULL RIGHT RING"});
+                            if (hand_type(true) == kVulcan) type({"INCANT FIRE"});
+                            if (hand_type(true) == kFire) empty_hand(true);
                             break;
                         }
-                        if (!owned_by_player(game, find_obj(game, kLunar))) {
+                        if (find_owned(game, kLunar) < 0) {
                             collect(kLunar, "LUNAR TORCH");
-                            if (!owned_by_player(game, find_obj(game, kLunar)) && waits < 400)
-                                break;
+                            if (find_owned(game, kLunar) < 0 && waits < 400) break;
                         }
+                        // Keep the revealed iron in the left hand for level 2.
+                        ensure_sword();
+                        checkpoint("cleared-0");
                         phase = Descend;
                         break;
                     }
                     if (rest_needed()) {
-                        if (owned_by_player(game, find_obj(game, kHale))) {
+                        if (find_owned(game, kHale) >= 0) {
                             empty_hand(true);
                             type({"PULL RIGHT HALE FLASK"});
                             if (hand_type(true) != kHale) type({"GET RIGHT HALE FLASK"});
@@ -1036,19 +1373,18 @@ struct Runner {
                                            .level == game.level_index()) {
                             collect(kHale, "HALE FLASK");
                         } else {
-                            idle(40);
+                            recover();
                         }
                         break;
                     }
                     if (game.level_index() == 1) {
-                        if (!owned_by_player(game, find_obj(game, kHoth)) &&
-                            !owned_by_player(game, find_obj(game, kIce))) {
+                        if (find_owned(game, kHoth) < 0 && find_owned(game, kIce) < 0) {
                             collect(kHoth, "RIME RING");
                             break;
                         }
                         if (hand_type(false) == kHoth || hand_type(true) == kHoth)
                             type({"INCANT ICE"});
-                        if (owned_by_player(game, find_obj(game, kHoth)) &&
+                        if (find_owned(game, kHoth) >= 0 &&
                             hand_type(false) != kIce && hand_type(true) != kIce &&
                             hand_type(false) != kHoth && hand_type(true) != kHoth) {
                             empty_hand(true);
@@ -1058,20 +1394,22 @@ struct Runner {
                             if (hand_type(true) == kIce) empty_hand(true);
                             break;
                         }
-                        if (!owned_by_player(game, find_obj(game, kSolar))) {
+                        if (find_owned(game, kSolar) < 0) {
                             collect(kSolar, "SOLAR TORCH");
-                            if (!owned_by_player(game, find_obj(game, kSolar)) && waits < 400)
+                            if (find_owned(game, kSolar) < 0 && waits < 400)
                                 break;
                         }
                         collect(kBronze, "BRONZE SHIELD");
-                        if (!owned_by_player(game, find_obj(game, kBronze)) && waits < 400)
+                        if (find_owned(game, kBronze) < 0 && waits < 400)
                             break;
+                        ensure_sword();
+                        checkpoint("cleared-1");
                         phase = Descend;
                         break;
                     }
                     if (game.level_index() == 2) {
                         if (game.player().power < 1000) {
-                            if (!owned_by_player(game, find_obj(game, kThews))) {
+                            if (find_owned(game, kThews) < 0) {
                                 collect(kThews, "THEWS FLASK");
                                 break;
                             }
@@ -1081,23 +1419,32 @@ struct Runner {
                             if (hand_type(true) == kThews) type({"USE RIGHT"});
                             break;
                         }
+                        checkpoint("cleared-2");
                         phase = PrepRings;
                         break;
                     }
                     if (game.level_index() == 3) {
-                        if (!owned_by_player(game, find_obj(game, kJoule)) &&
-                            !owned_by_player(game, find_obj(game, kEnergy))) {
+                        if (find_owned(game, kJoule) < 0 && find_owned(game, kEnergy) < 0) {
                             collect(kJoule, "JOULE RING");
                             break;
                         }
-                        if (!owned_by_player(game, find_obj(game, kElvish))) {
+                        if (find_owned(game, kElvish) < 0) {
                             collect(kElvish, "ELVISH SWORD");
                             break;
                         }
                         collect(kMithril, "MITHRIL SHIELD");
-                        if (owned_by_player(game, find_obj(game, kJoule)) ||
-                            owned_by_player(game, find_obj(game, kEnergy)) || waits > 800)
+                        if (find_owned(game, kJoule) >= 0 && hand_type(false) != kEnergy &&
+                            hand_type(true) != kEnergy) {
+                            empty_hand(true);
+                            type({"PULL RIGHT JOULE RING"});
+                            if (hand_type(true) != kJoule) type({"PULL RIGHT RING"});
+                            if (hand_type(true) == kJoule) type({"INCANT ENERGY"});
+                            break;
+                        }
+                        if (find_owned(game, kJoule) >= 0 || find_owned(game, kEnergy) >= 0 || waits > 800) {
+                            checkpoint("cleared-3");
                             phase = Descend;
+                        }
                         break;
                     }
                     phase = Descend;
@@ -1109,12 +1456,22 @@ struct Runner {
                         break;
                     }
                     const int before = game.level_index();
-                    if (before == 2 && live_count(game) > 0 &&
-                        slot_of_type(game, 10) >= 0 && live_count(game) > 1) {
+                    if (before == 2 && clearable() > 0 && slot_of_type(game, 10) >= 0) {
                         // Image is not last: do not fight it. Climb up to farm
                         // if a hole up exists, else keep clearing.
                         phase = Clear;
                         break;
+                    }
+                    // Level 2 scorpions: one revealed iron hit at ~1600 power.
+                    if (before == 1 && !iron_ready()) {
+                        ensure_sword();
+                        if (!iron_ready()) {
+                            if (waits > 400) {
+                                report_block("no revealed IRON for level 2");
+                                return 1;
+                            }
+                            break;
+                        }
                     }
                     if (!go_down() && waits > 2000) {
                         report_block("cannot climb down");
@@ -1122,24 +1479,22 @@ struct Runner {
                     }
                     if (game.level_index() > before) {
                         mark_camp();
-                        drop_nonessential();
+                        // Do not PULL/DROP on the landing cell. L4 holes spawn
+                        // next to balrogs; inventory burns the attack delay.
                         if (game.level_index() == 3) {
                             phase = Survive3;
                             break;
                         }
-                        if (game.level_index() == 2)
-                            light_named(kLunar, "LUNAR TORCH");
-                        else
-                            douse_torch();
                         phase_since = game.counters().total_jiffies;
                         phase = game.level_index() == 1 ? DarkPark : LightUp;
+                        break;
                     }
                     break;
                 }
                 case WallWalk: {
                     // Level 1: torch off, forward to a wall, turn right, repeat.
                     if (game.player().damage > 50) {
-                        idle(40);
+                        recover();
                         break;
                     }
                     const int f = dag::vfind(game.level_index(), game.player().row,
@@ -1164,8 +1519,7 @@ struct Runner {
                 case PrepRings: {
                     // ENDGAM keeps hands and the torch. Hold a charged ring and
                     // the iron sword on the killing shot.
-                    if (game.player().power < 1000 &&
-                        owned_by_player(game, find_obj(game, kThews))) {
+                    if (game.player().power < 1000 && find_owned(game, kThews) >= 0) {
                         empty_hand(true);
                         type({"PULL RIGHT THEWS FLASK", "USE RIGHT"});
                         break;
@@ -1183,11 +1537,17 @@ struct Runner {
                         return 1;
                     }
                     type({"ZSAVE PREP"});
+                    checkpoint("pre-image");
                     phase = KillImage;
                     break;
                 }
                 case KillImage: {
                     if (game.level_index() == 3 || game.player().won) {
+                        // ENDGAM relocates onto a new level-3 maze. The old
+                        // hole camp is a different cell now.
+                        mark_camp();
+                        if (use_fudge) fudge_rest_now();
+                        checkpoint("endgam");
                         phase = Survive3;
                         break;
                     }
@@ -1196,7 +1556,7 @@ struct Runner {
                         break;
                     }
                     if (!ring_safe() || rest_needed()) {
-                        idle(40);
+                        recover();
                         break;
                     }
                     const int sl = slot_of_type(game, 10);
@@ -1220,15 +1580,16 @@ struct Runner {
                         phase = KillWizard;
                         break;
                     }
-                    if (live_count(game) == 0) {
+                    if (clearable() == 0) {
                         phase = Loot;
                         break;
                     }
-                    if (camp_r < 0) mark_camp();
+                    if (use_fudge && game.player().damage > 63) fudge_rest_now();
+                    mark_camp();
                     if (!torch_live()) light_named(kSolar, "SOLAR TORCH") || light_pine();
                     ensure_sword();
                     if (rest_needed()) {
-                        idle(40);
+                        recover();
                         break;
                     }
                     if (!at_camp()) {
@@ -1240,6 +1601,7 @@ struct Runner {
                     break;
                 }
                 case KillWizard: {
+                    checkpoint("pre-wizard");
                     const int sl = slot_of_type(game, 11);
                     if (sl < 0) {
                         phase = TakeSupreme;
@@ -1256,7 +1618,7 @@ struct Runner {
                         return 1;
                     }
                     if (ring_ready() && !ring_safe()) {
-                        idle(40);
+                        recover();
                         break;
                     }
                     const dag::Ccb& w = game.creatures()[static_cast<std::size_t>(sl)];
@@ -1303,28 +1665,13 @@ struct Runner {
         return 0;
     }
 
-    void write_script(const std::string& path) const {
-        std::ofstream out(path);
-        out << "# Original Mode power-on to WINNER. Authored by src/app/dplan.cpp.\n";
-        out << "# One key per line; see parse_script in game.hpp.\n";
-        for (const auto& k : log) {
-            out << k.jiffy << ' ';
-            if (k.ch == 0x20)
-                out << "SPACE";
-            else if (k.ch == 0x0D)
-                out << "CR";
-            else if (k.ch == 0x08)
-                out << "BS";
-            else
-                out << static_cast<char>(k.ch);
-            out << '\n';
-        }
-    }
+    void write_script(const std::string& path) const { write_script_to(path); }
 };
 
 int usage() {
     std::cerr << "usage: dplan --dump\n"
-                 "       dplan --script FILE [--max-jiffies N]\n";
+                 "       dplan --script FILE [--max-jiffies N] [--cache DIR]\n"
+                 "              [--fudge] [--no-resume]\n";
     return 2;
 }
 
@@ -1334,6 +1681,9 @@ int main(int argc, char** argv) {
     std::string script;
     std::uint64_t max_jiffies = 4000000;
     bool dump = false;
+    bool fudge = false;
+    bool resume = true;
+    std::string cache = ".cache/playthrough";
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         auto next = [&]() {
@@ -1346,12 +1696,21 @@ int main(int argc, char** argv) {
             script = next();
         else if (a == "--max-jiffies")
             max_jiffies = std::strtoull(next(), nullptr, 10);
+        else if (a == "--cache")
+            cache = next();
+        else if (a == "--fudge")
+            fudge = true;
+        else if (a == "--no-resume")
+            resume = false;
         else
             return usage();
     }
     if (dump) return dump_world();
     if (script.empty()) return usage();
     Runner r;
+    r.use_fudge = fudge;
+    r.allow_resume = resume;
+    r.cache_dir = cache;
     const int rc = r.play(max_jiffies);
     r.write_script(script);
     std::cerr << "wrote " << script << " keys=" << r.log.size()

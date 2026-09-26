@@ -93,7 +93,16 @@ void creature_attack(Ccb& self, int slot, Rng& rng, CmoveView& view,
     if (!attack_hits(attacker.power, view.player->power, view.player->damage, roll)) {
         events.push_back("MISS slot=" + std::to_string(slot) + " roll=" + std::to_string(roll));
     } else {
+        const std::uint16_t before = view.player->damage;
         apply_damage(attacker, *view.player);
+        if (view.incoming_damage_percent != 100) {
+            const unsigned added =
+                static_cast<unsigned>(view.player->damage) +
+                (view.player->damage < before ? 65536u : 0u) - before;
+            const unsigned scaled =
+                added * static_cast<unsigned>(view.incoming_damage_percent) / 100u;
+            view.player->damage = static_cast<std::uint16_t>(before + scaled);
+        }
         events.push_back("HIT slot=" + std::to_string(slot) +
                          " damage=" + std::to_string(view.player->damage));
     }

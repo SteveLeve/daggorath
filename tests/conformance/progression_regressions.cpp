@@ -267,6 +267,57 @@ void test_snapshot_round_trip_and_replay() {
     }
 }
 
+void test_fudge_harness_is_not_source_behaviour() {
+    dag::Game fresh;
+    check(fresh.incoming_damage_percent() == 100, "default Game is Original Mode incoming (100)");
+
+    std::string err;
+    const std::string body = "0 A\nFUDGE incoming 25\n10 FUDGE rest\n10 B\n";
+    const auto keys = dag::parse_script(body, err);
+    check(err.empty() && keys.size() == 2, "parse_script ignores FUDGE lines",
+          "n=" + std::to_string(keys.size()) + " err=" + err);
+    const auto ev = dag::parse_harness(body, err);
+    check(err.empty() && ev.size() == 2, "parse_harness collects FUDGE lines",
+          "n=" + std::to_string(ev.size()) + " err=" + err);
+
+    dag::Game rest;
+    rest.set_player_damage(200);
+    rest.load_harness(dag::parse_harness("0 FUDGE rest\n", err));
+    rest.advance_jiffies(1);
+    check(rest.player().damage == 63, "FUDGE rest writes the HSLOW floor",
+          std::to_string(rest.player().damage));
+
+    dag::Game a;
+    int sl = -1;
+    for (int i = 0; i < dag::kCcbSlots; ++i)
+        if (a.creatures()[static_cast<std::size_t>(i)].in_use) {
+            sl = i;
+            break;
+        }
+    check(sl >= 0, "Original Mode births at least one creature");
+    if (sl < 0) return;
+    const dag::Ccb& c = a.creatures()[static_cast<std::size_t>(sl)];
+    a.place_player(c.row, c.col);
+    const std::string snap = a.snapshot();
+    const std::uint16_t before = a.player().damage;
+    a.advance_jiffies(400);
+    const unsigned full =
+        static_cast<unsigned>(a.player().damage) + (a.player().damage < before ? 65536u : 0u) -
+        before;
+    dag::Game b;
+    b.restore_snapshot(snap);
+    check(b.incoming_damage_percent() == 100, "snapshot default incoming stays 100");
+    b.set_incoming_damage_percent(25);
+    const std::uint16_t b0 = b.player().damage;
+    b.advance_jiffies(400);
+    const unsigned quarter =
+        static_cast<unsigned>(b.player().damage) + (b.player().damage < b0 ? 65536u : 0u) - b0;
+    check(full > 0, "a creature hit the player at 100%", "added=" + std::to_string(full));
+    check(quarter == full * 25u / 100u, "FUDGE incoming 25 scales creature-to-player damage",
+          "full=" + std::to_string(full) + " quarter=" + std::to_string(quarter));
+    check(fresh.incoming_damage_percent() == 100, "another Game() is still canonical 100");
+}
+
 }  // namespace
 
 int main() {
@@ -277,6 +328,7 @@ int main() {
     test_save_load_resumes_at_the_save();
     test_ram_image_is_the_whole_state();
     test_snapshot_round_trip_and_replay();
+    test_fudge_harness_is_not_source_behaviour();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";
     return g_failures == 0 ? 0 : 1;

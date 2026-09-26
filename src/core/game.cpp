@@ -1,5 +1,6 @@
 #include "daggorath/game.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <istream>
@@ -182,6 +183,7 @@ TaskResult Game::task_cmove(int slot) {
     view.right = shield_from(objects_, player_.right_hand);
     bool heart = false;
     view.heart_update = &heart;
+    view.incoming_damage_percent = incoming_damage_percent_;
     std::vector<std::string> events;
     const TaskResult r = cmove(slot, ccbs_, objects_, level_.maze, level_.rng, view, events);
     store_player_fighter(fighter);
@@ -210,11 +212,31 @@ void Game::emit(const std::string& kind, const std::string& detail) {
                       sched_.counters().to_string(), kind, detail});
 }
 
+void Game::set_incoming_damage_percent(int percent) {
+    if (percent < 0) percent = 0;
+    incoming_damage_percent_ = percent;
+}
+
+void Game::apply_due_harness(std::uint64_t now) {
+    while (harness_pos_ < harness_.size() && harness_[harness_pos_].jiffy <= now) {
+        const HarnessEvent& e = harness_[harness_pos_++];
+        if (e.kind == HarnessFudge::Incoming) {
+            set_incoming_damage_percent(e.percent);
+            emit("FUDGE", "incoming=" + std::to_string(incoming_damage_percent_));
+        } else if (e.kind == HarnessFudge::Rest) {
+            player_.damage = 63;
+            update_heart_rate();
+            emit("FUDGE", "rest");
+        }
+    }
+}
+
 void Game::advance_jiffies(std::uint64_t n) {
     for (std::uint64_t i = 0; i < n; ++i) {
         // Collect the keystrokes timestamped for this jiffy.
         std::vector<std::uint8_t> keys;
         const std::uint64_t now = sched_.counters().total_jiffies;
+        apply_due_harness(now);
         while (script_pos_ < script_.size() && script_[script_pos_].jiffy == now) {
             keys.push_back(script_[script_pos_].ch);
             ++script_pos_;
@@ -1110,6 +1132,7 @@ std::string Game::snapshot() const {
     os << tapes_.size() << '\n';
     for (const auto& [name, image] : tapes_)
         os << name.size() << ' ' << name << '|' << image.size() << ' ' << image << '\n';
+    os << incoming_damage_percent_ << '\n';
     return os.str();
 }
 
@@ -1146,6 +1169,8 @@ void Game::restore_snapshot(const std::string& bytes) {
         in.read(image.data(), static_cast<std::streamsize>(m));
         tapes_.push_back({name, image});
     }
+    int percent = 100;
+    if (in >> percent) incoming_damage_percent_ = percent;
 }
 
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) {
@@ -1160,10 +1185,21 @@ std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) 
         std::istringstream ls(line);
         std::uint64_t jiffy = 0;
         std::string key;
-        if (!(ls >> jiffy >> key)) {
-            if (line.find_first_not_of(" \t") == std::string::npos) continue;
-            error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
-            return {};
+        {
+            std::string first;
+            if (!(ls >> first)) continue;
+            if (first == "FUDGE") continue;  // harness line, not a keystroke
+            std::istringstream back(first);
+            if (!(back >> jiffy)) {
+                error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
+                return {};
+            }
+            if (!(ls >> key)) {
+                if (line.find_first_not_of(" \t") == std::string::npos) continue;
+                error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
+                return {};
+            }
+            if (key == "FUDGE") continue;  // "<jiffy> FUDGE ..."
         }
         std::uint8_t ch = 0;
         if (key == "SPACE") ch = kCSp;
@@ -1176,6 +1212,51 @@ std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) 
         }
         out.push_back({jiffy, ch});
     }
+    return out;
+}
+
+std::vector<Game::HarnessEvent> parse_harness(const std::string& text, std::string& error) {
+    std::vector<Game::HarnessEvent> out;
+    std::istringstream in(text);
+    std::string line;
+    int lineno = 0;
+    while (std::getline(in, line)) {
+        ++lineno;
+        const auto hash = line.find('#');
+        if (hash != std::string::npos) line = line.substr(0, hash);
+        std::istringstream ls(line);
+        std::string a, b, c;
+        if (!(ls >> a)) continue;
+        std::uint64_t jiffy = 0;
+        if (a != "FUDGE") {
+            std::istringstream num(a);
+            if (!(num >> jiffy) || !(ls >> a) || a != "FUDGE") continue;
+        }
+        if (!(ls >> b)) {
+            error = "line " + std::to_string(lineno) + ": FUDGE needs a verb";
+            return {};
+        }
+        Game::HarnessEvent ev;
+        ev.jiffy = jiffy;
+        if (b == "incoming") {
+            if (!(ls >> ev.percent)) {
+                error = "line " + std::to_string(lineno) + ": FUDGE incoming needs a percent";
+                return {};
+            }
+            ev.kind = Game::HarnessFudge::Incoming;
+        } else if (b == "rest") {
+            ev.kind = Game::HarnessFudge::Rest;
+        } else {
+            error = "line " + std::to_string(lineno) + ": unknown FUDGE '" + b + "'";
+            return {};
+        }
+        (void)c;
+        out.push_back(ev);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const Game::HarnessEvent& a, const Game::HarnessEvent& b) {
+                  return a.jiffy < b.jiffy;
+              });
     return out;
 }
 
