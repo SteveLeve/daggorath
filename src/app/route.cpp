@@ -112,6 +112,7 @@ int main(int argc, char** argv) {
     std::reverse(path.begin(), path.end());
 
     std::uint64_t jiffy = 1;
+    emit_line(jiffy, "PULL LEFT SWORD");
     int facing = static_cast<int>(game.player().dir);
     for (std::size_t i = 1; i < path.size(); ++i) {
         int step_dir = 0;
