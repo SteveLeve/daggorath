@@ -43,6 +43,8 @@ fixtures: check-pin
 	python3 tools/extract_fixtures.py "$(ASM_DIR)" "$(FIXTURES)"
 	python3 tools/gen_lexicon_header.py "$(FIXTURES)/tokens.json" \
 	    src/core/include/daggorath/lexicon_tables.hpp
+	python3 tools/extract_sounds.py "$(ASM_DIR)" "$(FIXTURES)" \
+	    src/core/include/daggorath/sound_tables.hpp
 
 build:
 	cmake -S . -B $(BUILD) -DDAGGORATH_FIXTURE_DIR=$(CURDIR)/$(FIXTURES)
