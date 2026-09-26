@@ -146,7 +146,17 @@ void test_maps() {
 
 }  // namespace
 
+void test_glyph_a() {
+    std::uint8_t rows[7] = {};
+    dag::glyph_rows(1, rows);
+    const std::uint8_t expect[7] = {0x10, 0x28, 0x44, 0x44, 0x7C, 0x44, 0x44};
+    for (int i = 0; i < 7; ++i) {
+        check(rows[i] == expect[i], "SWCTAB A row " + std::to_string(i));
+    }
+}
+
 int main() {
+    test_glyph_a();
     test_regions();
     test_names();
     test_status_lines();

@@ -3,6 +3,7 @@
 #include "daggorath/raster.hpp"
 #include "daggorath/snapshot.hpp"
 #include "daggorath/sound_mix.hpp"
+#include "daggorath/text.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -92,23 +93,67 @@ int main(int argc, char** argv) {
     SDL_AudioStream* audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec,
                                                        nullptr, nullptr);
     if (audio != nullptr) SDL_ResumeAudioStreamDevice(audio);
+    else std::cerr << "audio device unavailable\n";
     std::uint64_t owed = 0;
+    std::uint64_t last_ns = SDL_GetTicksNS();
+    std::vector<std::uint8_t> heartbeat;
+    std::size_t heard = 0;
+    bool audio_level = false;
+    std::uint64_t audio_jiffy = 0;
+    std::string message;
     bool running = true;
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
-            if (event.type == SDL_EVENT_KEY_DOWN) {
+            if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
                 const SDL_Keycode key = event.key.key;
+                // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
                 if (key == SDLK_RETURN) game.press(0x0D);
                 else if (key == SDLK_SPACE) game.press(0x20);
-                else if (key >= SDLK_A && key <= SDLK_Z) game.press(static_cast<std::uint8_t>(key));
-                else if (key >= 'a' && key <= 'z') game.press(static_cast<std::uint8_t>(key - 32));
+                else if (key == SDLK_BACKSPACE) game.press(0x08);
+                else if (key >= SDLK_A && key <= SDLK_Z)
+                    game.press(static_cast<std::uint8_t>('A' + (key - SDLK_A)));
             }
         }
-        const int steps = dag::jiffies_due(16667, owed);
+        const std::uint64_t now_ns = SDL_GetTicksNS();
+        const std::uint64_t elapsed_us = now_ns > last_ns ? (now_ns - last_ns) / 1000 : 0;
+        last_ns = now_ns;
+        const int steps = dag::jiffies_due(elapsed_us, owed);
         if (steps > 0) game.advance_jiffies(static_cast<std::uint64_t>(steps));
-        const auto scaled = dag::scale_frame(dag::rasterize(dag::snapshot_from(game)), kScale);
+        auto frame = dag::rasterize(dag::snapshot_from(game));
+        dag::TextSnapshot chrome;
+        auto hand = [&](int index) -> std::optional<dag::Ocb> {
+            if (index < 0 || static_cast<std::size_t>(index) >= game.objects().size()) return {};
+            return game.objects()[static_cast<std::size_t>(index)];
+        };
+        chrome.left = hand(game.player().left_hand);
+        chrome.right = hand(game.player().right_hand);
+        chrome.line = game.line_buffer();
+        if (game.heart().heartf != 0) {
+            chrome.heart = game.heart().hearts != 0 ? dag::HeartGlyph::Large
+                                                    : dag::HeartGlyph::Small;
+        }
+        const auto& events = game.events();
+        while (heard < events.size()) {
+            const dag::CoreEvent& ev = events[heard++];
+            if (ev.kind == dag::CoreEventKind::Text) message = ev.text;
+            if (ev.kind != dag::CoreEventKind::Heartbeat) continue;
+            const std::uint64_t span = ev.jiffy > audio_jiffy ? ev.jiffy - audio_jiffy : 0;
+            const std::uint8_t sample = audio_level ? 0xFF : 0x00;
+            for (std::uint64_t n = 0; n < span * 100; ++n) heartbeat.push_back(sample);
+            audio_level = ev.audio_level;
+            audio_jiffy = ev.jiffy;
+        }
+        const std::uint64_t now_jiffy = game.counters().total_jiffies;
+        if (now_jiffy > audio_jiffy) {
+            const std::uint8_t sample = audio_level ? 0xFF : 0x00;
+            for (std::uint64_t n = 0; n < (now_jiffy - audio_jiffy) * 100; ++n)
+                heartbeat.push_back(sample);
+            audio_jiffy = now_jiffy;
+        }
+        dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message);
+        const auto scaled = dag::scale_frame(frame, kScale);
         std::vector<std::uint8_t> rgb(scaled.size() * 3);
         for (std::size_t i = 0; i < scaled.size(); ++i) {
             const std::uint8_t value = scaled[i] ? 255 : 0;
@@ -121,10 +166,17 @@ int main(int argc, char** argv) {
         SDL_RenderTexture(renderer, texture, nullptr, nullptr);
         SDL_RenderPresent(renderer);
         mix.consume(game.trace());
-        if (audio != nullptr && !mix.pending().empty()) {
-            SDL_PutAudioStreamData(audio, mix.pending().data(),
-                                   static_cast<int>(mix.pending().size()));
-            mix.clear();
+        if (audio != nullptr) {
+            if (!heartbeat.empty()) {
+                SDL_PutAudioStreamData(audio, heartbeat.data(),
+                                       static_cast<int>(heartbeat.size()));
+                heartbeat.clear();
+            }
+            if (!mix.pending().empty()) {
+                SDL_PutAudioStreamData(audio, mix.pending().data(),
+                                       static_cast<int>(mix.pending().size()));
+                mix.clear();
+            }
         }
         SDL_Delay(1);
     }

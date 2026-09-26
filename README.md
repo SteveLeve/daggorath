@@ -18,10 +18,11 @@ are the eventual targets; neither is being built yet.
 | **Phase 1** | complete — cartridge bytes match catalog 26-3093; Original Mode counts the 377 build interrupts (`0:0:6.2.5`, `SECOND` = 6). [reconciliation](docs/archaeology/phase-1/reconciliation.md) |
 | **Phase 2** | complete — `CMOVE` without attack; [reconciliation](docs/archaeology/phase-2/reconciliation.md) |
 | **Phase 3** | complete — combat through death; [reconciliation](docs/archaeology/phase-3/reconciliation.md) |
-| **Phase 4** | in review — object commands, torches, incant, climb; [reconciliation](docs/archaeology/phase-4/reconciliation.md) |
-| **Phase 5** | in review — endings, save, and a power-on `WINNER` script; [reconciliation](docs/archaeology/phase-5/reconciliation.md) |
-| **Phase 6** | in review — logical draw list, core events, map and text; [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
-| **Phases 7–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
+| **Phase 4** | complete — object commands, torches, incant, climb; [reconciliation](docs/archaeology/phase-4/reconciliation.md) |
+| **Phase 5** | complete — endings, save, and a power-on `WINNER` script; [reconciliation](docs/archaeology/phase-5/reconciliation.md) |
+| **Phase 6** | complete — logical draw list, core events, map and text; [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
+| **Phase 7** | complete — SDL3 desktop window when SDL3 is installed; [reconciliation](docs/archaeology/phase-7/reconciliation.md) |
+| **Phases 8–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
 to the Tandy catalog 26-3093 cartridge image. MAME 0.264 `coco2b` has run that
@@ -37,10 +38,10 @@ exertion path and heart-rate update. Entering a level births creatures from
 the `CMXLND` counts and hangs creature-owned objects on them. `CREGEN`
 increments the current level's matrix every five minutes (and once on the
 opening lap) and does not create a creature until the next entry.
-Every other command reports `UNIMPLEMENTED` rather than approximating.
+No command reports `UNIMPLEMENTED`.
 Creatures move by `CMOVE` (pickup, aligned approach, random preference,
 back-off) and requeue on `Q.TEN`. A same-cell action emits
-a hit or a miss, then `DAMAGE` on a hit. A kill drops loot and decrements `CMXLND`. `dcli --present` prints the `VIEWER` draw list. `--present-map` and `--present-text` print the mapper, examine, status, and command projections. `--events` prints the core event stream. Rasterisation and SDL stay on the Phase 7 branch.
+a hit or a miss, then `DAMAGE` on a hit. A kill drops loot and decrements `CMXLND`. `dcli --present` prints the `VIEWER` draw list. `--present-map` and `--present-text` print the mapper, examine, status, and command projections. `--events` prints the core event stream. With SDL3 installed, `make build` produces `build/src/platform/dod`: a 256×192 window scaled 3×, paced at 60 jiffies per second. The view starts dark; the status line, heartbeat, and command prompt are drawn. Light the carried torch with `PULL LEFT TORCH` and `USE LEFT`.
 
 `dcli` runs timestamped keystroke scripts and emits diff-friendly traces, so the
 same script can later be replayed against a ROM capture and compared line by line.
@@ -80,10 +81,10 @@ g++ -std=c++20 -O2 -Isrc/core/include src/core/*.cpp src/app/dcli.cpp -o /tmp/dc
 
 ```text
 src/core/           simulation: clock, scheduler, RNG, world, commands. Links nothing.
-src/presentation/   placeholder: visibility, display mode, ordered screen/audio events
+src/presentation/   viewer, rasteriser, status and command text, sound mix
 src/input/          placeholder: touch, keyboard and controller adapters -> commands
-src/platform/       placeholder: SDL3, storage, Android and iOS packaging
-src/app/            dcli trace harness today; desktop application later
+src/platform/       SDL3 window when SDL3 is installed; storage and mobile packaging later
+src/app/            dcli trace harness; dod is the desktop window
 tests/conformance/  cross-checks against the extracted fixtures
 tools/              fixture extractor, lexicon generator, manifest verifier
 tools/rom/          ROM conformance harness (scaffolding; no ROM ever committed)
