@@ -7,6 +7,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -67,6 +68,53 @@ int headless(int argc, char** argv) {
     return 0;
 }
 
+bool tape_name_ok(const std::string& name) {
+    if (name.empty() || name.size() > 8) return false;
+    for (unsigned char c : name) {
+        const bool letter = c >= 'A' && c <= 'Z';
+        const bool digit = c >= '0' && c <= '9';
+        if (!letter && !digit) return false;
+    }
+    return true;
+}
+
+std::filesystem::path save_file(const std::string& dir, const std::string& name) {
+    return std::filesystem::path(dir) / (name + ".dagram");
+}
+
+// Copy each new ZSAVE off the in-memory cassette. The core still does not
+// know about files; this is the platform envelope around DAGRAM 1.
+void persist_saves(dag::Game& game, std::size_t& traced, const std::string& dir) {
+    const auto& trace = game.trace();
+    while (traced < trace.size()) {
+        const dag::TraceEvent& ev = trace[traced++];
+        if (ev.kind != "ZSAVE") continue;
+        const auto sp = ev.detail.find(' ');
+        const std::string name = ev.detail.substr(0, sp);
+        if (!tape_name_ok(name)) continue;
+        const std::string* image = game.cassette_image(name);
+        if (image == nullptr) continue;
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        std::ofstream out(save_file(dir, name), std::ios::binary);
+        if (!out) continue;
+        out.write(image->data(), static_cast<std::streamsize>(image->size()));
+    }
+}
+
+std::optional<std::string> read_save(const std::string& dir, const std::string& name) {
+    if (!tape_name_ok(name)) return {};
+    std::ifstream in(save_file(dir, name), std::ios::binary);
+    if (!in) return {};
+    std::ostringstream text;
+    text << in.rdbuf();
+    std::string image = text.str();
+    if (image.rfind("DAGRAM 1", 0) != 0) return {};
+    return image;
+}
+
+enum class DeathPrompt { Playing, Menu, LoadName };
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -84,8 +132,16 @@ int main(int argc, char** argv) {
                                              dag::kScreenHeight * kScale);
     if (renderer == nullptr || texture == nullptr) return 1;
 
-    dag::Game game;
+    std::optional<dag::Game> held;
+    held.emplace();
     dag::SoundMix mix;
+    std::string save_dir = "saved";
+    if (char* pref = SDL_GetPrefPath("daggorath", "dod")) {
+        save_dir = pref;
+        SDL_free(pref);
+    }
+    DeathPrompt prompt = DeathPrompt::Playing;
+    std::string load_name;
     SDL_AudioSpec spec{};
     spec.format = SDL_AUDIO_U8;
     spec.channels = 1;
@@ -98,29 +154,97 @@ int main(int argc, char** argv) {
     std::uint64_t last_ns = SDL_GetTicksNS();
     std::vector<std::uint8_t> heartbeat;
     std::size_t heard = 0;
+    std::size_t traced = 0;
     bool audio_level = false;
     std::uint64_t audio_jiffy = 0;
     std::string message;
     bool running = true;
+    auto reset_view = [&]() {
+        heard = 0;
+        traced = 0;
+        audio_level = false;
+        audio_jiffy = 0;
+        heartbeat.clear();
+        message.clear();
+        mix = dag::SoundMix{};
+        prompt = DeathPrompt::Playing;
+        load_name.clear();
+    };
+    auto restart_game = [&]() {
+        held.emplace();
+        reset_view();
+    };
+    auto resume_view = [&](dag::Game& game) {
+        heard = game.events().size();
+        traced = game.trace().size();
+        audio_level = game.heart().audio_level;
+        audio_jiffy = game.counters().total_jiffies;
+        heartbeat.clear();
+        message.clear();
+        prompt = DeathPrompt::Playing;
+        load_name.clear();
+    };
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
-            if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
-                const SDL_Keycode key = event.key.key;
-                // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
-                if (key == SDLK_RETURN || key == SDLK_KP_ENTER) game.press(0x0D);
-                else if (key == SDLK_SPACE) game.press(0x20);
-                else if (key == SDLK_BACKSPACE) game.press(0x08);
-                else if (key >= SDLK_A && key <= SDLK_Z)
-                    game.press(static_cast<std::uint8_t>('A' + (key - SDLK_A)));
+            if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) continue;
+            const SDL_Keycode key = event.key.key;
+            if (prompt == DeathPrompt::Menu) {
+                if (key == SDLK_R) {
+                    restart_game();
+                    break;
+                }
+                else if (key == SDLK_L) {
+                    prompt = DeathPrompt::LoadName;
+                    load_name.clear();
+                }
+                continue;
             }
+            if (prompt == DeathPrompt::LoadName) {
+                if (key == SDLK_ESCAPE) {
+                    prompt = DeathPrompt::Menu;
+                    load_name.clear();
+                } else if (key == SDLK_BACKSPACE) {
+                    if (!load_name.empty()) load_name.pop_back();
+                } else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+                    std::optional<std::string> image = read_save(save_dir, load_name);
+                    if (!image) {
+                        if (const std::string* mem = held->cassette_image(load_name))
+                            if (mem->rfind("DAGRAM 1", 0) == 0) image = *mem;
+                    }
+                    if (!image) {
+                        message = "???";
+                        prompt = DeathPrompt::Menu;
+                        load_name.clear();
+                    } else {
+                        held->restore_ram_image(*image);
+                        if (held->player().dead) prompt = DeathPrompt::Menu;
+                        else resume_view(*held);
+                    }
+                } else if (key >= SDLK_A && key <= SDLK_Z && load_name.size() < 8) {
+                    load_name.push_back(static_cast<char>('A' + (key - SDLK_A)));
+                } else if (key >= SDLK_0 && key <= SDLK_9 && load_name.size() < 8) {
+                    load_name.push_back(static_cast<char>('0' + (key - SDLK_0)));
+                }
+                continue;
+            }
+            // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
+            if (key == SDLK_RETURN || key == SDLK_KP_ENTER) held->press(0x0D);
+            else if (key == SDLK_SPACE) held->press(0x20);
+            else if (key == SDLK_BACKSPACE) held->press(0x08);
+            else if (key >= SDLK_A && key <= SDLK_Z)
+                held->press(static_cast<std::uint8_t>('A' + (key - SDLK_A)));
         }
+        dag::Game& game = *held;
         const std::uint64_t now_ns = SDL_GetTicksNS();
         const std::uint64_t elapsed_us = now_ns > last_ns ? (now_ns - last_ns) / 1000 : 0;
         last_ns = now_ns;
         const int steps = dag::jiffies_due(elapsed_us, owed);
-        if (steps > 0) game.advance_jiffies(static_cast<std::uint64_t>(steps));
+        if (steps > 0 && prompt == DeathPrompt::Playing)
+            game.advance_jiffies(static_cast<std::uint64_t>(steps));
+        persist_saves(game, traced, save_dir);
+        if (prompt == DeathPrompt::Playing && game.player().dead) prompt = DeathPrompt::Menu;
         auto frame = dag::rasterize(dag::snapshot_from(game));
         dag::TextSnapshot chrome;
         auto hand = [&](int index) -> std::optional<dag::Ocb> {
@@ -152,7 +276,13 @@ int main(int argc, char** argv) {
                 heartbeat.push_back(sample);
             audio_jiffy = now_jiffy;
         }
-        dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message);
+        std::string command_override;
+        if (prompt == DeathPrompt::Menu) command_override = "R RESTART OR L LOAD";
+        else if (prompt == DeathPrompt::LoadName) {
+            command_override = "LOAD " + load_name;
+            if (command_override.size() < 32) command_override.push_back('_');
+        }
+        dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
         const auto scaled = dag::scale_frame(frame, kScale);
         std::vector<std::uint8_t> rgb(scaled.size() * 3);
         for (std::size_t i = 0; i < scaled.size(); ++i) {

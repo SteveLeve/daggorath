@@ -105,7 +105,8 @@ void glyph_rows(std::uint8_t code, std::uint8_t rows[7]) {
 }
 
 void paint_text_bands(std::uint8_t* pixels, int width,
-                      const TextSnapshot& snap, std::string_view message) {
+                      const TextSnapshot& snap, std::string_view message,
+                      std::string_view command_override) {
     for (int y = kViewportScanlineEnd; y < kScreenHeight; ++y) {
         std::fill(pixels + static_cast<std::size_t>(y * width),
                   pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
@@ -126,6 +127,7 @@ void paint_text_bands(std::uint8_t* pixels, int width,
     std::string command = ".";
     command += snap.line;
     if (command.size() < 32) command.push_back('_');
+    if (!command_override.empty()) command = std::string(command_override.substr(0, 32));
     plot_string(pixels, width, 0, kStatusScanlineEnd, command);
     plot_string(pixels, width, 0, kStatusScanlineEnd + 8, message.substr(0, 32));
 }

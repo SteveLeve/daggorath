@@ -34,7 +34,11 @@ void glyph_rows(std::uint8_t code, std::uint8_t rows[7]);
 
 // Paint the status band and the command band over `pixels`. The viewer
 // occupies scanlines 0–151; these bands are 152–191.
+// `command_override`, when non-empty, replaces the ".line_" command row.
+// The desktop window uses that for the post-death prompt, which is not a
+// line the halted core can edit.
 void paint_text_bands(std::uint8_t* pixels, int width,
-                      const TextSnapshot& snap, std::string_view message);
+                      const TextSnapshot& snap, std::string_view message,
+                      std::string_view command_override = {});
 
 }  // namespace dag

@@ -1235,6 +1235,12 @@ std::string Game::ram_image() const {
     return os.str();
 }
 
+const std::string* Game::cassette_image(const std::string& name) const {
+    for (auto it = tapes_.rbegin(); it != tapes_.rend(); ++it)
+        if (it->first == name) return &it->second;
+    return nullptr;
+}
+
 void Game::restore_ram_image(const std::string& image) {
     std::istringstream in(image);
     std::string magic;
@@ -1242,6 +1248,10 @@ void Game::restore_ram_image(const std::string& image) {
     in >> magic >> version;
     if (magic != "DAGRAM" || version != 1) std::abort();
     load_ram(in);
+    // Halt is BRA *, the program counter, and is outside the RAM image.
+    // LOAD90 returns to SCHED. A restored game that is already dead or has
+    // already won stays in that halt.
+    sched_.set_halted(player_.dead || player_.won);
 }
 
 std::string Game::snapshot() const {

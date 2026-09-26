@@ -160,6 +160,28 @@ void test_winner() {
     check(game.counters().total_jiffies == at, "WINNER ends in BRA *");
 }
 
+void test_death_load_resumes() {
+    dag::Game game(1, 0);
+    game.load_script(keys_for(10, {"ZSAVE QUEST"}));
+    game.advance_jiffies(80);
+    const std::string* saved = game.cassette_image("QUEST");
+    check(saved != nullptr && saved->rfind("DAGRAM 1", 0) == 0,
+          "ZSAVE keeps a named cassette image");
+    if (saved == nullptr) return;
+    const std::string image = *saved;
+    game.set_player_damage(static_cast<std::uint16_t>(game.player().power + 1));
+    game.advance_jiffies(2);
+    check(game.player().dead, "damage past power is death");
+    const auto frozen = game.counters().total_jiffies;
+    game.advance_jiffies(30);
+    check(game.counters().total_jiffies == frozen, "DEATH's BRA * takes no further interrupts");
+    game.restore_ram_image(image);
+    check(!game.player().dead, "the cassette image is the living game");
+    game.advance_jiffies(30);
+    check(game.counters().total_jiffies == frozen + 30,
+          "restoring a living image returns to SCHED");
+}
+
 void test_death_line() {
     dag::Game game(1, 0);
     const int slot = slot_of_type(game, 3);
@@ -325,6 +347,7 @@ int main() {
     test_wizard_ending();
     test_winner();
     test_death_line();
+    test_death_load_resumes();
     test_save_load_resumes_at_the_save();
     test_ram_image_is_the_whole_state();
     test_snapshot_round_trip_and_replay();

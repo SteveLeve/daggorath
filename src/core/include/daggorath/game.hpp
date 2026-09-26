@@ -167,6 +167,11 @@ public:
     std::string ram_image() const;
     void restore_ram_image(const std::string& image);
 
+    // Most recent in-memory cassette image `ZSAVE` wrote for `name`.
+    // Null when that name was never saved. The platform copies this out;
+    // the core does not touch the filesystem.
+    const std::string* cassette_image(const std::string& name) const;
+
     // Suspend snapshot: the RAM image plus what lies outside it (the trace
     // clock, the halt state, and the cassette), enough to continue
     // bit-identically. Not a game command.
