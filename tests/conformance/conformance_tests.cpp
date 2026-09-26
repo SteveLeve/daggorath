@@ -1180,6 +1180,13 @@ void test_prepared_winner() {
     elvish.physical_offense = 64;
     dag::apply_damage(elvish, fresh);
     check(fresh.damage == 3, "the elvish sword deals 3 damage to the wizard at power 160");
+    fresh.damage = 0;
+    dag::Fighter fire;
+    fire.power = 160;
+    fire.magic_offense = 255;
+    fire.physical_offense = 255;
+    dag::apply_damage(fire, fresh);
+    check(fresh.damage == 14, "the fire ring deals 14 damage to the wizard at power 160");
 }
 
 }  // namespace
