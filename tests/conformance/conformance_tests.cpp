@@ -1207,6 +1207,95 @@ void test_hslow_floor() {
           "resting while frozen heals down to 63 and then stops");
 }
 
+void test_fire_ring_reaches_wizard() {
+    dag::Game game(1, 4);
+    game.set_frozen(true);
+    int vulcan = -1;
+    for (int i = 0; i < static_cast<int>(game.objects().size()); ++i) {
+        if (game.objects()[static_cast<std::size_t>(i)].type == 12) vulcan = i;
+    }
+    check(vulcan >= 0, "a vulcan ring object exists");
+    if (vulcan < 0) return;
+    game.hold(false, vulcan);
+    std::uint64_t at = 0;
+    auto line = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        at += static_cast<std::uint64_t>(text.size()) + 2;
+        game.advance_jiffies(at);
+    };
+    line("INCANT FIRE");
+    int goal_row = -1;
+    int goal_col = -1;
+    int wizard = -1;
+    for (int slot = 0; slot < dag::kCcbSlots; ++slot) {
+        const dag::Ccb& creature = game.creatures()[static_cast<std::size_t>(slot)];
+        if (creature.in_use && creature.type == 11) {
+            wizard = slot;
+            goal_row = creature.row;
+            goal_col = creature.col;
+        }
+    }
+    check(wizard >= 0, "the wizard is on level 4");
+    if (wizard < 0) return;
+    struct Node { int row, col, parent; };
+    std::vector<Node> nodes;
+    std::vector<int> bfs;
+    std::vector<char> seen(32 * 32, 0);
+    nodes.push_back({game.player().row, game.player().col, -1});
+    bfs.push_back(0);
+    seen[game.player().row * 32 + game.player().col] = 1;
+    int found = -1;
+    for (std::size_t qi = 0; qi < bfs.size() && found < 0; ++qi) {
+        const Node here = nodes[static_cast<std::size_t>(bfs[qi])];
+        if (here.row == goal_row && here.col == goal_col) {
+            found = bfs[qi];
+            break;
+        }
+        for (int dir = 0; dir < 4; ++dir) {
+            int nr = 0, nc = 0;
+            if (!dag::step_ok(game.maze(), here.row, here.col, static_cast<dag::Dir>(dir), nr, nc))
+                continue;
+            const int key = nr * 32 + nc;
+            if (seen[static_cast<std::size_t>(key)]) continue;
+            seen[static_cast<std::size_t>(key)] = 1;
+            nodes.push_back({nr, nc, bfs[qi]});
+            bfs.push_back(static_cast<int>(nodes.size()) - 1);
+        }
+    }
+    check(found >= 0, "a frozen walk can reach the wizard");
+    if (found < 0) return;
+    std::vector<int> path;
+    for (int n = found; n >= 0; n = nodes[static_cast<std::size_t>(n)].parent) path.push_back(n);
+    std::reverse(path.begin(), path.end());
+    int facing = static_cast<int>(game.player().dir);
+    for (std::size_t i = 1; i < path.size(); ++i) {
+        const int drow = nodes[static_cast<std::size_t>(path[i])].row -
+                         nodes[static_cast<std::size_t>(path[i - 1])].row;
+        const int dcol = nodes[static_cast<std::size_t>(path[i])].col -
+                         nodes[static_cast<std::size_t>(path[i - 1])].col;
+        int step_dir = 3;
+        if (drow == -1) step_dir = 0;
+        else if (dcol == 1) step_dir = 1;
+        else if (drow == 1) step_dir = 2;
+        const int delta = (step_dir - facing) & 3;
+        if (delta == 1) line("TURN RIGHT");
+        else if (delta == 3) line("TURN LEFT");
+        else if (delta == 2) line("TURN AROUND");
+        facing = step_dir;
+        line("MOVE");
+        if (game.player().damage > 70) {
+            at += 4000;
+            game.advance_jiffies(at);
+        }
+    }
+    check(game.player().row == goal_row && game.player().col == goal_col && !game.player().dead,
+          "the player reaches the wizard alive");
+    line("ATTACK LEFT");
+    check(game.creatures()[static_cast<std::size_t>(wizard)].damage == 14,
+          "one fire-ring swing deals 14 wizard damage");
+}
+
 }  // namespace
 
 int main() {
@@ -1232,6 +1321,7 @@ int main() {
     test_incant_fire_script();
     test_prepared_winner();
     test_hslow_floor();
+    test_fire_ring_reaches_wizard();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";
