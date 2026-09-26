@@ -1015,6 +1015,11 @@ void test_projection() {
     const std::uint8_t outside[] = {0xFD, 0x40, 0x00};
     check(dag::decode_vectors(outside, 128, 128, 128, 76, 0).empty(),
           "a jump past the buffer draws nothing");
+    // VOBJ.ASM FTORCH via missing-macros.asm SVORG/SVECT/SVEND.
+    const std::uint8_t torch[] = {118, 60, 0xFC, 0xF7, 0xFF, 0x2A, 0x00, 0xFE};
+    const auto torch_lines = dag::decode_vectors(torch, 128, 128, 128, 76, 0);
+    check(torch_lines.size() == 3 && torch_lines.back().x1 == 60 && torch_lines.back().y1 == 118,
+          "the forward torch list closes on its tip");
     dag::Game keys(1, 0);
     keys.set_frozen(true);
     for (char ch : std::string("TURN RIGHT")) keys.press(static_cast<std::uint8_t>(ch));
