@@ -110,6 +110,10 @@ public:
     void wield_torch(int object_index);
     // Test hooks: write PROW/PCOL and PDAM directly, then run HUPDAT.
     void place_player(int row, int col) { player_.row = row; player_.col = col; }
+    void set_player_power(std::uint16_t power) {
+        player_.power = power;
+        update_heart_rate();
+    }
     void set_player_damage(std::uint16_t damage) {
         player_.damage = damage;
         update_heart_rate();

@@ -418,6 +418,7 @@ bool Game::parse_hand(const std::string& line, std::size_t& pos, bool& right, in
 
 bool Game::parse_object(const std::string& line, std::size_t& pos, bool& specific,
                         std::uint8_t& kind) {
+    const std::size_t token_start = pos;
     const ParseResult generic = parse(kGenTab, line, pos);
     if (generic.status == ParseStatus::Matched) {
         specific = false;
@@ -428,6 +429,8 @@ bool Game::parse_object(const std::string& line, std::size_t& pos, bool& specifi
         emit("OUTPUT", "???");
         return false;
     }
+    // POBJ10: PARSE0 classifies the token GENTAB just rejected; it reads no new one.
+    pos = token_start;
     const ParseResult adjective = parse(kAdjTab, line, pos);
     const ParseResult genus = parse(kGenTab, line, pos);
     if (adjective.status != ParseStatus::Matched || genus.status != ParseStatus::Matched ||

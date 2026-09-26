@@ -319,6 +319,7 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-6 | Retired 2026-09-25 | `CBIRTH` queues `CMOVE` on `Q.TEN` with the definition's movement delay (`COMCRE.ASM`). Phase 2. |
 | D-7 | Retired 2026-09-25 | `CMOVE` calls `ATTACK`. Phase 3. |
 | D-8 | Killing creature type 10 or 11 emits `DEFER endgame <type>` instead of running `ENDGAM` or the ring riddle | **[SRC]** `PATTK.ASM` branches to `ENDGAM` for type 10 and runs the ring riddle for type 11. Type 11 still sets the freeze flag. Retired by Phase 5. ADR-0008. |
+| D-9 | Incanting the final ring emits `DEFER winner` instead of running `WINNER` | **[SRC]** `PINCAN.ASM` jumps to `WINNER` when the incanted type is `T.RN15`. Retired by Phase 5. ADR-0008. |
 
 ### Initial clock (applied)
 

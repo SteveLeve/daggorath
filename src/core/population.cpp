@@ -1,6 +1,8 @@
 #include "daggorath/population.hpp"
 
 #include <cassert>
+#include <cstdlib>
+#include <iterator>
 
 namespace dag {
 namespace {
@@ -17,8 +19,11 @@ struct ObjDef {
     std::uint8_t initial_level, count;
 };
 
-// OBJXXX lines, DTABAS.ASM. Special-parameter symbols are the T.* indices:
-// T.RN15=18, T.RN11=19, T.RN13=20, T.RN12=21.
+// Placed rows are OBJXXX lines in DTABAS.ASM. Rows 18-24 are the SPCXXX
+// special objects (objects.json special_objects): types created by INCANT,
+// BURNER, and USE, not placed by GENXXX. Special-parameter symbols are the
+// T.* indices: T.RN15=18, T.RN11=19, T.RN13=20, T.RN12=21, T.RN20=22,
+// T.FLA4=23, T.TOR5=24.
 constexpr ObjDef kObjects[] = {
     {Ring, 255, 0, 5, {3, 18, 0}, true, 4, 1},    // SUPREME
     {Ring, 170, 0, 5, {3, 19, 0}, true, 3, 1},    // JOULE
@@ -64,6 +69,8 @@ struct Filled {
 };
 
 Filled ocbfil(int type) {
+    // ODBTAB ends at T.TOR5. Release builds drop assert, so this stays live.
+    if (type < 0 || type >= static_cast<int>(std::size(kObjects))) std::abort();
     const ObjDef& d = kObjects[type];
     Filled f{d.cls, d.reveal, d.mgo, d.pho, {d.spec[0], d.spec[1], d.spec[2]}, d.spec_valid};
     if (!d.spec_valid) {
