@@ -1127,6 +1127,7 @@ void test_incant_fire_script() {
     }
     check(incanted, "the script incants the ring into FIRE");
     check(!game.player().dead, "the player survives the incant script");
+    check(dag::snapshot_from(game).right_class == 1, "the incanted ring is drawn in the right hand");
 }
 
 void test_prepared_winner() {
