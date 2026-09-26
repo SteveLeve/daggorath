@@ -7,9 +7,9 @@
 
 namespace dag {
 
-// Absolute vector lists. A byte below $FA is a coordinate. $FE ends the list.
-// The first pair sets the pen; each later pair is a line. Scale is radix-7.
-// $FF fade draws nothing. JSR, JMP, and relative mode are not decoded.
+// $FB and $FD read a big-endian index into this same buffer. An index past
+// the buffer is a 6809 address this core cannot follow, and decoding stops.
+// $FA returns from $FB. $FE ends the list.
 std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std::uint8_t x_scale,
                                         std::uint8_t y_scale, int centroid_x, int centroid_y,
                                         std::uint8_t fade);

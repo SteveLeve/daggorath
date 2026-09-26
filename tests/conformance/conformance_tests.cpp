@@ -1003,6 +1003,11 @@ void test_projection() {
     const auto restarted = dag::decode_vectors(fresh, 128, 128, 128, 76, 0);
     check(restarted.size() == 2 && restarted[1].x0 == 140 && restarted[1].x1 == 150,
           "$FF starts a new pen position");
+    const std::uint8_t subroutine[] = {0xFB, 0x00, 0x06, 0xFE, 0x00, 0x00, 76, 128, 90, 140, 0xFA};
+    const auto called = dag::decode_vectors(subroutine, 128, 128, 128, 76, 0);
+    check(called.size() == 1 && called[0].x0 == 128 && called[0].y0 == 76 && called[0].x1 == 140 &&
+              called[0].y1 == 90,
+          "an in-buffer subroutine draws its segment and returns");
     dag::Game keys(1, 0);
     keys.set_frozen(true);
     for (char ch : std::string("TURN RIGHT")) keys.press(static_cast<std::uint8_t>(ch));

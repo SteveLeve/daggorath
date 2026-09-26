@@ -32,12 +32,30 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
     std::uint8_t x_raw = 0;
     std::uint8_t y_raw = 0;
     std::size_t i = 0;
-    while (i < list.size()) {
+    std::vector<std::size_t> returns;
+    int steps = 0;
+    while (i < list.size() && steps++ < 10000) {
         const std::uint8_t yb = list[i];
         if (yb >= 0xFA) {
             if (yb == kVectorEnd) break;
             if (yb == 0xFF) {
                 ++i;
+                have_start = false;
+                continue;
+            }
+            if (yb == 0xFB || yb == 0xFD) {
+                if (i + 2 >= list.size()) break;
+                const unsigned addr = (static_cast<unsigned>(list[i + 1]) << 8) | list[i + 2];
+                if (addr >= list.size()) break;
+                if (yb == 0xFB) returns.push_back(i + 3);
+                i = addr;
+                have_start = false;
+                continue;
+            }
+            if (yb == 0xFA) {
+                if (returns.empty()) break;
+                i = returns.back();
+                returns.pop_back();
                 have_start = false;
                 continue;
             }
