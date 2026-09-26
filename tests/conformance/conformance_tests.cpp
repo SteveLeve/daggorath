@@ -1048,6 +1048,12 @@ void test_projection() {
     const auto ring_lines = dag::decode_vectors(ring_shape, 128, 128, 128, 76, 0);
     check(ring_lines.size() == 4 && ring_lines.back().x1 == 60 && ring_lines.back().y1 == 122,
           "the forward ring list closes on its top");
+    // VOBJ.ASM FSHIEL: three absolute vertices, then SVORG/SVECT.
+    const std::uint8_t shield[] = {134, 172, 128, 192, 122, 186, 128, 168, 0xFC, 0x3E, 0x04, 0x00,
+                                   0xFE};
+    const auto shield_lines = dag::decode_vectors(shield, 128, 128, 128, 76, 0);
+    check(shield_lines.size() == 5 && shield_lines.back().x1 == 172 && shield_lines.back().y1 == 134,
+          "the forward shield list finishes at its first corner");
 }
 
 }  // namespace
