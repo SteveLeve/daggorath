@@ -1027,6 +1027,28 @@ void test_projection() {
     int blocks = 0;
     for (std::uint8_t pixel : scaled) blocks += pixel;
     check(blocks == 147 * 9, "each lit dot becomes a 3 by 3 block");
+    bool found_wall = false;
+    for (int turn = 0; turn < 4 && !found_wall; ++turn) {
+        int next_row = 0;
+        int next_col = 0;
+        if (!dag::step_ok(lit_game.maze(), lit_game.player().row, lit_game.player().col,
+                          lit_game.player().dir, next_row, next_col)) {
+            found_wall = true;
+            break;
+        }
+        type_line("TURN RIGHT");
+    }
+    check(found_wall, "a facing direction is blocked");
+    const std::size_t before = lit_game.trace().size();
+    type_line("MOVE");
+    std::uint16_t sound = 1;
+    std::size_t thud_samples = 0;
+    for (std::size_t i = before; i < lit_game.trace().size(); ++i) {
+        const auto& event = lit_game.trace()[i];
+        thud_samples += dag::samples_for(event.kind, event.detail, sound).size();
+    }
+    check(thud_samples == 104, "a blocked move synthesizes the THUD buffer",
+          "samples=" + std::to_string(thud_samples));
 }
 
 }  // namespace

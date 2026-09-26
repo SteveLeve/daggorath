@@ -38,4 +38,10 @@ std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume) {
     return samples;
 }
 
+std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
+                                      std::uint16_t& state) {
+    if (kind == "SOUND" && detail == "A$THUD") return thud(state, 0xFF);
+    return {};
+}
+
 }  // namespace dag

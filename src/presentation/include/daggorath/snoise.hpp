@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace dag {
@@ -18,5 +19,10 @@ std::vector<std::uint8_t> noise_pulses(std::uint16_t& state, std::uint8_t volume
 // THUD via BOOMER. Pitch starts at $0080 and climbs by 2 to $0150.
 // Each pitch writes one noise sample. The waits between samples are not stored.
 std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume);
+
+// Maps a trace event onto DAC samples. A$THUD uses full volume; the listing's
+// SNVOL byte for that call is not read here.
+std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
+                                      std::uint16_t& state);
 
 }  // namespace dag
