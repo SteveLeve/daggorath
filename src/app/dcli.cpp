@@ -21,7 +21,7 @@ namespace {
 
 int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
-                 "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE]\n"
+                 "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE] [--level N]\n"
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n";
@@ -57,6 +57,7 @@ int main(int argc, char** argv) {
     bool have_second = false;
     bool present = false;
     int second = 0;
+    int level = 0;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -71,6 +72,7 @@ int main(int argc, char** argv) {
             second = std::atoi(next().c_str());
             have_second = true;
         }
+        else if (a == "--level") level = std::atoi(next().c_str());
         else if (a == "--dump-maze") maze_out = next();
         else if (a == "--trace") trace_out = next();
         else if (a == "--present") present = true;
@@ -79,7 +81,7 @@ int main(int argc, char** argv) {
     }
 
     std::optional<dag::Game> held;
-    if (have_second) held.emplace(static_cast<std::uint8_t>(second), 0);
+    if (have_second) held.emplace(static_cast<std::uint8_t>(second), level);
     else held.emplace();
     dag::Game& game = *held;
 

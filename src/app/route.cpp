@@ -36,16 +36,18 @@ int main(int argc, char** argv) {
     }
     const int want = std::atoi(argv[1]);
     int second = 1;
+    int level = 0;
     for (int i = 2; i < argc; ++i) {
         if (std::string(argv[i]) == "--second" && i + 1 < argc) second = std::atoi(argv[++i]);
+        else if (std::string(argv[i]) == "--level" && i + 1 < argc) level = std::atoi(argv[++i]);
     }
-    dag::Game game(static_cast<std::uint8_t>(second), 0);
+    dag::Game game(static_cast<std::uint8_t>(second), level);
     game.set_frozen(true);
     int goal_row = -1;
     int goal_col = -1;
     int best = 1 << 20;
     for (const dag::Ocb& object : game.objects()) {
-        if (object.level != 0 || object.type != want) continue;
+        if (object.level != level || object.type != want) continue;
         if (object.row == 0 && object.col == 0) continue;
         const int dist = std::abs(object.row - game.player().row) + std::abs(object.col - game.player().col);
         if (dist < best) {
@@ -74,7 +76,7 @@ int main(int argc, char** argv) {
         }
     }
     if (goal_row < 0) {
-        std::cerr << "no placed object of type " << want << " on level 0\n";
+        std::cerr << "no placed object of type " << want << " on level " << level << "\n";
         return 1;
     }
 
@@ -90,7 +92,7 @@ int main(int argc, char** argv) {
             jiffy += 1;
         };
         auto replay = [&]() {
-            dag::Game simulated(static_cast<std::uint8_t>(second), 0);
+            dag::Game simulated(static_cast<std::uint8_t>(second), level);
             std::string error;
             simulated.load_script(dag::parse_script(script, error));
             simulated.advance_jiffies(jiffy + 2);
