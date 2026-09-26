@@ -41,14 +41,17 @@ opening lap) and does not create a creature until the next entry.
 No command reports `UNIMPLEMENTED`.
 Creatures move by `CMOVE` (pickup, aligned approach, random preference,
 back-off) and requeue on `Q.TEN`. A same-cell action emits
-a hit or a miss, then `DAMAGE` on a hit. A kill drops loot and decrements `CMXLND`. `dcli --present` prints the `VIEWER` draw list. `--present-map` and `--present-text` print the mapper, examine, status, and command projections. `--events` prints the core event stream. With SDL3 installed, `make build` produces `build/src/platform/dod`: a 256×192 window scaled 3×, paced at 60 jiffies per second. The view starts dark; the status line, heartbeat, and command prompt are drawn. Light the carried torch with `PULL LEFT TORCH` and `USE LEFT`.
+a hit or a miss, then `DAMAGE` on a hit. A kill drops loot and decrements `CMXLND`. `dcli --present` prints the `VIEWER` draw list. `--present-map` and `--present-text` print the mapper, examine, status, and command projections. `--events` prints the core event stream. How to build and run the window is in [Play](#play).
 
 `dcli` runs timestamped keystroke scripts and emits diff-friendly traces, so the
 same script can later be replayed against a ROM capture and compared line by line.
 
 ## Build
 
-Requires CMake 3.20+, a C++20 compiler and Python 3.9+.
+Requires CMake 3.20+, a C++20 compiler and Python 3.9+. The desktop window also
+needs SDL3 development files on the CMake search path (`find_package(SDL3)`).
+SDL 3.2 is known to work. Without SDL3 the core, tests and `dcli` still build;
+configure prints `SDL3 not found; desktop window target skipped`.
 
 ```sh
 make sources     # fetch the pinned assembly listing into third_party/ (evidence, never committed)
@@ -77,14 +80,54 @@ g++ -std=c++20 -O2 -Isrc/core/include src/core/*.cpp src/app/dcli.cpp -o /tmp/dc
 /tmp/dcli --script docs/archaeology/phase-0b/traces/t2-forward-corridor.script --jiffies 200
 ```
 
+That fallback does not build the window. The window needs the CMake build and SDL3.
+
+## Play
+
+```sh
+make build
+./build/src/platform/dod
+```
+
+The window is 768×576: the 256×192 surface scaled by 3, paced at 60 jiffies per
+second. Close the window to quit. Letters, Space, Return and Backspace are
+accepted. Typed letters are delivered as capitals, which is what the line
+editor stores.
+
+The maze starts dark. The status line shows both hands as `EMPTY`, the
+heartbeat sits between them, and the command line shows a dot and a cursor.
+The pine torch starts in the pack. Light it, then walk:
+
+```text
+PULL LEFT TORCH
+USE LEFT
+MOVE
+```
+
+`TURN` and `LOOK` are the other movement commands. A blocked move plays a thud.
+The heartbeat is the original one-bit toggle, a click rather than a sampled
+thump. Other sound cues are not synthesized yet.
+
+The same binary can replay a script without opening a window:
+
+```sh
+./build/src/platform/dod --headless --script docs/archaeology/phase-7/traces/light-torch.script --jiffies 80
+```
+
+`dcli` is the trace harness. It does not draw:
+
+```sh
+./build/src/app/dcli --script docs/archaeology/phase-0b/traces/t2-forward-corridor.script --jiffies 200
+```
+
 ## Layout
 
 ```text
 src/core/           simulation: clock, scheduler, RNG, world, commands. Links nothing.
 src/presentation/   viewer, rasteriser, status and command text, sound mix
 src/input/          placeholder: touch, keyboard and controller adapters -> commands
-src/platform/       SDL3 window when SDL3 is installed; storage and mobile packaging later
-src/app/            dcli trace harness; dod is the desktop window
+src/platform/       dod, the SDL3 window, when SDL3 is installed; storage and mobile packaging later
+src/app/            dcli trace harness
 tests/conformance/  cross-checks against the extracted fixtures
 tools/              fixture extractor, lexicon generator, manifest verifier
 tools/rom/          ROM conformance harness (scaffolding; no ROM ever committed)
