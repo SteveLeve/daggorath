@@ -95,8 +95,9 @@ produces. The byte indexes `NEWLVL` computes are in
 | 4 | 28 | the last feature group upward; the table then ends |
 
 The empty link between levels 2 and 3 is the pair of consecutive `$80` bytes.
-It is in the table, not a grouping error. Climb behaviour that consumes these
-codes is not specified here.
+It is in the table, not a grouping error.
+
+**[SRC]** `PCLIMB.ASM`. `VFIND` returns 0 hole-up, 1 ladder-up, 2 hole-down, 3 ladder-down, or negative when the cell is absent. Bare `CLIMB` is a null token and `PARSER` takes the error path (`BLE`), so Original Mode does not treat a bare `CLIMB` as up. `CLIMB UP` requires code 1. `CLIMB DOWN` requires bit 1 (codes 2 and 3). A hole is not climbable upward. The level index changes by -1 or +1 and `NEWLVL` runs; the player cell is left where it is.
 
 ## 6. What stays unresolved
 

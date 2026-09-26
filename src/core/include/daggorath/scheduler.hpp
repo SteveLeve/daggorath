@@ -111,6 +111,12 @@ public:
 
     const std::vector<int>& ready() const { return ready_; }
 
+    // SYSTCB: clear every queue and TCB, then flag a SCHED restart (RSTART).
+    // The task that caused it is not requeued: SCHED tests RSTART before the
+    // disposition, and its TCB is gone. The lap then starts again at the head
+    // of SCDQUE in the same jiffy.
+    void reset_tasks();
+
 private:
     void scan_queue(Queue q);
     void requeue(int id, TaskResult r);
@@ -127,6 +133,7 @@ private:
     bool sleep_ = false;
     bool faint_ = false;
     bool halted_ = false;
+    bool restart_ = false;                // RSTART
 };
 
 }  // namespace dag

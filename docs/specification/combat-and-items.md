@@ -40,6 +40,18 @@ Creature type 10 emits `DEFER endgame 10` and does not run `ENDGAM` (Phase 5). T
 
 On the player's cell the creature plays a full-volume sound, sets shielding to `$8080`, and upgrades it when a held shield's two bytes are strictly smaller. `ATTACK` then `DAMAGE` on a hit. `HUPDAT` follows either way. The old `DEFER creature-attack` trace is retired (D-7).
 
+## Objects — [SRC]
+
+`PGET` / `PDROP` / `PSTOW` / `PPULL` (`PGET.ASM`). `GET` and `PULL` require an empty hand and either a generic name or an adjective plus a matching generic. `GET` marks the floor object owned and adds `OBJWGT[class]` (5, 1, 10, 25, 25, 10). `DROP` clears the hand, plants the object on the current cell and level, and subtracts that weight. `STOW` prepends the hand to `BAGPTR` without a weight change. `PULL` unlinks a bag object into the hand and clears `PTORCH` when that object is the lit torch. There is no bag-capacity test. `PAROBJ` (`PARSER.ASM`) first looks the token up in `GENTAB`; on a search failure `PARSE0` re-classifies that same token against `ADJTAB`, and only then is the next token read and required to be a generic of the adjective's class.
+
+`REVEAL` (`PREVEA.ASM`) requires `P.OCREV * 25 <= PPOW`, then `OCBFIL` and a cleared reveal byte. `EXAMINE` selects the examine display mode.
+
+`USE` (`PUSE.ASM`). A torch is stored in `PTORCH` and stowed. Flasks: `THEWS` adds 1000 power, `HALE` clears damage, `ABYE` adds `SCAL16(PPOW, 102)` to damage, then the flask becomes `EMPTY`. A revealed `VISION` scroll selects the mapper without features. A revealed `SEER` scroll selects the mapper with features. An unrevealed scroll does nothing.
+
+`INCANT` (`PINCAN.ASM`) requires the full adjective. A held ring whose `P.OCXXX+1` equals that token becomes that type via `OCBFIL`, and the byte is cleared. `OCBFIL` indexes `ODBTAB`, which is the 18 `OBJXXX` rows followed by the 7 `SPCXXX` rows (`FINAL`, `ENERGY`, `ICE`, `FIRE`, `GOLD`, `EMPTY`, `DEAD`), so every transformed type has a row. The final ring emits `DEFER winner` (Phase 5 runs `WINNER`).
+
+`BURNER` (`COMPLR.ASM`) runs once a minute. It decrements the torch timer. At 5 or below the torch type becomes `DEAD`. The regular and magic light bytes are lowered to the timer when the timer is smaller.
+
 ## Faint, recovery, death (`HUPDAT`) — [SRC]
 
 Heart delay is the existing repeated-subtraction form. Not fainted and delay `<= 3` faints: the scheduler stops polling the keyboard, and `PLAYER` eats any character already buffered. Fainted and delay `> 4` recovers. Death is `PPOW < PDAM` (unsigned `BLO`), which is stricter than a creature's `BHI` kill. `DEATH` halts: this core stops the scheduler, matching `BRA *`.

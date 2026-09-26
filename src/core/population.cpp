@@ -1,6 +1,8 @@
 #include "daggorath/population.hpp"
 
 #include <cassert>
+#include <cstdlib>
+#include <iterator>
 
 namespace dag {
 namespace {
@@ -17,8 +19,11 @@ struct ObjDef {
     std::uint8_t initial_level, count;
 };
 
-// OBJXXX lines, DTABAS.ASM. Special-parameter symbols are the T.* indices:
-// T.RN15=18, T.RN11=19, T.RN13=20, T.RN12=21.
+// Placed rows are OBJXXX lines in DTABAS.ASM. Rows 18-24 are the SPCXXX
+// special objects (objects.json special_objects): types created by INCANT,
+// BURNER, and USE, not placed by GENXXX. Special-parameter symbols are the
+// T.* indices: T.RN15=18, T.RN11=19, T.RN13=20, T.RN12=21, T.RN20=22,
+// T.FLA4=23, T.TOR5=24.
 constexpr ObjDef kObjects[] = {
     {Ring, 255, 0, 5, {3, 18, 0}, true, 4, 1},    // SUPREME
     {Ring, 170, 0, 5, {3, 19, 0}, true, 3, 1},    // JOULE
@@ -38,6 +43,13 @@ constexpr ObjDef kObjects[] = {
     {Torch, 5, 0, 5, {15, 7, 0}, true, 0, 8},     // PINE  (T.TOR4 = 15)
     {Shield, 5, 0, 10, {108, 128, 0}, true, 0, 3}, // LEATHER (T.SHI4 = 16)
     {Sword, 5, 0, 16, {0, 0, 0}, false, 0, 4},    // WOODEN (T.SWO3 = 17)
+    {Ring, 0, 0, 0, {0, 0, 0}, false, 0, 0},      // FINAL (T.RN15 = 18)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // ENERGY (T.RN11 = 19)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // ICE (T.RN13 = 20)
+    {Ring, 0, 255, 255, {0, 0, 0}, false, 0, 0},  // FIRE (T.RN12 = 21)
+    {Ring, 0, 0, 5, {0, 0, 0}, false, 0, 0},      // GOLD (T.RN20 = 22)
+    {Flask, 0, 0, 5, {0, 0, 0}, false, 0, 0},     // EMPTY (T.FLA4 = 23)
+    {Torch, 5, 0, 5, {0, 0, 0}, true, 0, 0},      // DEAD (T.TOR5 = 24)
 };
 
 constexpr int kPine = 15, kLeather = 16, kWooden = 17;
@@ -57,6 +69,8 @@ struct Filled {
 };
 
 Filled ocbfil(int type) {
+    // ODBTAB ends at T.TOR5. Release builds drop assert, so this stays live.
+    if (type < 0 || type >= static_cast<int>(std::size(kObjects))) std::abort();
     const ObjDef& d = kObjects[type];
     Filled f{d.cls, d.reveal, d.mgo, d.pho, {d.spec[0], d.spec[1], d.spec[2]}, d.spec_valid};
     if (!d.spec_valid) {
@@ -161,10 +175,9 @@ void birth_creatures(int level, const std::array<std::uint8_t, kCreatureTypes>& 
 }
 
 void attach_objects(int level, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& objects) {
-    for (Ocb& o : objects) {
-        o.next = -1;
-        o.carrier = -1;
-    }
+    // NLVL40 writes P.OCPTR only for creature-owned objects on this level, so
+    // the player's bag chain survives a level change.
+    for (Ocb& o : objects) o.carrier = -1;
     for (Ccb& c : ccbs) c.object_head = -1;
     int u = -1;
     int idx = -1;
@@ -203,6 +216,35 @@ int cregen_increment(std::array<std::uint8_t, kCreatureTypes>& row, Rng& rng) {
     row[static_cast<std::size_t>(type)] =
         static_cast<std::uint8_t>(row[static_cast<std::size_t>(type)] + 1);
     return type;
+}
+
+void fill_ocb_specific(Ocb& object) {
+    Filled f = ocbfil(object.type);
+    object.cls = f.cls;
+    object.reveal = f.reveal;
+    object.magic_offense = f.mgo;
+    object.physical_offense = f.pho;
+    object.spec[0] = f.spec[0];
+    object.spec[1] = f.spec[1];
+    object.spec[2] = f.spec[2];
+}
+
+int vfind(int level, int row, int col) {
+    int x = vft_pointer(level);
+    const int n = static_cast<int>(sizeof kVftTab);
+    auto scan = [&](int bias) -> int {
+        while (x < n) {
+            const int code = static_cast<std::int8_t>(kVftTab[static_cast<std::size_t>(x++)]);
+            if (code < 0) return -1;
+            const int r = kVftTab[static_cast<std::size_t>(x++)];
+            const int c = kVftTab[static_cast<std::size_t>(x++)];
+            if (r == row && c == col) return code + bias;
+        }
+        return -1;
+    };
+    const int up = scan(0);
+    if (up >= 0) return up;
+    return scan(2);
 }
 
 int vft_pointer(int level) {
