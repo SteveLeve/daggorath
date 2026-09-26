@@ -18,7 +18,15 @@ constexpr std::uint8_t kCBs = 0x08, kCCr = 0x0D, kCSp = 0x20;
 constexpr std::size_t kLineBufSize = 32;   // CD.ASM:584 LINBUF RMB 32
 
 // Command indices within CMDTAB, i.e. the order of the CMDXXX macro.
-constexpr std::uint8_t kCmdLook = 6, kCmdMove = 7, kCmdTurn = 11;
+constexpr std::uint8_t kCmdAttack = 0, kCmdLook = 6, kCmdMove = 7, kCmdTurn = 11;
+constexpr std::uint8_t kClassRing = 1;          // CD.ASM K.RING
+// EMPHND after COMDAT.ASM's INI P.OCCLS+EMPHND: class 4 (sword noises),
+// magic offense 0, physical offense 5.
+constexpr std::uint8_t kEmptyClass = 4, kEmptyMagic = 0, kEmptyPhysical = 5;
+constexpr std::uint8_t kTypeRingEnergy = 19;
+constexpr std::uint8_t kTypeRingFire = 21;
+constexpr std::uint8_t kTypeRingGold = 22;
+constexpr std::uint8_t kTypeTorchDead = 24;
 // Direction indices within DIRTAB.
 constexpr std::uint8_t kDirLeft = 0, kDirRight = 1, kDirBack = 2, kDirAround = 3;
 
@@ -116,14 +124,55 @@ void Game::queue_creatures() {
     }
 }
 
+void Game::hold(bool right, int object_index) {
+    (right ? player_.right_hand : player_.left_hand) = object_index;
+}
+
+void Game::wield_torch(int object_index) { player_.torch = object_index; }
+
+Fighter Game::player_fighter() const {
+    Fighter f;
+    f.power = player_.power;
+    f.damage = player_.damage;
+    return f;
+}
+
+void Game::store_player_fighter(const Fighter& fighter) {
+    player_.power = fighter.power;
+    player_.damage = fighter.damage;
+}
+
+namespace {
+
+HeldShield shield_from(const std::vector<Ocb>& objects, int index) {
+    HeldShield hand;
+    if (index < 0 || static_cast<std::size_t>(index) >= objects.size()) return hand;
+    const Ocb& o = objects[static_cast<std::size_t>(index)];
+    hand.present = true;
+    hand.cls = o.cls;
+    hand.magic_defense = o.spec[0];
+    hand.physical_defense = o.spec[1];
+    return hand;
+}
+
+}  // namespace
+
 TaskResult Game::task_cmove(int slot) {
     CmoveView view;
     view.frozen = frozen_;
     view.player_row = player_.row;
     view.player_col = player_.col;
     view.level = level_index_;
+    Fighter fighter = player_fighter();
+    view.player = &fighter;
+    view.left = shield_from(objects_, player_.left_hand);
+    view.right = shield_from(objects_, player_.right_hand);
+    bool heart = false;
+    view.heart_update = &heart;
     std::vector<std::string> events;
     const TaskResult r = cmove(slot, ccbs_, objects_, level_.maze, level_.rng, view, events);
+    store_player_fighter(fighter);
+    if (heart) update_heart_rate();
     for (const std::string& e : events) {
         const auto sp = e.find(' ');
         if (sp == std::string::npos) emit(e, "");
@@ -192,10 +241,17 @@ void Game::update_heart_rate() {
         player_.fainted = true;
         sched_.set_faint(true);
         emit("FAINT", "heart_rate=" + std::to_string(signed_rate));
-    } else if (player_.fainted && signed_rate > 4) {
+    } else     if (player_.fainted && signed_rate > 4) {
         player_.fainted = false;
         sched_.set_faint(false);
         emit("REVIVE", "heart_rate=" + std::to_string(signed_rate));
+    }
+    // HUPD90: BLO, so equal power and damage is not death.
+    if (!player_.dead && player_.power < player_.damage) {
+        player_.dead = true;
+        sched_.halt();
+        emit("DEATH", "power=" + std::to_string(player_.power) +
+                          " damage=" + std::to_string(player_.damage));
     }
 }
 
@@ -221,6 +277,7 @@ TaskResult Game::task_player() {
         }
         feed_char(internal);
         if (sync_pending_) break;   // the command blocked on SYNC
+        if (sched_.halted()) break; // DEATH ends in BRA * (HUPDAT.ASM)
     }
     return {Queue::Jiffy, 1};                           // SCHED$ 1,Q.JIF
 }
@@ -270,6 +327,7 @@ void Game::dispatch_line() {
         case kCmdMove: cmd_move(line, pos); break;
         case kCmdTurn: cmd_turn(line, pos); break;
         case kCmdLook: cmd_look(); break;
+        case kCmdAttack: cmd_attack(line, pos); break;
         default:
             emit("UNIMPLEMENTED", std::string(kCmdTab[r.type].word) +
                  " is outside the Phase 0b slice");
@@ -319,6 +377,125 @@ void Game::cmd_move(const std::string& line, std::size_t& pos) {
     step_player(relative);
     movement_exertion();
     sync_pending_ = true;
+}
+
+int Game::find_creature(int row, int col) const {
+    for (int i = 0; i < kCcbSlots; ++i) {
+        const Ccb& c = ccbs_[static_cast<std::size_t>(i)];
+        if (c.in_use && c.row == row && c.col == col) return i;
+    }
+    return -1;
+}
+
+void Game::kill_creature(int slot) {
+    Ccb& creature = ccbs_[static_cast<std::size_t>(slot)];
+    int obj = creature.object_head;
+    while (obj >= 0) {
+        Ocb& o = objects_[static_cast<std::size_t>(obj)];
+        const int next = o.next;
+        o.owner = 0;
+        o.carrier = -1;
+        o.row = creature.row;
+        o.col = creature.col;
+        emit("LOOT", "object=" + std::to_string(obj) + " row=" + std::to_string(creature.row) +
+                         " col=" + std::to_string(creature.col));
+        obj = next;
+    }
+    auto& row = matrix_[static_cast<std::size_t>(level_index_)];
+    const std::uint8_t type = creature.type;
+    row[type] = static_cast<std::uint8_t>(row[type] - 1);
+    creature.in_use = 0;
+    emit("KILL", "slot=" + std::to_string(slot) + " type=" + std::to_string(type) +
+                     " matrix=" + std::to_string(row[type]));
+    const std::int16_t eighth = static_cast<std::int16_t>(creature.power) >> 3;
+    const std::int16_t sum =
+        static_cast<std::int16_t>(static_cast<std::int16_t>(player_.power) + eighth);
+    if (sum < 0) {
+        player_.power = static_cast<std::uint16_t>(0x7F00u | static_cast<std::uint16_t>(sum & 0xFF));
+    } else {
+        player_.power = static_cast<std::uint16_t>(sum);
+    }
+    emit("ABSORB", "power=" + std::to_string(player_.power));
+    if (type == 10 || type == 11) {
+        if (type == 11) set_frozen(true);
+        emit("DEFER", "endgame " + std::to_string(type));
+    }
+}
+
+void Game::cmd_attack(const std::string& line, std::size_t& pos) {
+    const ParseResult hand = parse(kDirTab, line, pos);
+    if (hand.status != ParseStatus::Matched ||
+        (hand.type != kDirLeft && hand.type != kDirRight)) {
+        emit("OUTPUT", "???");
+        return;
+    }
+    const int index = hand.type == kDirRight ? player_.right_hand : player_.left_hand;
+    std::uint8_t magic = kEmptyMagic;
+    std::uint8_t physical = kEmptyPhysical;
+    std::uint8_t cls = kEmptyClass;
+    std::uint8_t type = 0;
+    Ocb* held = nullptr;
+    if (index >= 0 && static_cast<std::size_t>(index) < objects_.size()) {
+        held = &objects_[static_cast<std::size_t>(index)];
+        magic = held->magic_offense;
+        physical = held->physical_offense;
+        cls = held->cls;
+        type = held->type;
+    }
+    const std::uint16_t effort = scal16(
+        player_.power, static_cast<std::uint8_t>((static_cast<unsigned>(physical) + magic) >> 3));
+    player_.damage = static_cast<std::uint16_t>(player_.damage + effort);
+    emit("EXERT", "damage=" + std::to_string(player_.damage));
+    emit("SOUND", "class=" + std::to_string(cls));
+    if (held != nullptr && type >= kTypeRingEnergy && type <= kTypeRingFire) {
+        held->spec[0] = static_cast<std::uint8_t>(held->spec[0] - 1);
+        if (held->spec[0] == 0) {
+            held->type = kTypeRingGold;
+            emit("RING", "spent");
+        }
+    }
+    const int slot = find_creature(player_.row, player_.col);
+    if (slot < 0) {
+        update_heart_rate();
+        return;
+    }
+    Ccb& creature = ccbs_[static_cast<std::size_t>(slot)];
+    const bool ring = cls == kClassRing;
+    if (!ring) {
+        Fighter defender;
+        defender.power = creature.power;
+        defender.damage = creature.damage;
+        if (!attack_hits(player_.power, defender.power, defender.damage, level_.rng.next())) {
+            emit("MISS", "slot=" + std::to_string(slot));
+            update_heart_rate();
+            return;
+        }
+        const bool dark = player_.torch < 0 ||
+                          objects_[static_cast<std::size_t>(player_.torch)].type == kTypeTorchDead;
+        if (dark) {
+            const std::uint8_t gate = level_.rng.next();
+            if ((gate & 3) != 0) {
+                emit("DARK", "roll=" + std::to_string(gate));
+                update_heart_rate();
+                return;
+            }
+        }
+    }
+    emit("HIT", "slot=" + std::to_string(slot));
+    Fighter attacker;
+    attacker.power = player_.power;
+    attacker.magic_offense = magic;
+    attacker.physical_offense = physical;
+    Fighter defender;
+    defender.power = creature.power;
+    defender.damage = creature.damage;
+    defender.magic_defense = creature.magic_defense;
+    defender.physical_defense = creature.physical_defense;
+    apply_damage(attacker, defender);
+    creature.damage = defender.damage;
+    emit("DAMAGE", "slot=" + std::to_string(slot) + " damage=" + std::to_string(creature.damage));
+    if (!damage_survived(defender)) kill_creature(slot);
+    update_heart_rate();
 }
 
 // PLOOK: return to the forward view.

@@ -5,6 +5,7 @@
 // assembly routines (tools/extract_fixtures.py). A test that agrees only
 // because both sides share code would be worthless, so the maze test compares
 // against the fixture's raw bytes on disk rather than recomputing them.
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
@@ -321,6 +322,7 @@ void test_rom_level0_entry() {
 void test_clock_rollovers() {
     // Harness clock, not the ROM build. Six jiffies from 0:0:1.0.0 roll a tenth.
     dag::Game game(1, 0);
+    game.set_frozen(true);
     game.advance_jiffies(6);
     check(game.counters().tenth == 1, "6 jiffies make one tenth",
           "tenth=" + std::to_string(game.counters().tenth));
@@ -561,15 +563,23 @@ void test_cmove_priorities() {
     check(r.queue == dag::Queue::Tenth, "scorpion still requeues");
 
     ccbs[2] = live_spider(8, 8);
+    ccbs[2].power = 32;
+    ccbs[2].physical_offense = 128;
+    ccbs[2].physical_defense = 255;
+    ccbs[2].magic_defense = 255;
     view.player_row = 8;
     view.player_col = 8;
+    dag::Fighter defender;
+    defender.power = 160;
+    view.player = &defender;
     events.clear();
     r = dag::cmove(2, ccbs, objects, open, rng, view, events);
     check(r.countdown == 11, "same cell requeues at the attack delay");
-    bool deferred = false;
+    bool swung = false;
     for (const auto& e : events)
-        if (e.find("DEFER creature-attack 2") != std::string::npos) deferred = true;
-    check(deferred, "same cell defers the attack");
+        if (e.find("MISS slot=2") != std::string::npos || e.find("HIT slot=2") != std::string::npos)
+            swung = true;
+    check(swung, "same cell resolves the attack");
     check(ccbs[2].row == 8 && ccbs[2].col == 8, "deferred attack does not move the creature");
 
     ccbs[3] = live_spider(2, 2);
@@ -693,6 +703,219 @@ void test_look() {
     check(game.display_mode() == dag::DisplayMode::Viewer, "LOOK selects the viewer");
 }
 
+void test_combat_fixtures_and_flow() {
+    const std::string path =
+        std::string(DAG_FIXTURE_DIR) + "/../../phase-3/fixtures/scal16-damage.json";
+    std::ifstream in(path);
+    check(in.good(), "phase 3 combat fixture is present");
+    if (!in.good()) return;
+    std::stringstream buf;
+    buf << in.rdbuf();
+    const std::string text = buf.str();
+    // The fixture is a flat list of "value radix result" triples inside a JSON array
+    // named scal16, encoded as decimal strings the extractor wrote one per line
+    // between markers so this test does not need a JSON library.
+    const auto marker = text.find("\"cases\"");
+    check(marker != std::string::npos, "combat fixture has cases");
+    int matched = 0;
+    std::size_t pos = 0;
+    while (true) {
+        const auto line = text.find("\"S ", pos);
+        if (line == std::string::npos) break;
+        unsigned value = 0, radix = 0, result = 0;
+        if (std::sscanf(text.c_str() + line, "\"S %u %u %u\"", &value, &radix, &result) == 3) {
+            check(dag::scal16(static_cast<std::uint16_t>(value), static_cast<std::uint8_t>(radix)) ==
+                      result,
+                  "SCAL16 matches the Python fixture");
+            ++matched;
+        }
+        pos = line + 3;
+    }
+    check(matched == 88, "SCAL16 fixture rows were checked", "rows=" + std::to_string(matched));
+
+    // Index order matches tools/gen_combat_fixtures.py. The expected numbers
+    // come from the fixture file, not from this table.
+    struct Stat5 { int a, b, c, d, e; };
+    const Stat5 creatures[] = {
+        {32, 0, 255, 128, 255}, {56, 0, 255, 80, 128}, {200, 0, 255, 52, 192},
+        {304, 0, 255, 96, 167}, {504, 0, 128, 96, 60}, {704, 0, 128, 128, 48},
+        {400, 255, 128, 255, 128}, {800, 0, 64, 255, 8}, {800, 192, 16, 192, 8},
+        {1000, 255, 5, 255, 3}, {1000, 255, 6, 255, 0}, {8000, 255, 6, 255, 0},
+    };
+    const int weapons[][2] = {{0, 5}, {0, 16}, {0, 40}, {64, 64}, {255, 255}};
+    const int shields[][2] = {{0x80, 0x80}, {108, 128}, {96, 128}, {64, 64}};
+    int damage_rows = 0;
+    pos = 0;
+    while (true) {
+        const auto line = text.find("\"D ", pos);
+        if (line == std::string::npos) break;
+        unsigned ci = 0, wi = 0, si = 0, dealt = 0, taken = 0;
+        if (std::sscanf(text.c_str() + line, "\"D %u %u %u %u %u\"", &ci, &wi, &si, &dealt,
+                        &taken) == 5) {
+            dag::Fighter weapon;
+            weapon.power = 160;
+            weapon.magic_offense = static_cast<std::uint8_t>(weapons[wi][0]);
+            weapon.physical_offense = static_cast<std::uint8_t>(weapons[wi][1]);
+            dag::Fighter creature;
+            creature.power = static_cast<std::uint16_t>(creatures[ci].a);
+            creature.magic_defense = static_cast<std::uint8_t>(creatures[ci].c);
+            creature.physical_defense = static_cast<std::uint8_t>(creatures[ci].e);
+            dag::apply_damage(weapon, creature);
+            dag::Fighter player;
+            player.magic_defense = static_cast<std::uint8_t>(shields[si][0]);
+            player.physical_defense = static_cast<std::uint8_t>(shields[si][1]);
+            dag::Fighter attacker;
+            attacker.power = static_cast<std::uint16_t>(creatures[ci].a);
+            attacker.magic_offense = static_cast<std::uint8_t>(creatures[ci].b);
+            attacker.physical_offense = static_cast<std::uint8_t>(creatures[ci].d);
+            dag::apply_damage(attacker, player);
+            check(creature.damage == dealt && player.damage == taken,
+                  "DAMAGE matches the Python fixture");
+            ++damage_rows;
+        }
+        pos = line + 3;
+    }
+    check(damage_rows == 240, "DAMAGE fixture rows were checked",
+          "rows=" + std::to_string(damage_rows));
+
+    int attack_rows = 0;
+    pos = 0;
+    while (true) {
+        const auto line = text.find("\"A ", pos);
+        if (line == std::string::npos) break;
+        unsigned power = 0, defender = 0, damage = 0, roll = 0, hit = 0;
+        if (std::sscanf(text.c_str() + line, "\"A %u %u %u %u %u\"", &power, &defender, &damage,
+                        &roll, &hit) == 5) {
+            const bool connected = dag::attack_hits(static_cast<std::uint16_t>(power),
+                                                     static_cast<std::uint16_t>(defender),
+                                                     static_cast<std::uint16_t>(damage),
+                                                     static_cast<std::uint8_t>(roll));
+            check(connected == (hit == 1), "ATTACK matches the Python fixture");
+            ++attack_rows;
+        }
+        pos = line + 3;
+    }
+    check(attack_rows == 256, "ATTACK fixture rows were checked",
+          "rows=" + std::to_string(attack_rows));
+
+    dag::Game game;
+    const auto& objects = game.objects();
+    int sword = -1;
+    int torch = -1;
+    for (int i = 0; i < static_cast<int>(objects.size()); ++i) {
+        if (objects[static_cast<std::size_t>(i)].owner == 1 &&
+            objects[static_cast<std::size_t>(i)].type == 17)
+            sword = i;
+        if (objects[static_cast<std::size_t>(i)].owner == 1 &&
+            objects[static_cast<std::size_t>(i)].type == 15)
+            torch = i;
+    }
+    check(sword >= 0 && torch >= 0, "starting sword and torch exist");
+    game.hold(false, sword);
+    game.wield_torch(torch);
+
+    int target = -1;
+    int row = 0;
+    int col = 0;
+    int best_steps = 1000;
+    const int start_r = game.player().row;
+    const int start_c = game.player().col;
+    for (int i = 0; i < dag::kCcbSlots; ++i) {
+        if (!game.creatures()[static_cast<std::size_t>(i)].in_use) continue;
+        const int tr = game.creatures()[static_cast<std::size_t>(i)].row;
+        const int tc = game.creatures()[static_cast<std::size_t>(i)].col;
+        const int steps = std::abs(tr - start_r) + std::abs(tc - start_c);
+        if (steps < best_steps) {
+            best_steps = steps;
+            target = i;
+            row = tr;
+            col = tc;
+        }
+    }
+    check(target >= 0, "a creature exists to fight");
+    // Walk with MOVE/TURN until the player shares the cell. The maze is open
+    // under the Phase 0b movement rule, so Manhattan steps suffice.
+    std::string script;
+    std::uint64_t j = 1;
+    auto add = [&](const std::string& keys) {
+        for (char ch : keys) {
+            const std::string key = ch == ' ' ? "SPACE" : std::string(1, ch);
+            script += std::to_string(j) + " " + key + "\n";
+            ++j;
+        }
+        script += std::to_string(j) + " CR\n";
+        j += 30;
+    };
+    struct Node { int r, c, dir, parent; };
+    std::vector<Node> nodes;
+    std::vector<int> queue;
+    std::vector<char> seen(32 * 32 * 4, 0);
+    nodes.push_back({start_r, start_c, 0, -1});
+    queue.push_back(0);
+    seen[(start_r * 32 + start_c) * 4] = 1;
+    int found = -1;
+    for (std::size_t qi = 0; qi < queue.size() && found < 0; ++qi) {
+        const Node here = nodes[static_cast<std::size_t>(queue[qi])];
+        if (here.r == row && here.c == col) {
+            found = queue[qi];
+            break;
+        }
+        for (int turn = 0; turn < 3; ++turn) {
+            const int ndir = (here.dir + (turn == 0 ? 0 : turn == 1 ? 1 : 3)) & 3;
+            int nr = 0, nc = 0;
+            if (!dag::step_ok(game.maze(), here.r, here.c, static_cast<dag::Dir>(ndir), nr, nc))
+                continue;
+            const int key = (nr * 32 + nc) * 4 + ndir;
+            if (seen[static_cast<std::size_t>(key)]) continue;
+            seen[static_cast<std::size_t>(key)] = 1;
+            nodes.push_back({nr, nc, ndir, queue[qi]});
+            queue.push_back(static_cast<int>(nodes.size()) - 1);
+        }
+    }
+    check(found >= 0, "a walk reaches the creature");
+    if (found < 0) return;
+    std::vector<int> steps;
+    for (int n = found; n >= 0; n = nodes[static_cast<std::size_t>(n)].parent) steps.push_back(n);
+    std::reverse(steps.begin(), steps.end());
+    int facing = 0;
+    for (std::size_t pi = 1; pi < steps.size(); ++pi) {
+        const int want = nodes[static_cast<std::size_t>(steps[pi])].dir;
+        const int delta = (want - facing) & 3;
+        if (delta == 1) add("TURN RIGHT");
+        else if (delta == 3) add("TURN LEFT");
+        else if (delta == 2) add("TURN AROUND");
+        facing = want;
+        add("MOVE");
+    }
+    const std::uint8_t before = game.matrix_row()[game.creatures()[static_cast<std::size_t>(target)].type];
+    for (int n = 0; n < 40; ++n) add("ATTACK LEFT");
+    game.set_frozen(true);
+    std::string error;
+    game.load_script(dag::parse_script(script, error));
+    check(error.empty(), "fight script parses");
+    game.advance_jiffies(j + 5);
+    bool killed = false;
+    for (const auto& e : game.trace())
+        if (e.kind == "KILL") killed = true;
+    int hits = 0, misses = 0, darks = 0;
+    bool died = false;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "HIT") ++hits;
+        if (e.kind == "MISS") ++misses;
+        if (e.kind == "DARK") ++darks;
+        if (e.kind == "DEATH") died = true;
+    }
+    check(killed, "repeated ATTACK LEFT kills the creature",
+          "player=" + std::to_string(game.player().row) + "," +
+              std::to_string(game.player().col) + " target=" + std::to_string(row) + "," +
+              std::to_string(col) + " hits=" + std::to_string(hits) +
+              " misses=" + std::to_string(misses) + " dark=" + std::to_string(darks) +
+              " dead=" + std::to_string(died) + " power=" + std::to_string(game.player().power) +
+              " damage=" + std::to_string(game.player().damage));
+    const std::uint8_t after = game.matrix_row()[game.creatures()[static_cast<std::size_t>(target)].type];
+    check(after == static_cast<std::uint8_t>(before - 1), "kill decrements CMXLND");
+}
+
 }  // namespace
 
 int main() {
@@ -711,6 +934,7 @@ int main() {
     test_cmove_priorities();
     test_same_jiffy_creature_and_key();
     test_reentry_mid_move();
+    test_combat_fixtures_and_flow();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";

@@ -146,10 +146,9 @@ The task loads the control block from `P.TCDTA`.
 4. **Same cell.** `P.CCROW` equals `PROW`. The creature sound is selected with
    type and volume `$FF`. Shielding is loaded as `$8080` and `SHIELD` runs for
    `PLHAND` then `PRHAND`. Those pointers are not written by `ONCE`, so they
-   are empty at the start and the `$8080` values stand. The core emits
-   `DEFER creature-attack <slot>` and does not call `ATTACK`, `DAMAGE`, or
-   `HUPDAT`. It returns the attack delay (`CMOV92`). **[SRC]** up to the
-   call; the stub is D-7.
+   are empty at the start and the `$8080` values stand. The core calls
+   `ATTACK` and, on a hit, `DAMAGE`, then `HUPDAT`. It returns the attack
+   delay (`CMOV92`). **[SRC]**
 5. **Aligned approach.** Same row, or else same column. Direction is east (1)
    when the creature's column is west of the player, west (3) otherwise;
    south (2) when the creature's row is north of the player, north (0)

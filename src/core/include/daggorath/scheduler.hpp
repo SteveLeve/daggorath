@@ -79,6 +79,10 @@ public:
     void set_sleep(bool s) { sleep_ = s; }
     void set_faint(bool f) { faint_ = f; }
     bool faint() const { return faint_; }
+    // DEATH's BRA *: the CPU never returns to CLOCK. Later tasks in this
+    // jiffy do not run, and later interrupts are not taken.
+    void halt() { halted_ = true; }
+    bool halted() const { return halted_; }
 
     Counters& counters() { return counters_; }
     const Counters& counters() const { return counters_; }
@@ -122,6 +126,7 @@ private:
     TraceFn trace_;
     bool sleep_ = false;
     bool faint_ = false;
+    bool halted_ = false;
 };
 
 }  // namespace dag
