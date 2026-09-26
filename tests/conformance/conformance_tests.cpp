@@ -19,6 +19,7 @@
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
+#include "daggorath/raster.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
 
@@ -936,6 +937,15 @@ void test_projection() {
     mapper.mode = 2;
     mapper.map_features = true;
     check(dag::project(mapper).text == "MAP features", "map mode names features");
+    std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels{};
+    dag::DrawSegment horizontal{0, 0, 10, 0, "wall"};
+    dag::draw_segment(pixels, horizontal);
+    int pixels_on = 0;
+    for (std::uint8_t pixel : pixels) pixels_on += pixel;
+    check(pixels_on == 11, "horizontal DDA plots eleven pixels");
+    std::uint64_t owed = 0;
+    check(dag::jiffies_due(1000000, owed) == 60, "one second is sixty jiffies");
+    check(owed == 40, "the leftover microseconds are kept");
 }
 
 }  // namespace

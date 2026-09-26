@@ -317,7 +317,8 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-4 | Animation and sound cost no simulated time | The core still spends none. The ROM durations are now measured (reconciliation §1): a turn's facing change is visible 1 jiffy after dispatch; a half-step changes position 6 or 7 jiffies after dispatch; the blocked-move `THUD` holds the foreground for 14 or 15 interrupts. `SNOISE` does not modify `SEED`. |
 | D-5 | The trace samples the clock counters when an event is emitted | Interrupt-phase events can therefore print a pre-bump counter value. |
 | D-6 | Retired 2026-09-25 | `CBIRTH` queues `CMOVE` on `Q.TEN` with the definition's movement delay (`COMCRE.ASM`). Phase 2. |
-| D-7 | `CMOVE` does not call `ATTACK` | Same-cell and post-move occupancy still select the attack delay, emit the loud sound event, and stop. Damage, `HUPDAT` on that path, and the hit sound are Phase 3. ADR-0008. |
+| D-7 | Retired 2026-09-25 | `CMOVE` calls `ATTACK`. Phase 3. |
+| D-10 | The desktop clock converts host microseconds into jiffies and runs every owed jiffy | A stall catches up. It does not drop a jiffy. The window target is built only when SDL3 is present. Audio synthesis from `SOUNDS` is not in this target yet. |
 
 ### Initial clock (applied)
 

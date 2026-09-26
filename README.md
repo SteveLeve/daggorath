@@ -21,7 +21,8 @@ are the eventual targets; neither is being built yet.
 | **Phase 4** | in review — object commands, torches, incant, climb; [reconciliation](docs/archaeology/phase-4/reconciliation.md) |
 | **Phase 5** | in review — endings and save; [reconciliation](docs/archaeology/phase-5/reconciliation.md) |
 | **Phase 6** | in review — logical draw list; [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
-| **Phases 7–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
+| **Phase 7** | in review — offscreen DDA and optional SDL3 window; [reconciliation](docs/archaeology/phase-7/reconciliation.md) |
+| **Phases 8–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
 to the Tandy catalog 26-3093 cartridge image. MAME 0.264 `coco2b` has run that
