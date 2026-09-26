@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "daggorath/render_state.hpp"
 
@@ -37,5 +38,9 @@ std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeig
 
 // Project the view and plot every segment. Fade comes from SETFAX with range 0.
 std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view);
+
+// Integer scale. Each source dot becomes a factor-by-factor block. Factor 1 copies.
+std::vector<std::uint8_t> scale_frame(
+    const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int factor);
 
 }  // namespace dag

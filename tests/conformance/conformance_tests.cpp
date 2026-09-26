@@ -1020,6 +1020,11 @@ void test_projection() {
     int lit_dots = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) lit_dots += pixel;
     check(lit_dots == 147, "a lit level-0 view has 147 dots", "dots=" + std::to_string(lit_dots));
+    const auto scaled = dag::scale_frame(dag::rasterize(dag::snapshot_from(lit_game)), 3);
+    check(scaled.size() == 256u * 3u * 192u * 3u, "integer scale triples each axis");
+    int blocks = 0;
+    for (std::uint8_t pixel : scaled) blocks += pixel;
+    check(blocks == 147 * 9, "each lit dot becomes a 3 by 3 block");
 }
 
 }  // namespace

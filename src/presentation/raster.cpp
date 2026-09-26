@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
+#include <vector>
 
 namespace dag {
 namespace {
@@ -128,6 +129,27 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnaps
     const std::uint8_t fade = set_fade(light, 0);
     for (const DrawSegment& segment : project(view).segments) draw_segment(pixels, segment, fade);
     return pixels;
+}
+
+std::vector<std::uint8_t> scale_frame(
+    const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int factor) {
+    if (factor < 1) factor = 1;
+    const int width = kScreenWidth * factor;
+    const int height = kScreenHeight * factor;
+    std::vector<std::uint8_t> out(static_cast<std::size_t>(width * height), 0);
+    for (int y = 0; y < kScreenHeight; ++y) {
+        for (int x = 0; x < kScreenWidth; ++x) {
+            if (pixels[static_cast<std::size_t>(y * kScreenWidth + x)] == 0) continue;
+            for (int dy = 0; dy < factor; ++dy) {
+                for (int dx = 0; dx < factor; ++dx) {
+                    const int ox = x * factor + dx;
+                    const int oy = y * factor + dy;
+                    out[static_cast<std::size_t>(oy * width + ox)] = 1;
+                }
+            }
+        }
+    }
+    return out;
 }
 
 }  // namespace dag
