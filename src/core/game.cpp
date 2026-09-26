@@ -1,6 +1,10 @@
 #include "daggorath/game.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <cstdlib>
+#include <istream>
+#include <ostream>
 #include <sstream>
 
 #include "daggorath/creature_move.hpp"
@@ -179,6 +183,7 @@ TaskResult Game::task_cmove(int slot) {
     view.right = shield_from(objects_, player_.right_hand);
     bool heart = false;
     view.heart_update = &heart;
+    view.incoming_damage_percent = incoming_damage_percent_;
     std::vector<std::string> events;
     const TaskResult r = cmove(slot, ccbs_, objects_, level_.maze, level_.rng, view, events);
     store_player_fighter(fighter);
@@ -207,11 +212,31 @@ void Game::emit(const std::string& kind, const std::string& detail) {
                       sched_.counters().to_string(), kind, detail});
 }
 
+void Game::set_incoming_damage_percent(int percent) {
+    if (percent < 0) percent = 0;
+    incoming_damage_percent_ = percent;
+}
+
+void Game::apply_due_harness(std::uint64_t now) {
+    while (harness_pos_ < harness_.size() && harness_[harness_pos_].jiffy <= now) {
+        const HarnessEvent& e = harness_[harness_pos_++];
+        if (e.kind == HarnessFudge::Incoming) {
+            set_incoming_damage_percent(e.percent);
+            emit("FUDGE", "incoming=" + std::to_string(incoming_damage_percent_));
+        } else if (e.kind == HarnessFudge::Rest) {
+            player_.damage = 63;
+            update_heart_rate();
+            emit("FUDGE", "rest");
+        }
+    }
+}
+
 void Game::advance_jiffies(std::uint64_t n) {
     for (std::uint64_t i = 0; i < n; ++i) {
         // Collect the keystrokes timestamped for this jiffy.
         std::vector<std::uint8_t> keys;
         const std::uint64_t now = sched_.counters().total_jiffies;
+        apply_due_harness(now);
         while (script_pos_ < script_.size() && script_[script_pos_].jiffy == now) {
             keys.push_back(script_[script_pos_].ch);
             ++script_pos_;
@@ -262,6 +287,7 @@ void Game::update_heart_rate() {
         sched_.halt();
         emit("DEATH", "power=" + std::to_string(player_.power) +
                           " damage=" + std::to_string(player_.damage));
+        emit("DIALOGUE", "^ YET ANOTHER DOES NOT RETURN...");   // HUPDAT.ASM:143 OUTSTI
     }
 }
 
@@ -289,6 +315,7 @@ TaskResult Game::task_player() {
         if (sync_pending_) break;   // the command blocked on SYNC
         if (sched_.halted()) break; // DEATH ends in BRA * (HUPDAT.ASM)
     }
+    if (zflag_ != 0) sched_.end_lap([this] { tape_operation(); });
     return {Queue::Jiffy, 1};                           // SCHED$ 1,Q.JIF
 }
 
@@ -347,10 +374,8 @@ void Game::dispatch_line() {
         case 9: cmd_reveal(line, pos); break;
         case 10: cmd_stow(line, pos); break;
         case 12: cmd_use(line, pos); break;
-        default:
-            emit("UNIMPLEMENTED", std::string(kCmdTab[r.type].word) +
-                 " is outside the Phase 0b slice");
-            break;
+        case 13: cmd_zload(line, pos); break;
+        case 14: cmd_zsave(line, pos); break;
     }
 }
 
@@ -653,7 +678,14 @@ bool Game::incant_hand(int index, std::uint8_t word) {
     object.spec[1] = 0;
     emit("SOUND", "A$RING");
     emit("INCANT", "object=" + std::to_string(index) + " type=" + std::to_string(object.type));
-    if (object.type == kTypeRingFinal) emit("DEFER", "winner");
+    if (object.type == kTypeRingFinal) {
+        player_.won = true;
+        sched_.halt();
+        emit("WINNER", "final ring");
+        // PINCAN.ASM:64 and :88 OUTSTI, then BRA *.
+        emit("DIALOGUE", "^BEHOLD! DESTINY AWAITS THE HAND");
+        emit("DIALOGUE", "        OF A NEW WIZARD...");
+    }
     return object.type == kTypeRingFinal;
 }
 
@@ -740,10 +772,91 @@ void Game::kill_creature(int slot) {
         player_.power = static_cast<std::uint16_t>(sum);
     }
     emit("ABSORB", "power=" + std::to_string(player_.power));
-    if (type == 10 || type == 11) {
-        if (type == 11) set_frozen(true);
-        emit("DEFER", "endgame " + std::to_string(type));
+    if (type == 10) endgame_image();
+    if (type == 11) endgame_wizard();
+}
+
+void Game::endgame_image() {
+    // ENDGAM (PATTK.ASM): the two messages, then BAGPTR = PTORCH with the
+    // torch's link cleared. PLHAND, PRHAND, and PTORCH are kept. Weight becomes
+    // 200, level 3 is rebuilt, and FNDCEL relocates.
+    emit("ENDGAM", "image");
+    emit("DIALOGUE", "^ ENOUGH! I TIRE OF THIS PLAY...");   // PATTK.ASM:198
+    emit("DIALOGUE", "   PREPARE TO MEET THY DOOM!!!");     // PATTK.ASM:222
+    player_.bag_head = -1;
+    if (player_.torch >= 0) {
+        objects_[static_cast<std::size_t>(player_.torch)].next = -1;
+        player_.bag_head = player_.torch;
     }
+    player_.carried_weight = 200;
+    enter_level(3);
+    for (;;) {
+        const int col = level_.rng.next() & 31;
+        const int row = level_.rng.next() & 31;
+        if (level_.maze.at(row, col) == 0xFF) continue;
+        player_.row = row;
+        player_.col = col;
+        break;
+    }
+    emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
+}
+
+void Game::endgame_wizard() {
+    set_frozen(true);
+    player_.regular_light = 0x07;
+    player_.magic_light = 0x13;
+    player_.bag_head = -1;
+    player_.torch = -1;
+    player_.left_hand = -1;
+    player_.right_hand = -1;
+    emit("ENDGAM", "wizard");
+}
+
+std::string Game::filename_token(const std::string& line, std::size_t& pos) const {
+    std::string name;
+    while (pos < line.size() && line[pos] == ' ') ++pos;
+    while (pos < line.size() && line[pos] != ' ') name.push_back(line[pos++]);
+    if (name.size() > 8) name.resize(8);
+    return name;
+}
+
+// PZSAVE / PZLOAD only record the filename and set ZFLAG. SCHED1 performs the
+// tape operation once PLAYER has been requeued.
+void Game::cmd_zsave(const std::string& line, std::size_t& pos) {
+    tape_name_ = filename_token(line, pos);
+    zflag_ = 1;
+}
+
+void Game::cmd_zload(const std::string& line, std::size_t& pos) {
+    tape_name_ = filename_token(line, pos);
+    zflag_ = -1;
+}
+
+void Game::tape_operation() {
+    const int flag = zflag_;
+    const std::string name = tape_name_;
+    if (flag > 0) {
+        const std::string image = ram_image();
+        tapes_.push_back({name, image});
+        emit("ZSAVE", name + " bytes=" + std::to_string(image.size()));
+    } else {
+        // LOAD reads blocks until a file header's name matches. With no match
+        // the original keeps reading tape; this core reports ??? and resumes.
+        const std::string* image = nullptr;
+        for (auto it = tapes_.rbegin(); it != tapes_.rend(); ++it)
+            if (it->first == name) { image = &it->second; break; }
+        if (image == nullptr) {
+            zflag_ = 0;
+            emit("OUTPUT", "???");
+            return;
+        }
+        restore_ram_image(*image);
+        emit("ZLOAD", name);
+    }
+    // LOAD90: CLR ZFLAG, INIVU (HUPDAT then PLOOK), PROMPT.
+    zflag_ = 0;
+    update_heart_rate();
+    mode_ = DisplayMode::Viewer;
 }
 
 void Game::cmd_attack(const std::string& line, std::size_t& pos) {
@@ -855,6 +968,211 @@ void Game::movement_exertion() {
                       std::to_string(static_cast<int>(static_cast<std::int8_t>(player_.heart_rate))));
 }
 
+std::function<TaskResult()> Game::task_body(const std::string& name) {
+    if (name == "PLAYER") return [this] { return task_player(); };
+    if (name == "LUKNEW") return [] { return TaskResult{Queue::Tenth, 3}; };
+    if (name == "HSLOW") return [this] { return task_hslow(); };
+    if (name == "BURNER") return [this] { return task_burner(); };
+    if (name == "CREGEN") return [this] { return task_cregen(); };
+    if (name.rfind("CMOVE-", 0) == 0) {
+        const int slot = std::stoi(name.substr(6));
+        return [this, slot] { return task_cmove(slot); };
+    }
+    std::abort();   // every TCB the core creates has one of these names
+}
+
+void Game::save_ram(std::ostream& out) const {
+    const PlayerState& p = player_;
+    out << p.row << ' ' << p.col << ' ' << static_cast<int>(p.dir) << ' ' << p.power << ' '
+        << p.damage << ' ' << p.carried_weight << ' ' << static_cast<int>(p.heart_rate) << ' '
+        << p.fainted << ' ' << p.dead << ' ' << p.won << ' ' << p.left_hand << ' '
+        << p.right_hand << ' ' << p.torch << ' ' << p.bag_head << ' ' << p.map_features << ' '
+        << static_cast<int>(p.regular_light) << ' ' << static_cast<int>(p.magic_light) << '\n';
+    out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' '
+        << level_index_ << ' ' << line_.size() << ' ' << line_ << "|\n";
+    for (const auto& row : matrix_) {
+        for (const std::uint8_t v : row) out << static_cast<int>(v) << ' ';
+        out << '\n';
+    }
+    for (const Ccb& c : ccbs_) {
+        out << c.power << ' ' << static_cast<int>(c.magic_offense) << ' '
+            << static_cast<int>(c.magic_defense) << ' ' << static_cast<int>(c.physical_offense)
+            << ' ' << static_cast<int>(c.physical_defense) << ' ' << static_cast<int>(c.move_delay)
+            << ' ' << static_cast<int>(c.attack_delay) << ' ' << c.object_head << ' ' << c.damage
+            << ' ' << static_cast<int>(c.in_use) << ' ' << static_cast<int>(c.type) << ' '
+            << static_cast<int>(c.dir) << ' ' << static_cast<int>(c.row) << ' '
+            << static_cast<int>(c.col) << '\n';
+    }
+    out << objects_.size() << '\n';
+    for (const Ocb& o : objects_) {
+        out << o.next << ' ' << static_cast<int>(o.row) << ' ' << static_cast<int>(o.col) << ' '
+            << static_cast<int>(o.level) << ' ' << static_cast<int>(o.owner) << ' '
+            << static_cast<int>(o.spec[0]) << ' ' << static_cast<int>(o.spec[1]) << ' '
+            << static_cast<int>(o.spec[2]) << ' ' << static_cast<int>(o.type) << ' '
+            << static_cast<int>(o.cls) << ' ' << static_cast<int>(o.reveal) << ' '
+            << static_cast<int>(o.magic_offense) << ' ' << static_cast<int>(o.physical_offense)
+            << ' ' << o.carrier << '\n';
+    }
+    for (const std::uint8_t b : level_.maze.bytes()) out << static_cast<int>(b) << ' ';
+    out << '\n';
+    for (const auto* seed : {&level_.rng_before_spin, &level_.rng_after_spin, &level_.rng.seed()})
+        out << static_cast<int>((*seed)[0]) << ' ' << static_cast<int>((*seed)[1]) << ' '
+            << static_cast<int>((*seed)[2]) << ' ';
+    out << level_.spin_count << '\n';
+    sched_.save_state(out);
+    out << player_task_ << ' ' << hslow_task_ << ' ' << creature_tasks_.size();
+    for (const int id : creature_tasks_) out << ' ' << id;
+    out << '\n';
+}
+
+void Game::load_ram(std::istream& in) {
+    PlayerState& p = player_;
+    int dir = 0, heart = 0, fainted = 0, dead = 0, won = 0, features = 0, rl = 0, ml = 0;
+    in >> p.row >> p.col >> dir >> p.power >> p.damage >> p.carried_weight >> heart >> fainted >>
+        dead >> won >> p.left_hand >> p.right_hand >> p.torch >> p.bag_head >> features >> rl >> ml;
+    p.dir = static_cast<Dir>(dir & 3);
+    p.heart_rate = static_cast<std::uint8_t>(heart);
+    p.fainted = fainted != 0;
+    p.dead = dead != 0;
+    p.won = won != 0;
+    p.map_features = features != 0;
+    p.regular_light = static_cast<std::uint8_t>(rl);
+    p.magic_light = static_cast<std::uint8_t>(ml);
+    int mode = 0, frozen = 0, sync = 0;
+    std::size_t line_size = 0;
+    in >> mode >> frozen >> sync >> level_index_ >> line_size;
+    mode_ = static_cast<DisplayMode>(mode);
+    frozen_ = frozen != 0;
+    sync_pending_ = sync != 0;
+    in.get();
+    line_.assign(line_size, ' ');
+    in.read(line_.data(), static_cast<std::streamsize>(line_size));
+    in.get();   // '|'
+    int v = 0;
+    for (auto& row : matrix_)
+        for (std::uint8_t& cell : row) {
+            in >> v;
+            cell = static_cast<std::uint8_t>(v);
+        }
+    auto byte = [&in]() {
+        int x = 0;
+        in >> x;
+        return static_cast<std::uint8_t>(x);
+    };
+    for (Ccb& c : ccbs_) {
+        in >> c.power;
+        c.magic_offense = byte();
+        c.magic_defense = byte();
+        c.physical_offense = byte();
+        c.physical_defense = byte();
+        c.move_delay = byte();
+        c.attack_delay = byte();
+        in >> c.object_head >> c.damage;
+        c.in_use = byte();
+        c.type = byte();
+        c.dir = byte();
+        c.row = byte();
+        c.col = byte();
+    }
+    std::size_t count = 0;
+    in >> count;
+    objects_.assign(count, Ocb{});
+    for (Ocb& o : objects_) {
+        in >> o.next;
+        o.row = byte();
+        o.col = byte();
+        o.level = byte();
+        o.owner = byte();
+        o.spec[0] = byte();
+        o.spec[1] = byte();
+        o.spec[2] = byte();
+        o.type = byte();
+        o.cls = byte();
+        o.reveal = byte();
+        o.magic_offense = byte();
+        o.physical_offense = byte();
+        in >> o.carrier;
+    }
+    for (int i = 0; i < Maze::kBytes; ++i) level_.maze.put(i / Maze::kSize, i % Maze::kSize, byte());
+    Rng::Seed seeds[3] = {};
+    for (auto& s : seeds) s = {byte(), byte(), byte()};
+    level_.rng_before_spin = seeds[0];
+    level_.rng_after_spin = seeds[1];
+    level_.rng.set_seed(seeds[2]);
+    in >> level_.spin_count;
+    sched_.load_state(in, [this](const std::string& name) { return task_body(name); });
+    std::size_t creatures = 0;
+    in >> player_task_ >> hslow_task_ >> creatures;
+    creature_tasks_.assign(creatures, 0);
+    for (int& id : creature_tasks_) in >> id;
+}
+
+std::string Game::ram_image() const {
+    std::ostringstream os;
+    os << "DAGRAM 1\n";
+    save_ram(os);
+    return os.str();
+}
+
+void Game::restore_ram_image(const std::string& image) {
+    std::istringstream in(image);
+    std::string magic;
+    int version = 0;
+    in >> magic >> version;
+    if (magic != "DAGRAM" || version != 1) std::abort();
+    load_ram(in);
+}
+
+std::string Game::snapshot() const {
+    std::ostringstream os;
+    os << "DAGSNAP 1\n";
+    save_ram(os);
+    os << sched_.counters().total_jiffies << ' ' << sched_.halted() << ' ' << zflag_ << ' '
+       << tape_name_.size() << ' ' << tape_name_ << "|\n";
+    os << tapes_.size() << '\n';
+    for (const auto& [name, image] : tapes_)
+        os << name.size() << ' ' << name << '|' << image.size() << ' ' << image << '\n';
+    os << incoming_damage_percent_ << '\n';
+    return os.str();
+}
+
+void Game::restore_snapshot(const std::string& bytes) {
+    std::istringstream in(bytes);
+    std::string magic;
+    int version = 0;
+    in >> magic >> version;
+    if (magic != "DAGSNAP" || version != 1) std::abort();
+    load_ram(in);
+    std::uint64_t total = 0;
+    int halted = 0;
+    std::size_t name_size = 0;
+    in >> total >> halted >> zflag_ >> name_size;
+    sched_.counters().total_jiffies = total;
+    sched_.set_halted(halted != 0);
+    in.get();
+    tape_name_.assign(name_size, ' ');
+    in.read(tape_name_.data(), static_cast<std::streamsize>(name_size));
+    in.get();
+    std::size_t tapes = 0;
+    in >> tapes;
+    tapes_.clear();
+    for (std::size_t i = 0; i < tapes; ++i) {
+        std::size_t n = 0, m = 0;
+        in >> n;
+        in.get();
+        std::string name(n, ' ');
+        in.read(name.data(), static_cast<std::streamsize>(n));
+        in.get();
+        in >> m;
+        in.get();
+        std::string image(m, ' ');
+        in.read(image.data(), static_cast<std::streamsize>(m));
+        tapes_.push_back({name, image});
+    }
+    int percent = 100;
+    if (in >> percent) incoming_damage_percent_ = percent;
+}
+
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) {
     std::vector<KeyEvent> out;
     std::istringstream in(text);
@@ -867,10 +1185,21 @@ std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) 
         std::istringstream ls(line);
         std::uint64_t jiffy = 0;
         std::string key;
-        if (!(ls >> jiffy >> key)) {
-            if (line.find_first_not_of(" \t") == std::string::npos) continue;
-            error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
-            return {};
+        {
+            std::string first;
+            if (!(ls >> first)) continue;
+            if (first == "FUDGE") continue;  // harness line, not a keystroke
+            std::istringstream back(first);
+            if (!(back >> jiffy)) {
+                error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
+                return {};
+            }
+            if (!(ls >> key)) {
+                if (line.find_first_not_of(" \t") == std::string::npos) continue;
+                error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
+                return {};
+            }
+            if (key == "FUDGE") continue;  // "<jiffy> FUDGE ..."
         }
         std::uint8_t ch = 0;
         if (key == "SPACE") ch = kCSp;
@@ -883,6 +1212,51 @@ std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) 
         }
         out.push_back({jiffy, ch});
     }
+    return out;
+}
+
+std::vector<Game::HarnessEvent> parse_harness(const std::string& text, std::string& error) {
+    std::vector<Game::HarnessEvent> out;
+    std::istringstream in(text);
+    std::string line;
+    int lineno = 0;
+    while (std::getline(in, line)) {
+        ++lineno;
+        const auto hash = line.find('#');
+        if (hash != std::string::npos) line = line.substr(0, hash);
+        std::istringstream ls(line);
+        std::string a, b, c;
+        if (!(ls >> a)) continue;
+        std::uint64_t jiffy = 0;
+        if (a != "FUDGE") {
+            std::istringstream num(a);
+            if (!(num >> jiffy) || !(ls >> a) || a != "FUDGE") continue;
+        }
+        if (!(ls >> b)) {
+            error = "line " + std::to_string(lineno) + ": FUDGE needs a verb";
+            return {};
+        }
+        Game::HarnessEvent ev;
+        ev.jiffy = jiffy;
+        if (b == "incoming") {
+            if (!(ls >> ev.percent)) {
+                error = "line " + std::to_string(lineno) + ": FUDGE incoming needs a percent";
+                return {};
+            }
+            ev.kind = Game::HarnessFudge::Incoming;
+        } else if (b == "rest") {
+            ev.kind = Game::HarnessFudge::Rest;
+        } else {
+            error = "line " + std::to_string(lineno) + ": unknown FUDGE '" + b + "'";
+            return {};
+        }
+        (void)c;
+        out.push_back(ev);
+    }
+    std::sort(out.begin(), out.end(),
+              [](const Game::HarnessEvent& a, const Game::HarnessEvent& b) {
+                  return a.jiffy < b.jiffy;
+              });
     return out;
 }
 

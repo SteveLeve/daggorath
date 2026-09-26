@@ -963,8 +963,26 @@ void test_objects_and_climb() {
         if (event.kind == "UNIMPLEMENTED" && event.detail.find("ATTACK") != std::string::npos)
             attack_unimplemented = true;
     }
-    check(zsave, "ZSAVE still reports UNIMPLEMENTED");
+    check(!zsave, "ZSAVE reaches a handler");
     check(!attack_unimplemented, "ATTACK reaches a handler");
+}
+
+void test_save_and_snapshot() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    game.load_script(type_at(0, "ZSAVE QUEST"));
+    game.advance_jiffies(40);
+    const int saved_row = 0x10;
+    game.load_script(type_at(game.counters().total_jiffies, "MOVE"));
+    game.advance_jiffies(40);
+    game.load_script(type_at(game.counters().total_jiffies, "ZLOAD QUEST"));
+    game.advance_jiffies(40);
+    check(game.player().row == saved_row, "ZLOAD restores the saved row");
+    check(game.player().damage == 0, "ZLOAD restores saved damage");
+    const std::string again = game.snapshot();
+    dag::Game other(1, 0);
+    other.restore_snapshot(again);
+    check(other.snapshot() == again, "snapshot round trip matches");
 }
 
 }  // namespace
@@ -987,6 +1005,7 @@ int main() {
     test_reentry_mid_move();
     test_combat_fixtures_and_flow();
     test_objects_and_climb();
+    test_save_and_snapshot();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";

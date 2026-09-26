@@ -86,12 +86,19 @@ int main(int argc, char** argv) {
         std::ostringstream ss;
         ss << in.rdbuf();
         std::string error;
-        auto keys = dag::parse_script(ss.str(), error);
+        const std::string body = ss.str();
+        auto keys = dag::parse_script(body, error);
+        if (!error.empty()) {
+            std::cerr << "script error: " << error << "\n";
+            return 1;
+        }
+        auto fudge = dag::parse_harness(body, error);
         if (!error.empty()) {
             std::cerr << "script error: " << error << "\n";
             return 1;
         }
         game.load_script(std::move(keys));
+        game.load_harness(std::move(fudge));
     }
 
     game.advance_jiffies(jiffies);

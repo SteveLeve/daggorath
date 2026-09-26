@@ -30,6 +30,8 @@ struct CmoveView {
     HeldShield left;
     HeldShield right;
     bool* heart_update = nullptr;  // set when CMOVE calls HUPDAT
+    // Harness only. 100 is Original Mode (D-12). Player hits are not scaled.
+    int incoming_damage_percent = 100;
 };
 
 // One creature action. `events` are trace details (sound selection, pickup,

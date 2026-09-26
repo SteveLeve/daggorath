@@ -6,7 +6,10 @@
 // the attack branch is D-7. CREGEN updates the matrix only.
 #pragma once
 #include <cstdint>
+#include <functional>
+#include <iosfwd>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "daggorath/combat.hpp"
@@ -30,6 +33,7 @@ struct PlayerState {
     std::uint8_t heart_rate = 0;    // HEARTR, in jiffies
     bool fainted = false;
     bool dead = false;
+    bool won = false;
     int left_hand = -1;
     int right_hand = -1;
     int torch = -1;
@@ -119,6 +123,37 @@ public:
         update_heart_rate();
     }
 
+    // Harness only (ADR-0007). Default 100 is Original Mode. Creature damage
+    // applied to the player is multiplied by percent/100. Player hits are not
+    // scaled. Used only when a FUDGE line is replayed.
+    void set_incoming_damage_percent(int percent);
+    int incoming_damage_percent() const { return incoming_damage_percent_; }
+
+    enum class HarnessFudge { Incoming, Rest };
+    struct HarnessEvent {
+        std::uint64_t jiffy = 0;
+        HarnessFudge kind = HarnessFudge::Incoming;
+        int percent = 100;
+    };
+    void load_harness(std::vector<HarnessEvent> events) {
+        harness_ = std::move(events);
+        harness_pos_ = 0;
+    }
+
+    // What ZSAVE writes: the direct page and common RAM, DP.BEG ($0200)
+    // through MM.END (COMMON.ASM SAVE). That range holds the player, clock,
+    // SEED, queue heads and TCBs, keyboard and line buffers, CMXLND, CCBLND,
+    // MAZLND, and OCBLND, so this is every field the core models. The stack
+    // and video buffers lie outside it.
+    std::string ram_image() const;
+    void restore_ram_image(const std::string& image);
+
+    // Suspend snapshot: the RAM image plus what lies outside it (the trace
+    // clock, the halt state, and the cassette), enough to continue
+    // bit-identically. Not a game command.
+    std::string snapshot() const;
+    void restore_snapshot(const std::string& bytes);
+
     // HUPDAX: heart rate = (P*64)/(P+2D) - 19, by repeated subtraction, stored
     // in one signed byte. Faint at <= 3, recover above 4.
     void update_heart_rate();
@@ -141,6 +176,15 @@ private:
     void cmd_incant(const std::string& line, std::size_t& pos);
     void cmd_examine();
     void cmd_climb(const std::string& line, std::size_t& pos);
+    void cmd_zsave(const std::string& line, std::size_t& pos);
+    void cmd_zload(const std::string& line, std::size_t& pos);
+    void tape_operation();                 // SCHED1 -> SAVE / LOAD -> LOAD90
+    std::function<TaskResult()> task_body(const std::string& name);
+    void save_ram(std::ostream& out) const;
+    void load_ram(std::istream& in);
+    void endgame_image();
+    void endgame_wizard();
+    std::string filename_token(const std::string& line, std::size_t& pos) const;
     bool parse_hand(const std::string& line, std::size_t& pos, bool& right, int& held);
     bool parse_object(const std::string& line, std::size_t& pos, bool& specific, std::uint8_t& kind);
     void add_weight(int delta);
@@ -179,12 +223,23 @@ private:
     int hslow_task_ = -1;
     std::vector<int> creature_tasks_;
     bool frozen_ = false;
+    std::vector<std::pair<std::string, std::string>> tapes_;
+    // ZFLAG: +1 save, -1 load, with the TOKEN filename.
+    int zflag_ = 0;
+    std::string tape_name_;
     // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
     bool sync_pending_ = false;
+    int incoming_damage_percent_ = 100;
+    std::vector<HarnessEvent> harness_;
+    std::size_t harness_pos_ = 0;
+    void apply_due_harness(std::uint64_t now);
 };
 
 // Input script format: one event per line, "<jiffy> <KEY>" where KEY is a single
 // character, or the words SPACE, CR or BS. '#' starts a comment.
+// `FUDGE incoming <percent>` and `FUDGE rest` (optional leading jiffy) are
+// harness lines: parse_script ignores them. parse_harness collects them.
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error);
+std::vector<Game::HarnessEvent> parse_harness(const std::string& text, std::string& error);
 
 }  // namespace dag

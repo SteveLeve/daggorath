@@ -112,7 +112,8 @@ void test_incant_final_winner() {
     check(o.type == kFinal && o.cls == kClassRing, "INCANT FINAL makes the FINAL ring");
     // SPCXXX FINAL,RN15,K.RING,0,0,0
     check(o.magic_offense == 0 && o.physical_offense == 0, "FINAL has zero offense");
-    check(count(game, "DEFER", "winner") == 1, "the final ring defers to WINNER");
+    check(count(game, "WINNER") == 1 && count(game, "DEFER") == 0,
+          "the final ring runs WINNER (D-9 retired)");
 }
 
 void test_get_drop() {
@@ -302,9 +303,7 @@ void test_verb_coverage() {
         for (const auto& e : game.trace())
             if (e.kind == "LINE" && e.detail == "\"" + word + "\"") reached = true;
         check(reached, word + " is dispatched");
-        const bool allowed = word == "ZSAVE" || word == "ZLOAD";
-        check(unimplemented == allowed,
-              word + (allowed ? " still reports UNIMPLEMENTED" : " reaches its handler"));
+        check(!unimplemented, word + " reaches its handler");
     }
     check(verbs == 15, "CMDTAB has 15 verbs", std::to_string(verbs));
 }
