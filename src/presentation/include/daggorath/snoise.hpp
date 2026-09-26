@@ -20,8 +20,14 @@ std::vector<std::uint8_t> noise_pulses(std::uint16_t& state, std::uint8_t volume
 // Each pitch writes one noise sample. The waits between samples are not stored.
 std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume);
 
-// Maps a trace event onto DAC samples. A$THUD uses full volume; the listing's
-// SNVOL byte for that call is not read here.
+// WHOOSH then CHUCK (SOUNDS.ASM). Attack envelope starts at BIGZER and adds
+// $80 until that add carries. Decay starts at NEGONE and subtracts $A0 until
+// the subtract borrows or lands on zero. One DAC byte per SNOUT. The wait
+// loops are not stored, and this does not advance the scheduler (D-4b).
+std::vector<std::uint8_t> whoosh(std::uint16_t& state, std::uint8_t volume);
+
+// Maps a trace event onto DAC samples. A$THUD and a sword swing (class 4,
+// A$SWOR) use full volume; the listing's SNVOL byte for that call is not read here.
 std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
                                       std::uint16_t& state);
 

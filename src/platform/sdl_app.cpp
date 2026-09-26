@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
             if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
                 const SDL_Keycode key = event.key.key;
                 // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
-                if (key == SDLK_RETURN) game.press(0x0D);
+                if (key == SDLK_RETURN || key == SDLK_KP_ENTER) game.press(0x0D);
                 else if (key == SDLK_SPACE) game.press(0x20);
                 else if (key == SDLK_BACKSPACE) game.press(0x08);
                 else if (key >= SDLK_A && key <= SDLK_Z)

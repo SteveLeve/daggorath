@@ -38,9 +38,52 @@ std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume) {
     return samples;
 }
 
+namespace {
+
+void emit_enveloped(std::vector<std::uint8_t>& samples, std::uint16_t level,
+                    std::uint8_t noise_high, std::uint8_t volume) {
+    // SNENV's MUL is the envelope high byte times the noise high byte.
+    // SNOUT then scales that product's high byte by SNVOL.
+    const auto env_high = static_cast<std::uint8_t>(level >> 8);
+    const std::uint16_t mixed = static_cast<std::uint16_t>(
+        static_cast<std::uint16_t>(env_high) * noise_high);
+    samples.push_back(dac_sample(static_cast<std::uint8_t>(mixed >> 8), volume));
+}
+
+}  // namespace
+
+std::vector<std::uint8_t> whoosh(std::uint16_t& state, std::uint8_t volume) {
+    std::vector<std::uint8_t> samples;
+    // SETNVA loads BIGZER. The carrying add is not written to the DAC.
+    std::uint16_t level = 0;
+    for (;;) {
+        const auto noise_high = static_cast<std::uint8_t>(snoise(state) >> 8);
+        const std::uint32_t sum = static_cast<std::uint32_t>(level) + 0x80u;
+        const bool carry = sum > 0xFFFFu;
+        level = static_cast<std::uint16_t>(sum);
+        if (carry) break;
+        emit_enveloped(samples, level, noise_high, volume);
+    }
+    // CHUCK: SETNVD loads NEGONE ($FFFF). BLS (borrow or zero) ends the sound
+    // without a sample for that step.
+    level = 0xFFFF;
+    for (;;) {
+        const auto noise_high = static_cast<std::uint8_t>(snoise(state) >> 8);
+        const bool borrow = level < 0xA0u;
+        level = static_cast<std::uint16_t>(level - 0xA0u);
+        if (borrow || level == 0) break;
+        emit_enveloped(samples, level, noise_high, volume);
+    }
+    return samples;
+}
+
 std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
                                       std::uint16_t& state) {
-    if (kind == "SOUND" && detail == "A$THUD") return thud(state, 0xFF);
+    if (kind != "SOUND") return {};
+    if (detail == "A$THUD") return thud(state, 0xFF);
+    // PATTK emits SOUND class=<hand class>. EMPHND and a sword are class 4,
+    // which is A$SWOR / WHOOSH.
+    if (detail == "class=4" || detail == "A$SWOR") return whoosh(state, 0xFF);
     return {};
 }
 

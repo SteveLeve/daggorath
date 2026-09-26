@@ -11,6 +11,7 @@
 #include "daggorath/examine.hpp"
 #include "daggorath/game.hpp"
 #include "daggorath/mapper.hpp"
+#include "daggorath/raster.hpp"
 #include "daggorath/text.hpp"
 #include "daggorath/text_tables.hpp"
 
@@ -146,6 +147,44 @@ void test_maps() {
 
 }  // namespace
 
+bool cell_matches(const std::uint8_t* pixels, int col, int y, const std::uint8_t rows[7]) {
+    for (int row = 0; row < 7; ++row) {
+        for (int bit = 0; bit < 8; ++bit) {
+            const int on = (rows[row] & (0x80 >> bit)) != 0 ? 1 : 0;
+            const std::uint8_t pixel =
+                pixels[static_cast<std::size_t>((y + row) * dag::kScreenWidth + col * 8 + bit)];
+            if (pixel != on) return false;
+        }
+    }
+    return true;
+}
+
+void test_heart_raster() {
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(dag::kScreenWidth * dag::kScreenHeight));
+    dag::TextSnapshot snap;
+    snap.heart = dag::HeartGlyph::Small;
+    dag::paint_text_bands(pixels.data(), dag::kScreenWidth, snap, "");
+    std::uint8_t left[7] = {};
+    std::uint8_t right[7] = {};
+    std::uint8_t letter[7] = {};
+    dag::glyph_rows(0x20, left);
+    dag::glyph_rows(0x21, right);
+    dag::glyph_rows(static_cast<std::uint8_t>('S' - 'A' + 1), letter);
+    check(cell_matches(pixels.data(), 15, dag::kViewportScanlineEnd, left),
+          "the small heart's left cell is SPCTAB $20");
+    check(cell_matches(pixels.data(), 16, dag::kViewportScanlineEnd, right),
+          "the small heart's right cell is SPCTAB $21");
+    check(!cell_matches(pixels.data(), 15, dag::kViewportScanlineEnd, letter),
+          "the small heart is not the letter S");
+    snap.heart = dag::HeartGlyph::Large;
+    dag::paint_text_bands(pixels.data(), dag::kScreenWidth, snap, "");
+    dag::glyph_rows(0x22, left);
+    dag::glyph_rows(0x23, right);
+    check(cell_matches(pixels.data(), 15, dag::kViewportScanlineEnd, left) &&
+              cell_matches(pixels.data(), 16, dag::kViewportScanlineEnd, right),
+          "the large heart is SPCTAB $22 and $23");
+}
+
 void test_glyph_a() {
     std::uint8_t rows[7] = {};
     dag::glyph_rows(1, rows);
@@ -157,6 +196,7 @@ void test_glyph_a() {
 
 int main() {
     test_glyph_a();
+    test_heart_raster();
     test_regions();
     test_names();
     test_status_lines();

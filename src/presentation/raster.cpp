@@ -1,7 +1,5 @@
 #include "daggorath/raster.hpp"
 
-#include "daggorath/vctlst.hpp"
-
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
@@ -130,13 +128,9 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnaps
     const std::uint8_t light = static_cast<std::uint8_t>(
         std::min(255, view.regular_light + view.magic_light));
     const std::uint8_t fade = set_fade(light, 0);
+    // VIEWER draws OFIND's unowned objects only. Carried objects are the
+    // status-line names, not a second copy of the floor picture.
     for (const DrawSegment& segment : project(view).segments) draw_segment(pixels, segment, fade);
-    for (const DrawSegment& segment : forward_object(view.foreground))
-        draw_segment(pixels, segment, fade);
-    for (const DrawSegment& segment : forward_object(view.left_class))
-        draw_segment(pixels, segment, fade);
-    for (const DrawSegment& segment : forward_object(view.right_class))
-        draw_segment(pixels, segment, fade);
     return pixels;
 }
 

@@ -110,7 +110,13 @@ void paint_text_bands(std::uint8_t* pixels, int width,
         std::fill(pixels + static_cast<std::size_t>(y * width),
                   pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
     }
-    const std::string status = project_text(snap).text.substr(7, 32);
+    std::string status = project_text(snap).text.substr(7, 32);
+    // project_text marks the heart with s/L for the text dump. Those letters
+    // are not SPCTAB. CLK30 deposits the heart glyphs into a blank pair of cells.
+    if (snap.heart == HeartGlyph::Small || snap.heart == HeartGlyph::Large) {
+        status[15] = ' ';
+        status[16] = ' ';
+    }
     plot_string(pixels, width, 0, kViewportScanlineEnd, status);
     if (snap.heart == HeartGlyph::Small || snap.heart == HeartGlyph::Large) {
         const std::uint8_t base = snap.heart == HeartGlyph::Large ? 0x22 : 0x20;

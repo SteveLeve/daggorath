@@ -256,6 +256,32 @@ void test_parser() {
           "DIRTAB rejects BACKWARD: the table entry is BACK");
 }
 
+std::vector<dag::KeyEvent> type_at(std::uint64_t start, const std::string& text);
+
+void test_attack_right_abbreviation() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    game.load_script(type_at(1, "PULL RIGHT SWORD"));
+    game.advance_jiffies(40);
+    const std::uint16_t before = game.player().damage;
+    game.load_script(type_at(game.counters().total_jiffies, "A R"));
+    game.advance_jiffies(20);
+    bool exert = false;
+    bool sword = false;
+    for (const auto& event : game.trace()) {
+        if (event.kind == "EXERT") exert = true;
+        if (event.kind == "SOUND" && event.detail == "class=4") sword = true;
+    }
+    check(game.line_buffer().empty(), "A R is dispatched, not left in the line");
+    check(exert && sword, "A R swings the right-hand sword",
+          "damage=" + std::to_string(game.player().damage));
+    check(game.player().damage == static_cast<std::uint16_t>(before + 2),
+          "a wooden sword adds two damage");
+    std::uint16_t state = 1;
+    check(!dag::samples_for("SOUND", "class=4", state).empty(),
+          "the sword swing synthesizes WHOOSH");
+}
+
 // ------------------------------------------------------- clock / tasks
 int live_count(const dag::Game& game);
 int matrix_sum(const dag::Game& game);
@@ -1047,6 +1073,11 @@ void test_projection() {
     check(dag::noise_pulses(hiss, 0xFF, 2).size() == 2 * 0xC0, "PSSST emits two pulses");
     std::uint16_t thud_state = 1;
     check(dag::thud(thud_state, 0xFF).size() == (0x150 - 0x80) / 2, "THUD writes one sample per pitch step");
+    std::uint16_t whoosh_state = 1;
+    // Attack emits until the $80 add carries (511 samples). Decay emits until
+    // $FFFF - n*$A0 borrows (409 samples).
+    check(dag::whoosh(whoosh_state, 0xFF).size() == 511u + 409u,
+          "WHOOSH writes one sample per SNOUT of the attack and the decay");
     check(dag::set_fade(7, 0) == 0, "light 7 at range 0 is full brightness");
     check(dag::set_fade(0, 0) == 0xFF, "light 0 is darkness");
     check(dag::set_fade(6, 0) == 0x01, "one step below full brightness uses BIT0");
@@ -1135,11 +1166,13 @@ void test_projection() {
     type_line("USE LEFT");
     int lit_dots = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) lit_dots += pixel;
-    check(lit_dots == 1799, "a lit level-0 view has 1799 dots", "dots=" + std::to_string(lit_dots));
+    check(lit_dots == 1773, "a lit level-0 view is the viewer dots only",
+          "dots=" + std::to_string(lit_dots));
     type_line("PULL LEFT SWORD");
     int with_sword = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) with_sword += pixel;
-    check(with_sword > lit_dots, "the held sword adds its glyph", "dots=" + std::to_string(with_sword));
+    check(with_sword == lit_dots, "a carried sword is not drawn in the viewer",
+          "dots=" + std::to_string(with_sword));
     const auto scaled = dag::scale_frame(dag::rasterize(dag::snapshot_from(lit_game)), 3);
     check(scaled.size() == 256u * 3u * 192u * 3u, "integer scale triples each axis");
     int blocks = 0;
@@ -1389,6 +1422,7 @@ int main() {
     test_entry_time_invariance();
     test_movement_rule();
     test_parser();
+    test_attack_right_abbreviation();
     test_rom_level0_entry();
     test_clock_rollovers();
     test_turn_and_move();
