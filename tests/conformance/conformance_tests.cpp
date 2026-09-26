@@ -1074,6 +1074,32 @@ void test_incant_fire_script() {
     check(!game.player().dead, "the player survives the incant script");
 }
 
+void test_prepared_winner() {
+    dag::Game game(1, 4);
+    game.set_frozen(true);
+    int ring = -1;
+    for (int i = 0; i < static_cast<int>(game.objects().size()); ++i) {
+        const dag::Ocb& object = game.objects()[static_cast<std::size_t>(i)];
+        if (object.level == 4 && object.type == 0) ring = i;
+    }
+    check(ring >= 0, "level 4 has the supreme ring");
+    if (ring < 0) return;
+    game.hold(true, ring);
+    std::uint64_t jiffy = 0;
+    auto press_line = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        jiffy += static_cast<std::uint64_t>(text.size()) + 20;
+        game.advance_jiffies(jiffy);
+    };
+    press_line("INCANT FINAL");
+    bool won = false;
+    for (const auto& event : game.trace()) {
+        if (event.kind == "WINNER") won = true;
+    }
+    check(won && game.player().won, "incanting FINAL on the supreme ring wins");
+}
+
 }  // namespace
 
 int main() {
@@ -1097,6 +1123,7 @@ int main() {
     test_save_and_snapshot();
     test_projection();
     test_incant_fire_script();
+    test_prepared_winner();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";
