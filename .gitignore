@@ -29,3 +29,6 @@ __pycache__/
 
 # Machine-specific agent notes
 .claude.local.md
+
+# exclude chat transcripts used for documentation purposes
+docs/.transcripts
