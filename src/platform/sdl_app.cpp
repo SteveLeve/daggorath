@@ -2,6 +2,7 @@
 #include "daggorath/game.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snapshot.hpp"
+#include "daggorath/snoise.hpp"
 #include "daggorath/sound_mix.hpp"
 #include "daggorath/text.hpp"
 #include "daggorath/text_tables.hpp"
@@ -200,6 +201,8 @@ int main(int argc, char** argv) {
     int shown_col = 0;
     int shown_dir = 0;
     bool have_shown = false;
+    bool was_fainted = false;
+    bool was_dead = false;
     std::size_t seen_motion = 0;
     auto reset_view = [&]() {
         heard = 0;
@@ -213,6 +216,8 @@ int main(int argc, char** argv) {
         prompt = DeathPrompt::Playing;
         load_name.clear();
         have_shown = false;
+        was_fainted = false;
+        was_dead = false;
         seen_motion = 0;
     };
     auto restart_game = [&]() {
@@ -231,6 +236,8 @@ int main(int argc, char** argv) {
         prompt = DeathPrompt::Playing;
         load_name.clear();
         have_shown = false;
+        was_fainted = game.player().fainted || game.player().dead;
+        was_dead = game.player().dead;
         seen_motion = game.events().size();
     };
     while (running) {
@@ -361,6 +368,54 @@ int main(int argc, char** argv) {
             if (command_override.size() < 32) command_override.push_back('_');
         }
         dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
+        const bool faint_now = game.player().fainted || game.player().dead;
+        if (faint_now && !was_fainted) {
+            // HUPDAT HUPD30: each SYNC lowers MLIGHT and RLIGHT and redraws until
+            // RLIGHT reaches -8, then ZFLOP blanks the screen. Presentation-only
+            // pacing (D-13); the core spends no simulated time here.
+            auto dark = chrome;
+            dark.has_page = true;
+            dark.page = {};
+            dark.line.clear();
+            auto fading = snap;
+            while (fading.regular_light > -8) {
+                --fading.regular_light;
+                --fading.magic_light;
+                auto step = dag::rasterize(fading);
+                dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
+                present_frame(renderer, texture, step);
+                SDL_Delay(90);
+            }
+            SDL_Delay(400);
+        }
+        if (game.player().dead && !was_dead) {
+            auto dark = chrome;
+            dark.has_page = true;
+            dark.page = {};
+            dark.line.clear();
+            {
+                // DEATH: WIZIX fades the wizard in, VCTFAD 32 down to 0 in steps of
+                // two, then an explosion (MISC.ASM WIZI10, WIZI20).
+                for (int fade = 32; fade >= 0; fade -= 2) {
+                    auto step = dag::rasterize_wizard(static_cast<std::uint8_t>(fade));
+                    dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
+                    present_frame(renderer, texture, step);
+                    SDL_Delay(110);
+                }
+                std::uint16_t noise = 1;
+                dag::start_dac(effect_carry, dag::samples_for_cue(
+                    static_cast<std::uint8_t>(dag::SoundCue::EXP1), 0xFF, noise));
+            }
+        }
+        was_fainted = faint_now;
+        was_dead = game.player().dead;
+        if (game.player().dead) {
+            frame = dag::rasterize_wizard(0);
+            dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
+        } else if (game.player().fainted) {
+            frame.fill(0);
+            dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
+        }
         if (half_scale != 0) {
             // PMOVE draws HLFSCL or BAKSCL on the cell being left, then the
             // standing view of the cell entered.

@@ -1498,6 +1498,17 @@ void test_fire_ring_reaches_wizard() {
 
 }  // namespace
 
+void test_wizard_fade() {
+    auto count = [](std::uint8_t fade) {
+        std::size_t n = 0;
+        for (auto p : dag::rasterize_wizard(fade)) n += p;
+        return n;
+    };
+    const auto solid = count(0), faint = count(32);
+    check(solid > 0 && faint > 0 && faint < solid,
+          "the death wizard fades in: a larger VCTFAD plots fewer dots (MISC.ASM WIZI10)");
+}
+
 int main() {
     test_rng();
     test_level0_maze_against_fixture();
@@ -1519,6 +1530,7 @@ int main() {
     test_objects_and_climb();
     test_save_and_snapshot();
     test_projection();
+    test_wizard_fade();
     test_incant_fire_script();
     test_prepared_winner();
     test_hslow_recovery();

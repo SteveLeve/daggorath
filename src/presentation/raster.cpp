@@ -1,5 +1,8 @@
 #include "daggorath/raster.hpp"
 
+#include "daggorath/vctlst.hpp"
+#include "daggorath/vector_tables.hpp"
+
 #include <cstdlib>
 #include <sstream>
 #include <vector>
@@ -128,6 +131,14 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnaps
     // range. A pine torch (regular light 7) is solid only at range 0.
     for (const DrawSegment& segment : project(view).segments)
         draw_segment(pixels, segment, static_cast<std::uint8_t>(segment.fade));
+    return pixels;
+}
+
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(std::uint8_t fade) {
+    std::array<std::uint8_t, kScreenWidth * kScreenHeight> pixels{};
+    for (const DrawSegment& segment :
+         decode_vectors(kVectorBlob, 0x80, 0x80, kCentroidX, kCentroidY, fade, kVec_WIZ1))
+        draw_segment(pixels, segment, fade);
     return pixels;
 }
 

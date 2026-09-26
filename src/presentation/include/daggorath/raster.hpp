@@ -39,6 +39,9 @@ std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeig
 // Project the view and plot every segment with the fade SETFAX stored on it.
 std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view);
 
+// MISC.ASM WIZZES: the crescent wizard (WIZ1) at scale $80 with VCTFAD = `fade`.
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(std::uint8_t fade);
+
 // Integer scale. Each source dot becomes a factor-by-factor block. Factor 1 copies.
 std::vector<std::uint8_t> scale_frame(
     const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int factor);
