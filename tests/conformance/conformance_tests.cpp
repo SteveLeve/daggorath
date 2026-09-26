@@ -1008,6 +1008,10 @@ void test_projection() {
           "an absolute list draws one scaled segment");
     check(dag::decode_vectors(list, 128, 128, 128, 76, 0xFF).empty(),
           "fade $FF draws no vectors");
+    const std::uint8_t relative[] = {76, 128, 0xFC, 0x11, 0x00, 0xFE};
+    const auto shifted = dag::decode_vectors(relative, 128, 128, 128, 76, 0);
+    check(shifted.size() == 1 && shifted[0].x1 == 130 && shifted[0].y1 == 78,
+          "a relative nybble pair steps by two pixels at scale 128");
 }
 
 }  // namespace

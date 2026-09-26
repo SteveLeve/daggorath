@@ -29,11 +29,37 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
     bool have_start = false;
     int x0 = 0;
     int y0 = 0;
+    std::uint8_t x_raw = 0;
+    std::uint8_t y_raw = 0;
     std::size_t i = 0;
     while (i < list.size()) {
         const std::uint8_t yb = list[i];
         if (yb >= 0xFA) {
             if (yb == kVectorEnd) break;
+            if (yb == 0xFC) {
+                ++i;
+                while (i < list.size() && list[i] != 0) {
+                    const std::uint8_t packed = list[i++];
+                    const auto y_delta = static_cast<std::int8_t>(
+                        static_cast<std::uint8_t>(static_cast<std::int8_t>(packed) >> 4) << 1);
+                    std::uint8_t x_nibble = static_cast<std::uint8_t>(packed & 0x0F);
+                    if ((x_nibble & 0x08) != 0) x_nibble = static_cast<std::uint8_t>(x_nibble | 0xF0);
+                    const auto x_delta = static_cast<std::int8_t>(static_cast<std::uint8_t>(x_nibble << 1));
+                    const auto raw_y = static_cast<std::uint8_t>(y_raw + y_delta);
+                    const auto raw_x = static_cast<std::uint8_t>(x_raw + x_delta);
+                    const int y = scale_coord(raw_y, y_scale, centroid_y);
+                    const int x = scale_coord(raw_x, x_scale, centroid_x);
+                    if (have_start) out.push_back(DrawSegment{x0, y0, x, y, "vector"});
+                    x0 = x;
+                    y0 = y;
+                    y_raw = raw_y;
+                    x_raw = raw_x;
+                    have_start = true;
+                }
+                if (i < list.size() && list[i] == 0) ++i;
+                have_start = false;
+                continue;
+            }
             break;
         }
         if (i + 1 >= list.size()) break;
@@ -43,12 +69,16 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
         if (!have_start) {
             x0 = x;
             y0 = y;
+            x_raw = list[i - 1];
+            y_raw = list[i - 2];
             have_start = true;
             continue;
         }
         out.push_back(DrawSegment{x0, y0, x, y, "vector"});
         x0 = x;
         y0 = y;
+        x_raw = list[i - 1];
+        y_raw = list[i - 2];
     }
     return out;
 }
