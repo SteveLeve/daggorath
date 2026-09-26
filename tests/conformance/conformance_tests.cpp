@@ -1008,6 +1008,13 @@ void test_projection() {
     check(called.size() == 1 && called[0].x0 == 128 && called[0].y0 == 76 && called[0].x1 == 140 &&
               called[0].y1 == 90,
           "an in-buffer subroutine draws its segment and returns");
+    const std::uint8_t jumped[] = {0xFD, 0x00, 0x05, 10, 10, 76, 128, 90, 140, 0xFE};
+    const auto gone = dag::decode_vectors(jumped, 128, 128, 128, 76, 0);
+    check(gone.size() == 1 && gone[0].x1 == 140 && gone[0].y1 == 90,
+          "an in-buffer jump skips the bytes before the target");
+    const std::uint8_t outside[] = {0xFD, 0x40, 0x00};
+    check(dag::decode_vectors(outside, 128, 128, 128, 76, 0).empty(),
+          "a jump past the buffer draws nothing");
     dag::Game keys(1, 0);
     keys.set_frozen(true);
     for (char ch : std::string("TURN RIGHT")) keys.press(static_cast<std::uint8_t>(ch));
