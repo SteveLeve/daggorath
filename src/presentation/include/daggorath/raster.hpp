@@ -9,8 +9,9 @@ namespace dag {
 inline constexpr int kScreenWidth = 256;
 inline constexpr int kScreenHeight = 192;
 
-// Integer DDA onto a 256×192 byte surface. One byte per pixel, 0 or 1.
-// This is not yet the fractional accumulator in VECTOR.ASM.
+// VECTOR.ASM plot walk on a 256×192 byte surface. One byte per pixel, 0 or 1.
+// The step count and the 8.8 increment follow DIVIDE and INCRE. The bitmap
+// bit masks and the fade counter are not applied; every step is plotted.
 void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
                   const DrawSegment& segment);
 
