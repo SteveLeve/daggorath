@@ -47,8 +47,9 @@ bool cwalk(Ccb& self, int slot, std::array<Ccb, kCcbSlots>& ccbs, const Maze& ma
     if (big <= 8 && little <= 2) {
         const std::uint8_t roll = rng.next();
         if ((roll & 1) != 0) {
-            const std::uint8_t volume =
-                static_cast<std::uint8_t>(~static_cast<std::uint8_t>(big * 31));
+            const std::uint8_t volume = creature_sound_volume(big);
+            if (view.sounds != nullptr)
+                view.sounds->push_back({self.type, volume, SoundEntry::Sounds, big});
             events.push_back("SOUND slot=" + std::to_string(slot) +
                              " type=" + std::to_string(self.type) +
                              " vol=" + std::to_string(volume));
@@ -62,7 +63,7 @@ bool cwalk(Ccb& self, int slot, std::array<Ccb, kCcbSlots>& ccbs, const Maze& ma
 
 void apply_shield(HeldShield hand, std::uint8_t& magic, std::uint8_t& physical) {
     // SHIELD: empty or non-shield leaves the pair. A lower (better) pair replaces it.
-    if (!hand.present || hand.cls != 3) return;
+    if (!hand.present || hand.cls != 3) return;   // CD.ASM K.SHIE, CRETUR.ASM:116
     const unsigned current = (static_cast<unsigned>(magic) << 8) | physical;
     const unsigned offered =
         (static_cast<unsigned>(hand.magic_defense) << 8) | hand.physical_defense;
@@ -73,6 +74,8 @@ void apply_shield(HeldShield hand, std::uint8_t& magic, std::uint8_t& physical) 
 
 void creature_attack(Ccb& self, int slot, Rng& rng, CmoveView& view,
                      std::vector<std::string>& events) {
+    if (view.sounds != nullptr)
+        view.sounds->push_back({self.type, 0xFF, SoundEntry::Sounds, -1});
     events.push_back("SOUND slot=" + std::to_string(slot) +
                      " type=" + std::to_string(self.type) + " vol=255");
     std::uint8_t magic = 0x80;
@@ -93,7 +96,19 @@ void creature_attack(Ccb& self, int slot, Rng& rng, CmoveView& view,
     if (!attack_hits(attacker.power, view.player->power, view.player->damage, roll)) {
         events.push_back("MISS slot=" + std::to_string(slot) + " roll=" + std::to_string(roll));
     } else {
+        if (view.sounds != nullptr)   // CRETUR.ASM:101-103 ISOUND A$KLK3
+            view.sounds->push_back({static_cast<std::uint8_t>(SoundCue::KLK3), 0xFF,
+                                    SoundEntry::Isound, -1});
+        const std::uint16_t before = view.player->damage;
         apply_damage(attacker, *view.player);
+        if (view.incoming_damage_percent != 100) {
+            const unsigned added =
+                static_cast<unsigned>(view.player->damage) +
+                (view.player->damage < before ? 65536u : 0u) - before;
+            const unsigned scaled =
+                added * static_cast<unsigned>(view.incoming_damage_percent) / 100u;
+            view.player->damage = static_cast<std::uint16_t>(before + scaled);
+        }
         events.push_back("HIT slot=" + std::to_string(slot) +
                          " damage=" + std::to_string(view.player->damage));
     }

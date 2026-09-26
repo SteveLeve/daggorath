@@ -6,18 +6,19 @@
 // the attack branch is D-7. CREGEN updates the matrix only.
 #pragma once
 #include <cstdint>
+#include <functional>
+#include <iosfwd>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "daggorath/combat.hpp"
+#include "daggorath/core_event.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/population.hpp"
 #include "daggorath/scheduler.hpp"
 
 namespace dag {
-
-enum class DisplayMode : std::uint8_t { Viewer = 0, Examine = 1, Mapper = 2 };
 
 struct PlayerState {
     int row = 0x10;                 // ONCE.ASM GAME10: LDD #$100B / STD PROW
@@ -39,6 +40,16 @@ struct PlayerState {
     bool map_features = false;
     std::uint8_t regular_light = 0;
     std::uint8_t magic_light = 0;
+};
+
+// CD.ASM:510-514 heartbeat bytes, plus the PIA single-bit sound output that
+// CLK30 flips (COMMON.ASM:437-439).
+struct HeartState {
+    std::uint8_t heartf = 0;   // HEARTF: status-line flash on/off (0 in map mode)
+    std::uint8_t heartc = 0;   // HEARTC: countdown to the next beat
+    std::uint8_t hearts = 0;   // HEARTS: heart size flag
+    std::uint8_t hbeatf = 0;   // HBEATF: audio heartbeat on/off
+    bool audio_level = false;  // PIA1 port B BIT1
 };
 
 struct TraceEvent {
@@ -90,8 +101,13 @@ public:
     const GeneratedLevel& level() const { return level_; }
     int level_index() const { return level_index_; }
     const std::vector<TraceEvent>& trace() const { return trace_; }
+    // ADR-0004 rule 1: the ordered, stamped event stream. Read-only.
+    const std::vector<CoreEvent>& events() const { return events_; }
+    const HeartState& heart() const { return heart_; }
     const Counters& counters() const { return sched_.counters(); }
     DisplayMode display_mode() const { return mode_; }
+    // LINBUF as collected by HUMAN. Empty after a line is dispatched.
+    const std::string& line_buffer() const { return line_; }
 
     const std::array<Ccb, kCcbSlots>& creatures() const { return ccbs_; }
     const std::vector<Ocb>& objects() const { return objects_; }
@@ -103,8 +119,8 @@ public:
     }
 
     // NEWLVL for `level`, using the clock's current SECOND. Does not move the
-    // player. Previous CMOVE tasks are retired and the new level's creatures
-    // are queued. System tasks are not rebuilt (SYSTCB is not re-run).
+    // player. SYSTCB rebuilds the system tasks and drops every CMOVE task, then
+    // the new level's creatures are queued.
     void enter_level(int level);
 
     // FRZFLG. Frozen creatures take the movement-delay return and do not act.
@@ -115,16 +131,45 @@ public:
     // write the same slots the object commands will.
     void hold(bool right, int object_index);
     void wield_torch(int object_index);
+    // Test hooks: write PROW/PCOL and PDAM directly, then run HUPDAT.
+    void place_player(int row, int col) { player_.row = row; player_.col = col; }
+    void set_player_power(std::uint16_t power) {
+        player_.power = power;
+        update_heart_rate();
+    }
+    void set_player_damage(std::uint16_t damage) {
+        player_.damage = damage;
+        update_heart_rate();
+    }
 
-    // The bytes ZSAVE writes are the direct page and common RAM from $0200
-    // through MM.END (CD.ASM, COMMON.ASM SAVE). This core stores the fields
-    // it models from that range. The cassette leaders and video buffers are
-    // not reconstructed.
-    std::string historical_payload() const;
-    void restore_historical_payload(const std::string& payload);
+    // Harness only (ADR-0007). Default 100 is Original Mode. Creature damage
+    // applied to the player is multiplied by percent/100. Player hits are not
+    // scaled. Used only when a FUDGE line is replayed.
+    void set_incoming_damage_percent(int percent);
+    int incoming_damage_percent() const { return incoming_damage_percent_; }
 
-    // Same bytes as historical_payload. Not the full suspend snapshot:
-    // creatures, objects, and the scheduler queues are not in the string.
+    enum class HarnessFudge { Incoming, Rest };
+    struct HarnessEvent {
+        std::uint64_t jiffy = 0;
+        HarnessFudge kind = HarnessFudge::Incoming;
+        int percent = 100;
+    };
+    void load_harness(std::vector<HarnessEvent> events) {
+        harness_ = std::move(events);
+        harness_pos_ = 0;
+    }
+
+    // What ZSAVE writes: the direct page and common RAM, DP.BEG ($0200)
+    // through MM.END (COMMON.ASM SAVE). That range holds the player, clock,
+    // SEED, queue heads and TCBs, keyboard and line buffers, CMXLND, CCBLND,
+    // MAZLND, and OCBLND, so this is every field the core models. The stack
+    // and video buffers lie outside it.
+    std::string ram_image() const;
+    void restore_ram_image(const std::string& image);
+
+    // Suspend snapshot: the RAM image plus what lies outside it (the trace
+    // clock, the halt state, and the cassette), enough to continue
+    // bit-identically. Not a game command.
     std::string snapshot() const;
     void restore_snapshot(const std::string& bytes);
 
@@ -152,6 +197,10 @@ private:
     void cmd_climb(const std::string& line, std::size_t& pos);
     void cmd_zsave(const std::string& line, std::size_t& pos);
     void cmd_zload(const std::string& line, std::size_t& pos);
+    void tape_operation();                 // SCHED1 -> SAVE / LOAD -> LOAD90
+    std::function<TaskResult()> task_body(const std::string& name);
+    void save_ram(std::ostream& out) const;
+    void load_ram(std::istream& in);
     void endgame_image();
     void endgame_wizard();
     std::string filename_token(const std::string& line, std::size_t& pos) const;
@@ -169,9 +218,19 @@ private:
     void step_player(int relative_dir);    // PSTEP
     void movement_exertion();              // PMOV90
     void emit(const std::string& kind, const std::string& detail);
+    CoreEvent& push_event(CoreEventKind kind);
+    void sound(SoundCue cue);                               // ISOUND, B = $FF
+    void sound(std::uint8_t cue, std::uint8_t volume, int range, int source);  // SOUNDS
+    void text(const std::string& s);                        // OUTSTI
+    void set_mode(DisplayMode mode);                        // STX DSPMOD
+    void block(BlockKind kind, std::uint32_t loops, std::uint32_t jiffies, bool known);
+    void inivu();                                           // PLOOK.ASM INIVUX
+    void wizard_fade_in();                                  // MISC.ASM WIZIX
+    void heartbeat_interrupt();                             // COMMON.ASM CLK30
     TaskResult task_cregen();
     TaskResult task_cmove(int slot);
     void queue_creatures();
+    void systcb();
     void build_level(int level, std::uint8_t second);
     void start(bool rom_build, std::uint8_t second_at_entry, int level);
 
@@ -189,17 +248,29 @@ private:
     std::size_t script_pos_ = 0;
     std::uint64_t next_input_jiffy_ = 0;
     std::vector<TraceEvent> trace_;
+    std::vector<CoreEvent> events_;
+    HeartState heart_;
     int player_task_ = -1;
     int hslow_task_ = -1;
     std::vector<int> creature_tasks_;
     bool frozen_ = false;
     std::vector<std::pair<std::string, std::string>> tapes_;
+    // ZFLAG: +1 save, -1 load, with the TOKEN filename.
+    int zflag_ = 0;
+    std::string tape_name_;
     // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
     bool sync_pending_ = false;
+    int incoming_damage_percent_ = 100;
+    std::vector<HarnessEvent> harness_;
+    std::size_t harness_pos_ = 0;
+    void apply_due_harness(std::uint64_t now);
 };
 
 // Input script format: one event per line, "<jiffy> <KEY>" where KEY is a single
 // character, or the words SPACE, CR or BS. '#' starts a comment.
+// `FUDGE incoming <percent>` and `FUDGE rest` (optional leading jiffy) are
+// harness lines: parse_script ignores them. parse_harness collects them.
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error);
+std::vector<Game::HarnessEvent> parse_harness(const std::string& text, std::string& error);
 
 }  // namespace dag

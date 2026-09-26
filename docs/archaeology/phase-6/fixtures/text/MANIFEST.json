@@ -1,0 +1,114 @@
+{
+  "fixtures": [
+    {
+      "file": "command-partial.txt",
+      "sha256": "ad63d2ea364b2d863772eced29b310d222383fa8cbadbe8af3cc6d80305e67ce",
+      "bytes": 20
+    },
+    {
+      "file": "command-prompt.txt",
+      "sha256": "88e90ddc8fcaeca17d3a9eddf05b8849414ca5eedb2bb2a951251ee62e56dde4",
+      "bytes": 16
+    },
+    {
+      "file": "examine-creature.txt",
+      "sha256": "9690f92c238142ce96679a45d509973c35846ea74ce33379076c05aff6dbc6dc",
+      "bytes": 132
+    },
+    {
+      "file": "examine-empty.txt",
+      "sha256": "a9de89243ecab85d7e6b10171877089850ed783331d4205d38b40ccba5d27999",
+      "bytes": 99
+    },
+    {
+      "file": "examine-objects.txt",
+      "sha256": "37eae2beaede602ec4bcb35ca6bec731d5de2576e8dfa82e492b685728bae09c",
+      "bytes": 165
+    },
+    {
+      "file": "font.json",
+      "sha256": "8cfb3a929de5a7cb738627ba0f7a315f448d6c0b3a3b6b2359aec282d5d72a60",
+      "bytes": 2489
+    },
+    {
+      "file": "map-level-0-features.txt",
+      "sha256": "1dc55e50e1ff7b9f2a1311efedfde3b12ce1b5e575aa9529f63c068de0af56e9",
+      "bytes": 6404
+    },
+    {
+      "file": "map-level-0-plain.txt",
+      "sha256": "5b0acd87eb43e8f8c88b1d47c8b874f1a321086abba767fb0d6b3e0fe1fa2ede",
+      "bytes": 6064
+    },
+    {
+      "file": "map-level-1-features.txt",
+      "sha256": "8bb47b486651d67496e831e5c500078c7bf8dea0720500bca69cadebfc707408",
+      "bytes": 6456
+    },
+    {
+      "file": "map-level-1-plain.txt",
+      "sha256": "5e30f2a51dcde85439ef901d1ff53a6897778bda3e2d3b4f5693c151943b7a5b",
+      "bytes": 6114
+    },
+    {
+      "file": "map-level-2-features.txt",
+      "sha256": "60c66ea01acc132e468598ec666a4cbae1b5880499412eb1f11fa908c8bf72de",
+      "bytes": 6337
+    },
+    {
+      "file": "map-level-2-plain.txt",
+      "sha256": "6309e741dbc3eae0acb11ba70914d035d6178b71b72dc4ee89c6ab98726558fa",
+      "bytes": 6004
+    },
+    {
+      "file": "map-level-3-features.txt",
+      "sha256": "7d2f635d5482dd35885aa37db7ef94e288d5edd30dda961537dbc5a77b5a62df",
+      "bytes": 6403
+    },
+    {
+      "file": "map-level-3-plain.txt",
+      "sha256": "b49b7d4b50e3cec567926a8c19772b463cb1744f887d8eab1be1b6bc03ffebbe",
+      "bytes": 6056
+    },
+    {
+      "file": "map-level-4-features.txt",
+      "sha256": "417319cfe0ed898cb5a328166e8b59930e39fc11daf8d28f3ecba437bee9411f",
+      "bytes": 6507
+    },
+    {
+      "file": "map-level-4-plain.txt",
+      "sha256": "36b31cbca3fec8744e5ae8171aebc6c371b3b06f4e25d950872295e82e51eafd",
+      "bytes": 6067
+    },
+    {
+      "file": "object-names.txt",
+      "sha256": "7782a2d44042ec7e1787db16648c11be516c5ad17c31efe5282e73b585089a63",
+      "bytes": 25
+    },
+    {
+      "file": "screen-regions.json",
+      "sha256": "5fdf99a0abf123fddf7cec7b89d9cdabf2f1b3adefb61b7f915163ad8b133a53",
+      "bytes": 713
+    },
+    {
+      "file": "status-empty.txt",
+      "sha256": "ec0239a31cb83823e74d145c8046119203b0c0812efa592bb10752e6598311b8",
+      "bytes": 40
+    },
+    {
+      "file": "status-hands.txt",
+      "sha256": "93f5a16d2ea6f9b61102f46bf047cf56afe1c178ac7a385800534bb2c80bc7bd",
+      "bytes": 40
+    },
+    {
+      "file": "status-map.txt",
+      "sha256": "03b39df2fe3bd913b7158e6b0a8822b03a07765b13ebc85bdd4d84ae5000885b",
+      "bytes": 40
+    },
+    {
+      "file": "text-strings.json",
+      "sha256": "02605915ccb0288a9ffb532eabba0b2cf5989b511b1797f5d83f153e0c78666c",
+      "bytes": 486
+    }
+  ]
+}

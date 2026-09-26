@@ -44,10 +44,19 @@ not change: `src/core` owns state the original couples to timing;
    traces stay diffable. Presentation projections get their own fixtures in
    Phase 6.
 
-**Resolution check (to do in 6a):** confirm from the listing that each event
-kind in rule 1 is emitted inside simulation code (`SOUNDS` callers, `PUPDAT`,
-`SYNC` waits, `CLOCK` heartbeat) and not only in display code; move any that
-are display-only to presentation.
+**Resolution check (Phase 6a, 2026-09-25):** each rule-1 kind is emitted inside
+simulation code, not only in display code. Sites (pinned listing `a94326f`):
+
+| Kind | Listing | Display-only? |
+|---|---|---|
+| Sound | `SOUNDS.ASM` `SOUNDI`/`SOUNDX`; callers `CRETUR.ASM` `CMOV20`/`CWLK20`, `PATTK.ASM`, `PTURN.ASM` `PSTEP`, `PUSE.ASM`, `PINCAN.ASM` | No. The generator runs in the foreground. |
+| Text | `OUTSTI` (`COMSWI.ASM`); `HUMAN.ASM` `CMDERR`, `HUPDAT.ASM` `DEATH`, `PATTK.ASM` `ENDGAM`, `PINCAN.ASM` `WINNER` | `TXTSER` deposits glyphs; the emit is command/physiology code. Core. |
+| DisplayMode | `STX DSPMOD` in `PLOOK.ASM`, `PEXAM.ASM`, `PUSE.ASM` `USC210` | `PUPDAT` calls `[DSPMOD]`. `HEARTF` (map) changes `HUMAN`. Core. |
+| Block | `SYNC` in `PTURN.ASM`/`PUPDAT.ASM`; `LRTURN`/`RLTURN` `VECTOR` loops with no `SYNC`; `SOUNDS` inner loops; `WAITX` 81×`SYNC` | Drawing is display work that blocks the foreground, so the **Block** event is core. Geometry stays presentation. |
+| Heartbeat | `COMMON.ASM` `CLK30` | `TXTDPB` of the glyph is display. The PIA toggle and `HEARTF` gate are `CLOCK`. The event is core. |
+
+`VECTOR`/`VCTLST`/`MAPPER` geometry remain presentation (rule 3). Status stays
+Proposed until the Phase 6 projection lands.
 
 ## Consequences
 

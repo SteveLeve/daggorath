@@ -1,6 +1,8 @@
 #include "daggorath/population.hpp"
 
 #include <cassert>
+#include <cstdlib>
+#include <iterator>
 
 namespace dag {
 namespace {
@@ -67,6 +69,8 @@ struct Filled {
 };
 
 Filled ocbfil(int type) {
+    // ODBTAB ends at T.TOR5. Release builds drop assert, so this stays live.
+    if (type < 0 || type >= static_cast<int>(std::size(kObjects))) std::abort();
     const ObjDef& d = kObjects[type];
     Filled f{d.cls, d.reveal, d.mgo, d.pho, {d.spec[0], d.spec[1], d.spec[2]}, d.spec_valid};
     if (!d.spec_valid) {
@@ -171,10 +175,9 @@ void birth_creatures(int level, const std::array<std::uint8_t, kCreatureTypes>& 
 }
 
 void attach_objects(int level, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& objects) {
-    for (Ocb& o : objects) {
-        o.next = -1;
-        o.carrier = -1;
-    }
+    // NLVL40 writes P.OCPTR only for creature-owned objects on this level, so
+    // the player's bag chain survives a level change.
+    for (Ocb& o : objects) o.carrier = -1;
     for (Ccb& c : ccbs) c.object_head = -1;
     int u = -1;
     int idx = -1;

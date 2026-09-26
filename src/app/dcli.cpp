@@ -12,16 +12,20 @@
 #include <sstream>
 #include <string>
 
+#include "daggorath/examine.hpp"
 #include "daggorath/game.hpp"
+#include "daggorath/mapper.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/snapshot.hpp"
+#include "daggorath/text.hpp"
 
 namespace {
 
 int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
-                 "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE] [--level N]\n"
+                 "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE]\n"
+                 "            [--events] [--present-map] [--present-text] [--level N]\n"
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n";
@@ -56,6 +60,9 @@ int main(int argc, char** argv) {
     std::uint64_t jiffies = 600;
     bool have_second = false;
     bool present = false;
+    bool events = false;
+    bool present_map = false;
+    bool present_text = false;
     int second = 0;
     int level = 0;
     bool frozen = false;
@@ -79,6 +86,9 @@ int main(int argc, char** argv) {
         else if (a == "--trace") trace_out = next();
         else if (a == "--present") present = true;
         else if (a == "--bitmap") bitmap_out = next();
+        else if (a == "--events") events = true;
+        else if (a == "--present-map") present_map = true;
+        else if (a == "--present-text") present_text = true;
         else return usage();
     }
 
@@ -97,12 +107,19 @@ int main(int argc, char** argv) {
         std::ostringstream ss;
         ss << in.rdbuf();
         std::string error;
-        auto keys = dag::parse_script(ss.str(), error);
+        const std::string body = ss.str();
+        auto keys = dag::parse_script(body, error);
+        if (!error.empty()) {
+            std::cerr << "script error: " << error << "\n";
+            return 1;
+        }
+        auto fudge = dag::parse_harness(body, error);
         if (!error.empty()) {
             std::cerr << "script error: " << error << "\n";
             return 1;
         }
         game.load_script(std::move(keys));
+        game.load_harness(std::move(fudge));
     }
 
     game.advance_jiffies(jiffies);
@@ -115,7 +132,12 @@ int main(int argc, char** argv) {
         out = &file;
     }
     *out << "# jiffy\tclock\tevent\tdetail\n";
-    for (const auto& e : game.trace()) *out << e.to_line() << "\n";
+    if (events) {
+        *out << "# CoreEvent stream (ADR-0004)\n";
+        for (const auto& e : game.events()) *out << e.to_line() << "\n";
+    } else {
+        for (const auto& e : game.trace()) *out << e.to_line() << "\n";
+    }
     *out << "# final\trow=" << game.player().row << "\tcol=" << game.player().col
          << "\tdir=" << static_cast<int>(game.player().dir)
          << "\tdamage=" << game.player().damage << "\n";
@@ -136,6 +158,60 @@ int main(int argc, char** argv) {
             return 1;
         }
         image << dag::bitmap_pbm(dag::rasterize(dag::snapshot_from(game)));
+    }
+    if (present_map) {
+        dag::MapSnapshot snap;
+        snap.cells = game.maze().bytes().data();
+        snap.player_row = game.player().row;
+        snap.player_col = game.player().col;
+        snap.features = game.player().map_features;
+        for (const auto& o : game.objects()) {
+            if (o.owner == 0 && o.level == game.level_index())
+                snap.objects.push_back({o.row, o.col});
+        }
+        for (const auto& c : game.creatures()) {
+            if (c.in_use) snap.creatures.push_back({c.row, c.col});
+        }
+        for (int r = 0; r < 32; ++r) {
+            for (int col = 0; col < 32; ++col) {
+                if (dag::vfind(game.level_index(), r, col) >= 0)
+                    snap.verticals.push_back({r, col});
+            }
+        }
+        std::cout << dag::project_map(snap).text;
+    }
+    if (present_text) {
+        dag::ExamineSnapshot exam;
+        exam.creature = false;
+        for (const auto& c : game.creatures()) {
+            if (c.in_use && c.row == game.player().row && c.col == game.player().col)
+                exam.creature = true;
+        }
+        for (const auto& o : game.objects()) {
+            if (o.owner == 0 && o.level == game.level_index() &&
+                o.row == game.player().row && o.col == game.player().col)
+                exam.floor.push_back(dag::object_name(o));
+        }
+        int bag_i = 0;
+        for (int i = game.player().bag_head; i >= 0;
+             i = game.objects()[static_cast<std::size_t>(i)].next) {
+            exam.bag.push_back(
+                dag::object_name(game.objects()[static_cast<std::size_t>(i)]));
+            if (i == game.player().torch) exam.torch_index = bag_i;
+            ++bag_i;
+        }
+        dag::TextSnapshot text;
+        const auto& p = game.player();
+        if (p.left_hand >= 0)
+            text.left = game.objects()[static_cast<std::size_t>(p.left_hand)];
+        if (p.right_hand >= 0)
+            text.right = game.objects()[static_cast<std::size_t>(p.right_hand)];
+        text.heart = game.display_mode() == dag::DisplayMode::Mapper
+                         ? dag::HeartGlyph::Off
+                         : dag::HeartGlyph::Small;
+        text.line = game.line_buffer();
+        std::cout << dag::project_examine(exam).text;
+        std::cout << dag::project_text(text).text;
     }
     return 0;
 }

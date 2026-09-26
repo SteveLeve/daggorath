@@ -993,21 +993,14 @@ void test_save_and_snapshot() {
 
 void test_projection() {
     dag::ViewSnapshot dark;
-    dark.ahead[1] = 0;
-    check(dag::project(dark).segments.empty(), "zero light draws no walls");
-    dag::ViewSnapshot lit;
-    lit.regular_light = 7;
-    lit.ahead[1] = 0;
-    lit.ahead[2] = 0xFF;
-    const dag::RenderState state = dag::project(lit);
-    check(state.segments.size() == 1, "one open cell draws one wall");
-    check(state.segments[0].x0 == 128 - dag::kNormalScale[1] / 2, "wall uses NORSCL");
+    check(dag::project(dark).segments.empty(), "zero light draws no vectors");
+    check(dag::project(dark).text == "VIEW rlight=0 mlight=0", "darkness names both lights");
     dag::ViewSnapshot mapper;
     mapper.mode = 2;
     mapper.map_features = true;
     check(dag::project(mapper).text == "MAP features", "map mode names features");
     std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels{};
-    dag::DrawSegment horizontal{0, 0, 10, 0, "wall"};
+    dag::DrawSegment horizontal{0, 0, 10, 0, 0, 0, "wall"};
     dag::draw_segment(pixels, horizontal);
     int pixels_on = 0;
     for (std::uint8_t pixel : pixels) pixels_on += pixel;
@@ -1028,6 +1021,9 @@ void test_projection() {
     const std::string image = dag::bitmap_pbm(pixels);
     check(image.rfind("P1\n256 192\n1 1 1 1 1 1 1 1 1 1 0", 0) == 0,
           "the offscreen bitmap starts with the ten plotted dots");
+    dag::ViewSnapshot lit;
+    lit.regular_light = 7;
+    lit.ahead[1] = 0;
     int frame_pixels = 0;
     for (std::uint8_t pixel : dag::rasterize(lit)) frame_pixels += pixel;
     check(frame_pixels > 0, "a lit corridor rasterizes to dots");
@@ -1139,7 +1135,7 @@ void test_projection() {
     type_line("USE LEFT");
     int lit_dots = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) lit_dots += pixel;
-    check(lit_dots == 173, "a lit level-0 view has 173 dots", "dots=" + std::to_string(lit_dots));
+    check(lit_dots == 1799, "a lit level-0 view has 1799 dots", "dots=" + std::to_string(lit_dots));
     type_line("PULL LEFT SWORD");
     int with_sword = 0;
     for (std::uint8_t pixel : dag::rasterize(dag::snapshot_from(lit_game))) with_sword += pixel;

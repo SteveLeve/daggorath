@@ -20,8 +20,10 @@ def check_population(fixture_dir: str) -> int:
     population.json is the human-readable record. population-entry.txt is the
     line contract the C++ tests read. Both must name the same levels.
     """
-    bad = 0
     json_path = os.path.join(fixture_dir, "population.json")
+    if not os.path.exists(json_path):
+        return 0
+    bad = 0
     text_path = os.path.join(fixture_dir, "population-entry.txt")
     try:
         with open(json_path) as f:
@@ -122,7 +124,8 @@ def main() -> int:
         print(f"UNLISTED {extra}")
         bad += 1
 
-    bad += check_population(d)
+    if "population.json" in listed:
+        bad += check_population(d)
 
     print(f"{'FAILED' if bad else 'OK'}: {len(listed)} fixtures, {bad} problems")
     return 1 if bad else 0

@@ -1,5 +1,21 @@
 # Phase 6 reconciliation
 
-`dcli --present` prints a logical draw list. `SNOISE` does not consume `SEED`.
+`dcli --present` prints a logical `VIEWER` draw list. `SNOISE` does not consume `SEED`.
 
-The draw list uses the `NORSCL` bytes on a facing ray. The ray stops when the next cell byte is `$FF`. It does not read wall or door edges, so an open corridor is not a sight blocker. `ahead[0]` is stored and not read. ADR-0004 stays Proposed: there is no `CoreEvent` stream. `VIEWER.ASM` and `SOUNDS.ASM` are cited by the rendering spec and are not rows in the provenance ledger. Sound-loop durations inside `SOUNDS.ASM` remain unresolved (D-4). Screenshot and audio captures for fixed states are not in the capture backlog as completed rows. Later commits on the phase 7 branch decode some `VCTLST` lists; this phase's contract did not.
+Vector lists, `NORSCL`/`HLFSCL`/`BAKSCL`, `FLATAB`, `FWDOBJ`, `FWDCRE`, and `BITMSK` are extracted by `tools/extract_vectors.py` into `docs/archaeology/phase-6/fixtures` and consumed through generated `vector_tables.hpp`. `tools/viewer_ref.py` is a second transliteration of `VIEWER`/`VCTLST`; `tests/conformance/viewer_regressions.cpp` matches its draw-list files for the start cell of every level in darkness, regular light 7, and magic light 13.
+
+Sound-loop durations inside `SOUNDS.ASM` remain unresolved (D-4b). Screenshot and audio captures for fixed states are not in the capture backlog as completed rows. Half-step `HLFSCL`/`BAKSCL` frames are extracted and not drawn.
+
+## Phase 6a — CoreEvent stream (2026-09-25)
+
+Default `dcli` traces (`t1`–`t5`, `idle-10min`, `fight-to-kill`, `fight-to-death`) are **not** regenerated. The `SOUND` and `SYNC` lines stay in their previous form so Phase 0b/2/3 identity checks keep working. The stable CoreEvent print is `dcli --events`.
+
+No default-trace line is renamed in this slice. Heartbeat toggles, `Block` events, `MODE` stores, and detailed sound payloads live only on the CoreEvent stream.
+
+`fixtures/sounds.json` is a hashed fixture (cue table and generator immediates). `make fixtures` extracts it after the Phase 0b set.
+
+## Mapper, examine and text
+
+Screen regions are **[SRC]** `COMDAT.ASM` `STSVDB`/`PRIVDB`/`VCNTRX`/`VCNTRY`: centroid (128, 76), viewer through scanline 152, status through 160, command through 192. The Phase 0 report's line numbers match those constants.
+
+`MAPPER.ASM` is a 32×32 occupancy dump (solid `$FF` versus empty) plus optional object/creature marks, not the door-colour legend in its comment. `EXAMIN` and `STATUX` are character-cell projections. Fixtures live in [`fixtures/text/`](fixtures/text/) with their own `MANIFEST.json`, produced by `tools/extract_text.py`.

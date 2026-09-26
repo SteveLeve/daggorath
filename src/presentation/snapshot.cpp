@@ -18,6 +18,8 @@ ViewSnapshot snapshot_from(const Game& game) {
     };
     view.left_class = hand_class(game.player().left_hand);
     view.right_class = hand_class(game.player().right_hand);
+    view.level = game.level_index();
+    view.maze = game.maze();
     static constexpr int dr[4] = {-1, 0, 1, 0};
     static constexpr int dc[4] = {0, 1, 0, -1};
     int r = view.row;
@@ -27,6 +29,14 @@ ViewSnapshot snapshot_from(const Game& game) {
         else view.ahead[i] = game.maze().at(r, c);
         r += dr[view.dir & 3];
         c += dc[view.dir & 3];
+    }
+    for (const Ccb& ccb : game.creatures()) {
+        if (!ccb.in_use) continue;
+        view.creatures.push_back(
+            SeenCreature{ccb.row, ccb.col, ccb.type, ccb.magic_offense});
+    }
+    for (const Ocb& o : game.objects()) {
+        view.objects.push_back(SeenObject{o.row, o.col, o.level, o.owner, o.cls});
     }
     return view;
 }

@@ -14,6 +14,9 @@ ASM_DIR    ?= third_party/dod-asm
 
 PACK       := docs/archaeology/phase-0b
 FIXTURES   := $(PACK)/fixtures
+PHASE6     := docs/archaeology/phase-6/fixtures
+TEXT_FIX   := docs/archaeology/phase-6/fixtures/text
+TEXT_HDR   := src/presentation/include/daggorath/text_tables.hpp
 TRACES     := $(PACK)/traces
 BUILD      ?= build
 SCRIPTS    := $(wildcard $(TRACES)/*.script)
@@ -43,6 +46,14 @@ fixtures: check-pin
 	python3 tools/extract_fixtures.py "$(ASM_DIR)" "$(FIXTURES)"
 	python3 tools/gen_lexicon_header.py "$(FIXTURES)/tokens.json" \
 	    src/core/include/daggorath/lexicon_tables.hpp
+	python3 tools/extract_vectors.py "$(ASM_DIR)" "$(PHASE6)"
+	python3 tools/gen_vector_header.py "$(PHASE6)/vectors.json" \
+	    src/presentation/include/daggorath/vector_tables.hpp
+	python3 tools/viewer_ref.py --vectors "$(PHASE6)/vectors.json" \
+	    --maze-dir "$(FIXTURES)" --write "$(PHASE6)"
+	python3 tools/extract_sounds.py "$(ASM_DIR)" "$(FIXTURES)" \
+	    src/core/include/daggorath/sound_tables.hpp
+	python3 tools/extract_text.py "$(ASM_DIR)" "$(TEXT_FIX)" "$(TEXT_HDR)" "$(FIXTURES)"
 
 build:
 	cmake -S . -B $(BUILD) -DDAGGORATH_FIXTURE_DIR=$(CURDIR)/$(FIXTURES)
@@ -58,6 +69,8 @@ traces: build $(TRACEFILES)
 
 verify:
 	python3 tools/verify_manifest.py "$(FIXTURES)"
+	python3 tools/verify_manifest.py "$(PHASE6)"
+	python3 tools/verify_manifest.py "$(TEXT_FIX)"
 
 format:
 	@command -v clang-format >/dev/null || { echo "clang-format not installed"; exit 1; }
