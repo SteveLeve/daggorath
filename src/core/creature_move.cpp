@@ -98,9 +98,11 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
     const auto movement = TaskResult{Queue::Tenth, self.move_delay};
     const auto attack = TaskResult{Queue::Tenth, self.attack_delay};
 
-    // Frozen is tested before the dead check. A frozen creature, live or not,
-    // takes the movement-delay return (CMOV12 -> CMOV90).
-    if (view.frozen) return movement;
+    // Frozen is tested before the dead check (CMOV12 -> CMOV90).
+    if (view.frozen) {
+        if (self.row == view.player_row && self.col == view.player_col) return attack;
+        return movement;
+    }
 
     if (self.in_use == 0) {
         // RTS with B still holding P.CCUSE, which is 0. That is not Q.SCD, so
@@ -110,6 +112,16 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
     }
 
     const bool skips_pickup = self.type == 6 || self.type >= 10;
+    // CMOV90: movement delay, unless the creature is now on the player's cell,
+    // in which case PUPDAT and the attack delay (CMOV92).
+    const auto finish = [&]() -> TaskResult {
+        if (self.row == view.player_row && self.col == view.player_col) {
+            events.push_back("PUPDAT slot=" + std::to_string(slot));
+            return attack;
+        }
+        return movement;
+    };
+
     if (!skips_pickup) {
         const int obj = find_unowned(objects, view.level, self.row, self.col);
         if (obj >= 0) {
@@ -120,7 +132,7 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
             o.carrier = slot;
             events.push_back("PICKUP slot=" + std::to_string(slot) +
                              " object=" + std::to_string(obj));
-            return movement;
+            return finish();
         }
     }
 
@@ -150,10 +162,10 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
         const Dir face = self.col < view.player_col ? Dir::East : Dir::West;
         // SUBA PCOL / BMI is west. Equal columns already left via the attack
         // test, so col != player col here.
-        if (try_line(face)) return movement;
+        if (try_line(face)) return finish();
     } else if (self.col == view.player_col) {
         const Dir face = self.row > view.player_row ? Dir::North : Dir::South;
-        if (try_line(face)) return movement;
+        if (try_line(face)) return finish();
     }
 
     const Preference pref = movement_preference(rng.next());
@@ -165,10 +177,7 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
         }
     }
     if (!moved) cwalk(self, slot, ccbs, maze, rng, view, 2, events);
-    if (self.row == view.player_row && self.col == view.player_col) {
-        events.push_back("PUPDAT slot=" + std::to_string(slot));
-    }
-    return movement;
+    return finish();
 }
 
 }  // namespace dag

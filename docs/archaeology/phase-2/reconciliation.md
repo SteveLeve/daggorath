@@ -52,7 +52,7 @@ tasks; hand contents after the player picks something up (hands start empty).
 `make all` on 2026-09-25 exited 0.
 
 - `ctest`: 2 tests, 0 failures.
-- Conformance: `PASS: 659 checks, 0 failures`.
+- Conformance: `PASS: 663 checks, 0 failures`.
 - `make verify`: `OK: 17 fixtures, 0 problems`.
 - No fixture hash changed. `creatures.json` already carried movement and
   attack delays.

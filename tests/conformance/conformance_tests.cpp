@@ -581,6 +581,28 @@ void test_cmove_priorities() {
     check(ccbs[3].dir == static_cast<std::uint8_t>(dag::Dir::East), "aligned creature faces the player");
     check(r.countdown == 23, "aligned step uses the movement delay");
 
+    ccbs[5] = live_spider(9, 9);
+    view.player_row = 9;
+    view.player_col = 10;
+    events.clear();
+    r = dag::cmove(5, ccbs, objects, open, rng, view, events);
+    check(ccbs[5].col == 10 && r.countdown == 11, "stepping onto the player selects the attack delay");
+    bool pupdat = false;
+    for (const auto& e : events)
+        if (e.find("PUPDAT slot=5") != std::string::npos) pupdat = true;
+    check(pupdat, "landing on the player requests PUPDAT");
+
+    ccbs[6] = live_spider(1, 1);
+    ccbs[6].type = 11;
+    objects[0].owner = 0;
+    objects[0].row = 1;
+    objects[0].col = 1;
+    view.player_row = 0;
+    view.player_col = 0;
+    events.clear();
+    r = dag::cmove(6, ccbs, objects, open, rng2, view, events);
+    check(objects[0].owner == 0, "wizard does not pick up");
+
     dag::Maze box;
     box.put(10, 10, 0);
     ccbs[4] = live_spider(10, 10);
@@ -613,7 +635,7 @@ void test_same_jiffy_creature_and_key() {
     std::uint64_t at = 0;
     bool saw = false;
     for (const auto& ev : probe.trace()) {
-        if (ev.kind == "TASK" && ev.detail == "run CMOVE-0") {
+        if (ev.kind == "TASK" && ev.detail == "run CMOVE-6") {
             at = ev.jiffy;
             saw = true;
             break;
@@ -623,17 +645,22 @@ void test_same_jiffy_creature_and_key() {
     dag::Game game(1, 0);
     game.load_script({{at, static_cast<std::uint8_t>('M')}});
     game.advance_jiffies(at + 1);
-    bool player = false, move = false, player_first = false;
+    bool player = false, first = false, second = false, order = false;
     for (const auto& ev : game.trace()) {
         if (ev.jiffy != at) continue;
         if (ev.kind == "TASK" && ev.detail == "run PLAYER") player = true;
-        if (ev.kind == "TASK" && ev.detail == "run CMOVE-0") {
-            move = true;
-            player_first = player;
+        if (ev.kind == "TASK" && ev.detail == "run CMOVE-6") {
+            first = true;
+            order = player && !second;
+        }
+        if (ev.kind == "TASK" && ev.detail == "run CMOVE-7") {
+            second = true;
+            order = order && first;
         }
     }
-    check(player && move && player_first,
-          "same-jiffy keystroke task runs before the creature task");
+    // Jiffy queue is scanned before Q.TEN. Equal delays stay in CBIRTH order.
+    check(player && first && second && order,
+          "PLAYER runs before CMOVE-6, which runs before CMOVE-7");
 }
 
 void test_reentry_mid_move() {
@@ -652,6 +679,10 @@ void test_reentry_mid_move() {
     }
     check(live == 25, "re-entry births the regenerated level-0 row", std::to_string(live));
     check(changed, "re-entry replaces creature positions");
+    bool dirs_cleared = true;
+    for (const auto& c : after)
+        if (c.in_use && c.dir != 0) dirs_cleared = false;
+    check(dirs_cleared, "NEWLVL zeroes facing on the new control blocks");
     game.advance_jiffies(20);
 }
 
