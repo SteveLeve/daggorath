@@ -63,7 +63,19 @@ combat unless a `FUDGE` line is replayed.
 
 ## Playthrough status
 
-Measured by `dplan` on `cursor/phase-5-playthrough`. Not a WINNER script yet.
+Authored by `src/app/dplan.cpp`. Committed script:
+`docs/archaeology/phase-5/traces/power-on-to-winner.script`.
+`ctest -R playthrough_power_on_to_winner` runs `dcli` twice; both traces emit
+`WINNER` and are byte-identical.
+
+| | |
+|---|---|
+| Jiffies at `WINNER` | 222514 (clock `1:1:54.8.3`) |
+| Final power / damage | 8660 / 3901 |
+| Final cell | level 4, row 31, col 7 |
+| `FUDGE incoming 25` | one line, jiffy 90400 (D-12, not source behaviour) |
+| `FUDGE rest` | 2589 lines (D-12, HSLOW floor) |
+| Two-replay sha256 | `d4952406e8c3c330e5ccb39ad8322e2af2637cf2a6e44a217eb8df2f2e426b3f` |
 
 | Stage | Fudge | Notes |
 |---|---|---|
@@ -72,6 +84,4 @@ Measured by `dplan` on `cursor/phase-5-playthrough`. Not a WINNER script yet.
 | Level 2 scorpions | 100 | Revealed IRON (pho 40) under a live torch, hit-and-run. Image left alive. Checkpoint `cleared-2` / `pre-image`. |
 | Type 10 / ENDGAM | 25 | Original incoming one-shots the landing. `FUDGE incoming 25` plus `FUDGE rest`. Checkpoint `endgam`. |
 | Cleared level 3 | 25 | JOULE → ENERGY, ELVISH. Checkpoint `cleared-3`. |
-| Level 4 hole | 25 | Still dying: climb lands on/near balrogs at high CMOVE rate. No WINNER script committed. |
-
-`ctest` has no playthrough replay until a real run emits `WINNER` twice.
+| Level 4 | 25 | Revealed ELVISH kite; never climb an occupied hole; ENERGY hit-and-run on type 11 only (wizard `pdef` 0 zeros a sword). `GET` SUPREME, `INCANT FINAL`. |
