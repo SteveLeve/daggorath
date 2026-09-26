@@ -8,7 +8,10 @@
 #include <string>
 #include <vector>
 
+#include "daggorath/combat.hpp"
 #include "daggorath/game.hpp"
+
+#include <cstdlib>
 
 namespace {
 
@@ -251,6 +254,236 @@ void test_kill_then_reentry() {
     check(of_type == game.matrix_row()[type], "re-entry births the decremented type count");
 }
 
+std::string text_row(const dag::Game& game, int row) {
+    std::string out(32, ' ');
+    const auto& page = game.primary_text();
+    for (int col = 0; col < 32; ++col) {
+        const std::uint8_t code = page[static_cast<std::size_t>(row * 32 + col)];
+        if (code >= 1 && code <= 26) out[static_cast<std::size_t>(col)] = static_cast<char>('A' + code - 1);
+        else if (code == 0x1B) out[static_cast<std::size_t>(col)] = '!';
+        else if (code == 0x1C) out[static_cast<std::size_t>(col)] = '_';
+        else if (code == 0x1E) out[static_cast<std::size_t>(col)] = '.';
+    }
+    return out;
+}
+
+bool page_has(const dag::Game& game, const std::string& needle) {
+    for (int row = 0; row < 4; ++row)
+        if (text_row(game, row).find(needle) != std::string::npos) return true;
+    return false;
+}
+
+void test_abbreviated_attack_mark() {
+    dag::Game dark(1, 0);
+    const int slot = first_live(dark);
+    stand_on(dark, slot);
+    dark.hold(true, find_object(dark, kTypeWooden, true));
+    dark.load_script(type_at(1, "A R"));
+    dark.advance_jiffies(20);
+    check(page_has(dark, "A R") && !page_has(dark, "!!!"),
+          "A R in the dark is a swing with no in-line exclamation");
+
+    dag::Game game(1, 0);
+    stand_on(game, first_live(game));
+    game.hold(true, find_object(game, kTypeWooden, true));
+    game.wield_torch(find_object(game, kTypePine, true));
+    bool marked = false;
+    for (int n = 0; n < 30 && !marked; ++n) {
+        const auto at = game.counters().total_jiffies + 1;
+        game.load_script(type_at(at, "A R"));
+        game.advance_jiffies(8);
+        if (count_detail(game, "DIALOGUE", "!!!") > 0) marked = page_has(game, "A R !!!");
+    }
+    check(marked, "a connecting A R prints A R !!! on that line");
+}
+
+void test_hit_mark_follows_the_command() {
+    dag::Game game(1, 0);
+    const int slot = first_live(game);
+    stand_on(game, slot);
+    game.hold(false, find_object(game, kTypeWooden, true));
+    game.wield_torch(find_object(game, kTypePine, true));
+    game.load_script(type_at(1, "ATTACK LEFT"));
+    game.advance_jiffies(20);
+    const bool hit = count_detail(game, "DIALOGUE", "!!!") > 0;
+    check(page_has(game, hit ? "ATTACK LEFT !!!" : "ATTACK LEFT"),
+          hit ? "a hit appends !!! to the typed line" : "a miss leaves the typed line without !!!");
+    if (!hit) {
+        // The erased cursor is a space; the bangs are absent.
+        bool bangs = false;
+        for (int row = 0; row < 4; ++row)
+            if (text_row(game, row).find("!!!") != std::string::npos) bangs = true;
+        check(!bangs, "a miss shows no in-line exclamation");
+    }
+}
+
+void test_viper_damage() {
+    dag::Fighter attacker;
+    attacker.power = 56;
+    attacker.physical_offense = 80;
+    attacker.magic_offense = 0;
+    dag::Fighter defender;
+    defender.power = 160;
+    defender.magic_defense = 0x80;
+    defender.physical_defense = 0x80;
+    dag::apply_damage(attacker, defender);
+    check(defender.damage == 35, "an unshielded viper hit is 35 damage",
+          "damage=" + std::to_string(defender.damage));
+    // Listing DAMAGE with unshielded $8080. The second SCAL16 by 128 is an
+    // identity, so each channel is SCAL16(power, offense). These are the
+    // source amounts; a viper's 35 against 160 power is not a multiplier bug.
+    static constexpr std::uint16_t kUnshielded[] = {
+        32, 35, 81, 228, 378, 704, 1592, 1593, 2400, 3984, 3984, 31874};
+    for (int type = 0; type < dag::kCreatureTypes; ++type) {
+        const dag::CreatureDef& def = dag::kCreatureDefs[static_cast<std::size_t>(type)];
+        dag::Fighter atk;
+        atk.power = def.power;
+        atk.magic_offense = def.magic_offense;
+        atk.physical_offense = def.physical_offense;
+        dag::Fighter ply;
+        ply.power = 160;
+        ply.magic_defense = 0x80;
+        ply.physical_defense = 0x80;
+        dag::apply_damage(atk, ply);
+        check(ply.damage == kUnshielded[type],
+              "unshielded damage for creature " + std::to_string(type),
+              "damage=" + std::to_string(ply.damage));
+    }
+
+    dag::Game game(1, 0);
+    int slot = -1;
+    for (int i = 0; i < dag::kCcbSlots; ++i) {
+        const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(i)];
+        if (c.in_use && c.type == 1) {
+            slot = i;
+            break;
+        }
+    }
+    check(slot >= 0, "level 0 births a viper");
+    if (slot < 0) return;
+    game.place_player(game.creatures()[static_cast<std::size_t>(slot)].row,
+                      game.creatures()[static_cast<std::size_t>(slot)].col);
+    game.set_player_power(4000);
+    std::vector<std::uint64_t> bites;
+    std::uint64_t seen = 0;
+    for (int n = 0; n < 400 && bites.size() < 4; ++n) {
+        game.advance_jiffies(1);
+        for (const auto& e : game.trace()) {
+            if (e.jiffy < seen) continue;
+            if (e.kind != "HIT" && e.kind != "MISS") continue;
+            const auto mark = e.detail.find("slot=");
+            if (mark == std::string::npos) continue;
+            if (std::atoi(e.detail.c_str() + mark + 5) != slot) continue;
+            bites.push_back(e.jiffy);
+        }
+        if (!game.trace().empty()) seen = game.trace().back().jiffy + 1;
+    }
+    check(bites.size() >= 3, "a viper sharing the cell keeps attacking");
+    if (bites.size() >= 3) {
+        check(bites[1] - bites[0] == 42 && bites[2] - bites[1] == 42,
+              "viper attacks every 7 tenths (42 jiffies), the listing attack delay",
+              "gaps=" + std::to_string(bites[1] - bites[0]) + "," +
+                  std::to_string(bites[2] - bites[1]));
+    }
+    bool saw = false;
+    for (int n = 0; n < 800 && !game.player().dead; ++n) {
+        const std::uint16_t before = game.player().damage;
+        const std::size_t trace_at = game.trace().size();
+        game.advance_jiffies(1);
+        if (game.player().damage <= before) continue;
+        int hits = 0;
+        int viper_slot = -1;
+        for (std::size_t i = trace_at; i < game.trace().size(); ++i) {
+            const auto& e = game.trace()[i];
+            if (e.kind != "HIT") continue;
+            ++hits;
+            const auto mark = e.detail.find("slot=");
+            if (mark == std::string::npos) continue;
+            const int who = std::atoi(e.detail.c_str() + mark + 5);
+            if (who >= 0 && game.creatures()[static_cast<std::size_t>(who)].type == 1)
+                viper_slot = who;
+        }
+        if (hits == 1 && viper_slot >= 0 && before < 64) {
+            saw = true;
+            check(game.player().damage - before == 35,
+                  "a live viper hit adds 35, the unshielded DAMAGE result",
+                  "before=" + std::to_string(before) +
+                      " after=" + std::to_string(game.player().damage));
+            break;
+        }
+    }
+    check(saw, "a viper on the player's cell connects within 800 jiffies");
+}
+
+void test_leather_shield_does_not_soften_a_viper() {
+    // DTABAS: leather and bronze physical filters are 128, the same as the
+    // unshielded $8080 pair. Mithril is 64. The port's ShieldFix swaps those
+    // bytes; this core does not.
+    dag::Fighter bite;
+    bite.power = 56;
+    bite.physical_offense = 80;
+    dag::Fighter leather;
+    leather.magic_defense = 108;
+    leather.physical_defense = 128;
+    dag::apply_damage(bite, leather);
+    dag::Fighter mithril;
+    mithril.magic_defense = 64;
+    mithril.physical_defense = 64;
+    dag::apply_damage(bite, mithril);
+    check(leather.damage == 35 && mithril.damage == 17,
+          "leather leaves a viper bite at 35; revealed mithril cuts it to 17",
+          "leather=" + std::to_string(leather.damage) +
+              " mithril=" + std::to_string(mithril.damage));
+
+    dag::Game game(1, 0);
+    int shield = -1;
+    int viper = -1;
+    for (int i = 0; i < static_cast<int>(game.objects().size()); ++i) {
+        if (game.objects()[static_cast<std::size_t>(i)].type == 16) {
+            shield = i;
+            break;
+        }
+    }
+    for (int i = 0; i < dag::kCcbSlots; ++i) {
+        if (game.creatures()[static_cast<std::size_t>(i)].in_use &&
+            game.creatures()[static_cast<std::size_t>(i)].type == 1) {
+            viper = i;
+            break;
+        }
+    }
+    check(shield >= 0 && viper >= 0, "a leather shield and a viper both exist");
+    if (shield < 0 || viper < 0) return;
+    game.hold(false, shield);
+    const auto& snake = game.creatures()[static_cast<std::size_t>(viper)];
+    game.place_player(snake.row, snake.col);
+    game.set_player_power(4000);
+    bool saw = false;
+    for (int n = 0; n < 800 && !saw; ++n) {
+        const std::uint16_t before = game.player().damage;
+        const std::size_t trace_at = game.trace().size();
+        game.advance_jiffies(1);
+        if (game.player().damage <= before || before >= 64) continue;
+        int hits = 0;
+        bool from_viper = false;
+        for (std::size_t i = trace_at; i < game.trace().size(); ++i) {
+            const auto& e = game.trace()[i];
+            if (e.kind != "HIT") continue;
+            ++hits;
+            const auto mark = e.detail.find("slot=");
+            if (mark == std::string::npos) continue;
+            const int who = std::atoi(e.detail.c_str() + mark + 5);
+            if (who == viper) from_viper = true;
+        }
+        if (hits == 1 && from_viper) {
+            saw = true;
+            check(static_cast<int>(game.player().damage - before) == 35,
+                  "holding the leather shield does not reduce the viper bite",
+                  "added=" + std::to_string(game.player().damage - before));
+        }
+    }
+    check(saw, "the shielded player is bitten by the viper");
+}
+
 void test_death_on_exact_jiffy() {
     // Unfrozen creature on the player's cell. Its first hit takes damage past
     // power (HUPD90 is BLO), so DEATH lands on the jiffy of that HIT.
@@ -286,6 +519,10 @@ int main() {
     test_ring_bypass();
     test_same_jiffy_attacks();
     test_kill_then_reentry();
+    test_abbreviated_attack_mark();
+    test_hit_mark_follows_the_command();
+    test_viper_damage();
+    test_leather_shield_does_not_soften_a_viper();
     test_death_on_exact_jiffy();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";

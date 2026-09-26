@@ -272,3 +272,16 @@ device, and the optional rules share one loop, and what a touch page can
 look like when it only emits commands. This project already has the first
 problem solved in the core. The remaining work is the touch adapter, the
 platform shell, and the decision about backgrounding.
+
+## Comparison harness
+
+`tools/compare/` drives a local checkout of the web port. The port is still
+reference-only, and nothing from it enters the repository.
+`serve-web.py` serves `$DOD_WEB_PORT` with the COOP/COEP headers the WASM
+needs. `drive-web.mjs` runs headless Chrome over CDP and exposes a curl API:
+`/send`, `/key`, `/stopdemo`, `/shot`, `/state`, `/eval` and `/log`. It logs
+every action and console line under `captures/compare/` (gitignored).
+`script-lines.py` turns a `dcli` keystroke script into timed command lines.
+FUDGE lines are dropped because the port has no equivalent. The port's
+millisecond scheduler and different pacing mean an open-loop replay diverges
+once creatures act, so treat any divergence as port behaviour, not evidence.

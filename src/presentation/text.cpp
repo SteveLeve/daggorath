@@ -124,6 +124,20 @@ void paint_text_bands(std::uint8_t* pixels, int width,
         plot(pixels, width, 15, kViewportScanlineEnd, base);
         plot(pixels, width, 16, kViewportScanlineEnd, static_cast<std::uint8_t>(base + 1));
     }
+    if (snap.has_page) {
+        for (int row = 0; row < 4; ++row) {
+            for (int col = 0; col < 32; ++col) {
+                plot(pixels, width, col, kStatusScanlineEnd + row * 8,
+                     snap.page[static_cast<std::size_t>(row * 32 + col)]);
+            }
+        }
+        if (!command_override.empty())
+            plot_string(pixels, width, 0, kStatusScanlineEnd,
+                        command_override.substr(0, 32));
+        if (!message.empty())
+            plot_string(pixels, width, 0, kStatusScanlineEnd + 8, message.substr(0, 32));
+        return;
+    }
     std::string command = ".";
     command += snap.line;
     if (command.size() < 32) command.push_back('_');

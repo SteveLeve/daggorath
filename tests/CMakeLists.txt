@@ -37,6 +37,9 @@ target_compile_definitions(event_regressions
   PRIVATE DAG_FIXTURE_DIR="${DAGGORATH_FIXTURE_DIR}")
 add_test(NAME event_regressions COMMAND event_regressions)
 
+add_test(NAME port_creature_stats
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/compare_port_creatures.py)
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")

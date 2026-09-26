@@ -5,6 +5,7 @@
 // Deliberately out of scope: combat damage, magic, rendering. CMOVE runs;
 // the attack branch is D-7. CREGEN updates the matrix only.
 #pragma once
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <iosfwd>
@@ -108,6 +109,10 @@ public:
     DisplayMode display_mode() const { return mode_; }
     // LINBUF as collected by HUMAN. Empty after a line is dispatched.
     const std::string& line_buffer() const { return line_; }
+    // TXTPRI: four 32-column lines. Codes are the internal character set
+    // (space 0, A–Z 1–26, '!' $1B, underline $1C). HUMAN echoes here, and
+    // OUTSTI writes at the cursor, so a hit's "!!!" follows the typed line.
+    const std::array<std::uint8_t, 128>& primary_text() const { return text_; }
 
     const std::array<Ccb, kCcbSlots>& creatures() const { return ccbs_; }
     const std::vector<Ocb>& objects() const { return objects_; }
@@ -186,7 +191,11 @@ private:
     TaskResult task_player();
     TaskResult task_hslow();
     void feed_char(std::uint8_t ch);       // HUMAN
+    void finish_line();                    // HMAN30
     void dispatch_line();                  // HMAN50
+    void out_char(std::uint8_t code);      // TXTCHR / TXTXXX
+    void prompt();                         // MISC.ASM PROMPT
+    void clear_primary_text();             // CLRPRI
     void cmd_move(const std::string& line, std::size_t& pos);
     void cmd_turn(const std::string& line, std::size_t& pos);
     void cmd_look();
@@ -249,6 +258,8 @@ private:
     PlayerState player_;
     DisplayMode mode_ = DisplayMode::Viewer;
     std::string line_;                     // LINBUF (32 bytes)
+    std::array<std::uint8_t, 128> text_{};  // TXTPRI, 4×32, internal codes
+    int text_cursor_ = 0;                  // P.TXCUR offset; P.TXCNT is 128
     std::vector<KeyEvent> script_;
     std::size_t script_pos_ = 0;
     std::uint64_t next_input_jiffy_ = 0;

@@ -1,6 +1,5 @@
 #include "daggorath/raster.hpp"
 
-#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <vector>
@@ -125,12 +124,10 @@ std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeig
 
 std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view) {
     std::array<std::uint8_t, kScreenWidth * kScreenHeight> pixels{};
-    const std::uint8_t light = static_cast<std::uint8_t>(
-        std::min(255, view.regular_light + view.magic_light));
-    const std::uint8_t fade = set_fade(light, 0);
-    // VIEWER draws OFIND's unowned objects only. Carried objects are the
-    // status-line names, not a second copy of the floor picture.
-    for (const DrawSegment& segment : project(view).segments) draw_segment(pixels, segment, fade);
+    // SETFAX already stored each segment's fade from that draw's light and
+    // range. A pine torch (regular light 7) is solid only at range 0.
+    for (const DrawSegment& segment : project(view).segments)
+        draw_segment(pixels, segment, static_cast<std::uint8_t>(segment.fade));
     return pixels;
 }
 

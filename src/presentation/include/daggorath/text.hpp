@@ -1,5 +1,6 @@
 // STATUX / PROMPT / OBJNAM projection. Character cells, not a raster.
 #pragma once
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -16,6 +17,9 @@ struct TextSnapshot {
     std::optional<Ocb> right;
     HeartGlyph heart = HeartGlyph::Off;
     std::string line;
+    // When set, the four TXTPRI rows replace the synthesized ".line" row.
+    bool has_page = false;
+    std::array<std::uint8_t, 128> page{};
 };
 
 struct TextProjection {

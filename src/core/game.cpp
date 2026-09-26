@@ -16,6 +16,7 @@ namespace {
 
 // Internal character codes (CD.ASM).
 constexpr std::uint8_t kISp = 0x00, kICr = 0x1F, kIBs = 0x24;
+constexpr std::uint8_t kIBar = 0x1C, kIDot = 0x1E, kIBang = 0x1B;
 // ASCII codes as delivered by POLCAT (CD.ASM).
 constexpr std::uint8_t kCBs = 0x08, kCCr = 0x0D, kCSp = 0x20;
 
@@ -94,6 +95,7 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     });
     sched_.set_irq_hook([this] { heartbeat_interrupt(); });
     inivu();   // ONCE.ASM GAME50: SWI INIVU
+    prompt();  // GAME50: SWI PROMPT
     emit("INIT", "level=" + std::to_string(level) + " row=" +
                      std::to_string(player_.row) + " col=" +
                      std::to_string(player_.col) + " dir=" + dir_name(player_.dir) +
@@ -263,6 +265,18 @@ void Game::sound(std::uint8_t cue, std::uint8_t volume, int range, int source) {
 void Game::text(const std::string& s) {
     auto& e = push_event(CoreEventKind::Text);
     e.text = s;
+    // OUTSTI deposits at the primary-text cursor. '^' is I.CR.
+    for (const char ch : s) {
+        std::uint8_t code = kISp;
+        if (ch == '^') code = kICr;
+        else if (ch == '!') code = kIBang;
+        else if (ch == '?') code = 0x1D;
+        else if (ch == '.') code = kIDot;
+        else if (ch == '_') code = kIBar;
+        else if (ch >= 'A' && ch <= 'Z') code = static_cast<std::uint8_t>(ch - 'A' + 1);
+        else if (ch >= 'a' && ch <= 'z') code = static_cast<std::uint8_t>(ch - 'a' + 1);
+        out_char(code);
+    }
 }
 
 void Game::set_mode(DisplayMode mode) {
@@ -375,10 +389,12 @@ void Game::update_heart_rate() {
     if (!player_.fainted && signed_rate <= 3) {
         player_.fainted = true;
         sched_.set_faint(true);
+        clear_primary_text();   // HUPDAT.ASM HUPD30 CLRPRI
         emit("FAINT", "heart_rate=" + std::to_string(signed_rate));
     } else     if (player_.fainted && signed_rate > 4) {
         player_.fainted = false;
         sched_.set_faint(false);
+        prompt();   // HUPD42 PROMPT
         emit("REVIVE", "heart_rate=" + std::to_string(signed_rate));
     }
     // HUPD90: BLO, so equal power and damage is not death.
@@ -432,21 +448,75 @@ TaskResult Game::task_hslow() {
     return {Queue::Jiffy, delay};
 }
 
+void Game::clear_primary_text() {
+    text_.fill(0);
+    text_cursor_ = 0;
+}
+
+void Game::out_char(std::uint8_t code) {
+    // COMTXT.ASM TXTXXX, then TXTCHR's scroll test against P.TXCNT (128).
+    if (code == kIBs) {
+        if (--text_cursor_ < 0) text_cursor_ = 127;
+        return;
+    }
+    if (code == kICr) {
+        text_cursor_ = (text_cursor_ + 32) & ~0x1F;
+    } else {
+        if (text_cursor_ >= 128) {
+            std::copy(text_.begin() + 32, text_.end(), text_.begin());
+            std::fill(text_.begin() + 96, text_.end(), 0);
+            text_cursor_ = 96;
+        }
+        text_[static_cast<std::size_t>(text_cursor_)] = code;
+        ++text_cursor_;
+    }
+    if (text_cursor_ >= 128) {
+        std::copy(text_.begin() + 32, text_.end(), text_.begin());
+        std::fill(text_.begin() + 96, text_.end(), 0);
+        text_cursor_ = 96;
+    }
+}
+
+void Game::prompt() {
+    out_char(kICr);    // M$PROM1
+    out_char(kIDot);
+}
+
+void Game::finish_line() {
+    out_char(kISp);   // HMAN30 erases the underline cursor
+    dispatch_line();
+    // HMAN70: no prompt in map mode (HEARTF == 0) or while fainted.
+    if (heart_.heartf != 0 && !player_.fainted) prompt();
+}
+
 void Game::feed_char(std::uint8_t ch) {
-    if (heart_.heartf == 0) inivu();   // HUMAN.ASM HMAN10
+    if (heart_.heartf == 0) {   // HUMAN.ASM HMAN10, leaving the map
+        inivu();
+        prompt();
+    }
     if (ch == kICr) {
-        dispatch_line();
+        finish_line();
         return;
     }
     if (ch == kIBs) {
-        if (!line_.empty()) line_.pop_back();
+        if (line_.empty()) return;
+        line_.pop_back();
+        // M$ERAS: space, back, back, bar, back.
+        out_char(kISp);
+        out_char(kIBs);
+        out_char(kIBs);
+        out_char(kIBar);
+        out_char(kIBs);
         return;
     }
+    out_char(ch);   // echo, then the underline sitting on the next cell
     line_.push_back(ch == kISp ? ' ' : static_cast<char>('A' + ch - 1));
+    out_char(kIBar);
+    out_char(kIBs);
     // HMAN20 falls through the buffer-full test into the carriage-return path.
     if (line_.size() == kLineBufSize) {
         emit("LINE", "buffer full, dispatching");
-        dispatch_line();
+        finish_line();
     }
 }
 
@@ -1268,6 +1338,9 @@ std::string Game::snapshot() const {
     for (const auto& [name, image] : tapes_)
         os << name.size() << ' ' << name << '|' << image.size() << ' ' << image << '\n';
     os << incoming_damage_percent_ << '\n';
+    os << text_cursor_;
+    for (const std::uint8_t cell : text_) os << ' ' << static_cast<int>(cell);
+    os << '\n';
     return os.str();
 }
 
@@ -1306,6 +1379,15 @@ void Game::restore_snapshot(const std::string& bytes) {
     }
     int percent = 100;
     if (in >> percent) incoming_damage_percent_ = percent;
+    int cursor = 0;
+    if (in >> cursor) {
+        text_cursor_ = cursor;
+        for (std::uint8_t& cell : text_) {
+            int value = 0;
+            in >> value;
+            cell = static_cast<std::uint8_t>(value);
+        }
+    }
 }
 
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) {

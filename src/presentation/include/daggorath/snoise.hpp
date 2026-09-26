@@ -26,9 +26,15 @@ std::vector<std::uint8_t> thud(std::uint16_t& state, std::uint8_t volume);
 // loops are not stored, and this does not advance the scheduler (D-4b).
 std::vector<std::uint8_t> whoosh(std::uint16_t& state, std::uint8_t volume);
 
+// SNDTAB generator for one cue at SNVOL. Creature types 0–11 are cues 0–11.
+// Volume is the caller's B register: $FF on the same cell, quieter with range.
+std::vector<std::uint8_t> samples_for_cue(std::uint8_t cue, std::uint8_t volume,
+                                          std::uint16_t& state);
+
 // Maps a trace event onto DAC samples. A$THUD, a sword swing (class 4 /
-// A$SWOR), a connecting hit (A$KLK2 / KLINK), and a kill (A$EXP0 / BANG)
-// use full volume. The listing's SNVOL byte for that call is not read here.
+// A$SWOR), a connecting hit (A$KLK2 / KLINK), a creature clank (A$KLK3),
+// and a kill (A$EXP0 / BANG) use full volume. A creature "slot=" line uses
+// the volume in that detail.
 std::vector<std::uint8_t> samples_for(const std::string& kind, const std::string& detail,
                                       std::uint16_t& state);
 
