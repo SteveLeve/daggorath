@@ -7,9 +7,10 @@ Steve adds hand-play observations here. The loop works these first.
 - Death animation still runs too fast after e5ac0ac. Check the fade and heart timing against the ENDGAM/death path.
 
 ## Open questions
-- **Q1 (loop 1): death and faint fade speed.** The listing gives one redraw + `SYNC` per step: 17 wizard steps in `WIZIX`, and `RLIGHT` down to -8 in `HUPD30`. Real duration is the CoCo's draw time per step, which the listing cannot give. MAME was not available this run (`/tmp/mame-user` gone after reboot). Options: (a) you re-extract MAME and the loop captures it (C-17); (b) you time it on your CoCo 2 or a video; (c) you pick a feel-right number now as [INF]. Which?
 
 ## Answered
+- **Q1 (loop 1): death and faint fade speed.** The listing gives one redraw + `SYNC` per step: 17 wizard steps in `WIZIX`, and `RLIGHT` down to -8 in `HUPD30`. Real duration is the CoCo's draw time per step, which the listing cannot give. MAME was not available this run (`/tmp/mame-user` gone after reboot). Options: (a) you re-extract MAME and the loop captures it (C-17); (b) you time it on your CoCo 2 or a video; (c) you pick a feel-right number now as [INF]. Which?
+  - **Answer (2026-09-26):** option (a). Next run: re-extract MAME and capture C-17. Rebuild steps are in `docs/prompts/phase-1-rom-captures.md` (Ubuntu `mame 0.264+dfsg.1-1` into `/tmp/mame-user`, LWTOOLS 4.25 into `/tmp/lwtools-4.25`). Measure jiffies per `WIZZES` step and per `HUPD30` step; tune the D-14 delays as [ROM].
 
 ## Coverage map
 Status: `unreviewed` · `matches` · `gap-fixed` · `gap-open` · `deviation` · `needs-human`
