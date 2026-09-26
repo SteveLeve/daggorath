@@ -255,6 +255,7 @@ void Game::update_heart_rate() {
         sched_.halt();
         emit("DEATH", "power=" + std::to_string(player_.power) +
                           " damage=" + std::to_string(player_.damage));
+        emit("DIALOGUE", "YET ANOTHER DOES NOT RETURN");
     }
 }
 
@@ -339,10 +340,8 @@ void Game::dispatch_line() {
         case 9: cmd_reveal(line, pos); break;
         case 10: cmd_stow(line, pos); break;
         case 12: cmd_use(line, pos); break;
-        default:
-            emit("UNIMPLEMENTED", std::string(kCmdTab[r.type].word) +
-                 " is outside the Phase 0b slice");
-            break;
+        case 13: cmd_zload(line, pos); break;
+        case 14: cmd_zsave(line, pos); break;
     }
 }
 
@@ -642,7 +641,11 @@ bool Game::incant_hand(int index, std::uint8_t word) {
     object.spec[1] = 0;
     emit("SOUND", "A$RING");
     emit("INCANT", "object=" + std::to_string(index) + " type=" + std::to_string(object.type));
-    if (object.type == kTypeRingFinal) emit("DEFER", "winner");
+    if (object.type == kTypeRingFinal) {
+        player_.won = true;
+        sched_.halt();
+        emit("WINNER", "final ring");
+    }
     return object.type == kTypeRingFinal;
 }
 
@@ -729,10 +732,70 @@ void Game::kill_creature(int slot) {
         player_.power = static_cast<std::uint16_t>(sum);
     }
     emit("ABSORB", "power=" + std::to_string(player_.power));
-    if (type == 10 || type == 11) {
-        if (type == 11) set_frozen(true);
-        emit("DEFER", "endgame " + std::to_string(type));
+    if (type == 10) endgame_image();
+    if (type == 11) endgame_wizard();
+}
+
+void Game::endgame_image() {
+    // ENDGAM: torch stays in the bag, everything else is dropped from the
+    // player's slots, weight becomes 200, level 3 is rebuilt, FNDCEL relocates.
+    player_.left_hand = -1;
+    player_.right_hand = -1;
+    player_.bag_head = -1;
+    if (player_.torch >= 0) {
+        objects_[static_cast<std::size_t>(player_.torch)].next = -1;
+        player_.bag_head = player_.torch;
     }
+    player_.carried_weight = 200;
+    emit("ENDGAM", "image");
+    enter_level(3);
+    for (;;) {
+        const int col = level_.rng.next() & 31;
+        const int row = level_.rng.next() & 31;
+        if (level_.maze.at(row, col) == 0xFF) continue;
+        player_.row = row;
+        player_.col = col;
+        break;
+    }
+    emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
+}
+
+void Game::endgame_wizard() {
+    set_frozen(true);
+    player_.regular_light = 0x07;
+    player_.magic_light = 0x13;
+    player_.bag_head = -1;
+    player_.torch = -1;
+    player_.left_hand = -1;
+    player_.right_hand = -1;
+    emit("ENDGAM", "wizard");
+}
+
+std::string Game::filename_token(const std::string& line, std::size_t& pos) const {
+    std::string name;
+    while (pos < line.size() && line[pos] == ' ') ++pos;
+    while (pos < line.size() && line[pos] != ' ') name.push_back(line[pos++]);
+    if (name.size() > 8) name.resize(8);
+    return name;
+}
+
+void Game::cmd_zsave(const std::string& line, std::size_t& pos) {
+    const std::string name = filename_token(line, pos);
+    const std::string payload = historical_payload();
+    tapes_.push_back({name, payload});
+    emit("ZSAVE", name + " bytes=" + std::to_string(payload.size()));
+}
+
+void Game::cmd_zload(const std::string& line, std::size_t& pos) {
+    const std::string name = filename_token(line, pos);
+    for (auto it = tapes_.rbegin(); it != tapes_.rend(); ++it) {
+        if (it->first == name) {
+            restore_historical_payload(it->second);
+            emit("ZLOAD", name);
+            return;
+        }
+    }
+    emit("OUTPUT", "???");
 }
 
 void Game::cmd_attack(const std::string& line, std::size_t& pos) {
@@ -843,6 +906,59 @@ void Game::movement_exertion() {
                       " heart_rate=" +
                       std::to_string(static_cast<int>(static_cast<std::int8_t>(player_.heart_rate))));
 }
+
+std::string Game::historical_payload() const {
+    std::ostringstream os;
+    os << player_.row << ' ' << player_.col << ' ' << static_cast<int>(player_.dir) << ' '
+       << player_.power << ' ' << player_.damage << ' ' << player_.carried_weight << ' '
+       << player_.left_hand << ' ' << player_.right_hand << ' ' << player_.torch << ' '
+       << player_.bag_head << ' ' << level_index_ << ' ' << static_cast<int>(frozen_) << ' '
+       << static_cast<int>(player_.fainted) << '\n';
+    const auto seed = level_.rng.seed();
+    os << static_cast<int>(seed[0]) << ' ' << static_cast<int>(seed[1]) << ' '
+       << static_cast<int>(seed[2]) << '\n';
+    os << static_cast<int>(sched_.counters().jiffy) << ' '
+       << static_cast<int>(sched_.counters().tenth) << ' '
+       << static_cast<int>(sched_.counters().second) << ' '
+       << static_cast<int>(sched_.counters().minute) << '\n';
+    for (const auto& row : matrix_) {
+        for (std::uint8_t cell : row) os << static_cast<int>(cell) << ' ';
+        os << '\n';
+    }
+    return os.str();
+}
+
+void Game::restore_historical_payload(const std::string& payload) {
+    std::istringstream in(payload);
+    int dir = 0, frozen = 0, fainted = 0;
+    in >> player_.row >> player_.col >> dir >> player_.power >> player_.damage >>
+        player_.carried_weight >> player_.left_hand >> player_.right_hand >> player_.torch >>
+        player_.bag_head >> level_index_ >> frozen >> fainted;
+    player_.dir = static_cast<Dir>(dir & 3);
+    frozen_ = frozen != 0;
+    player_.fainted = fainted != 0;
+    int s0 = 0, s1 = 0, s2 = 0;
+    in >> s0 >> s1 >> s2;
+    level_.rng.set_seed({static_cast<std::uint8_t>(s0), static_cast<std::uint8_t>(s1),
+                         static_cast<std::uint8_t>(s2)});
+    int jiffy = 0, tenth = 0, second = 0, minute = 0;
+    in >> jiffy >> tenth >> second >> minute;
+    sched_.counters().jiffy = static_cast<std::uint8_t>(jiffy);
+    sched_.counters().tenth = static_cast<std::uint8_t>(tenth);
+    sched_.counters().second = static_cast<std::uint8_t>(second);
+    sched_.counters().minute = static_cast<std::uint8_t>(minute);
+    for (auto& row : matrix_) {
+        for (std::uint8_t& cell : row) {
+            int value = 0;
+            in >> value;
+            cell = static_cast<std::uint8_t>(value);
+        }
+    }
+}
+
+std::string Game::snapshot() const { return historical_payload(); }
+
+void Game::restore_snapshot(const std::string& bytes) { restore_historical_payload(bytes); }
 
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) {
     std::vector<KeyEvent> out;

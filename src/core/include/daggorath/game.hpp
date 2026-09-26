@@ -7,6 +7,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "daggorath/combat.hpp"
@@ -30,6 +31,7 @@ struct PlayerState {
     std::uint8_t heart_rate = 0;    // HEARTR, in jiffies
     bool fainted = false;
     bool dead = false;
+    bool won = false;
     int left_hand = -1;
     int right_hand = -1;
     int torch = -1;
@@ -109,6 +111,18 @@ public:
     void hold(bool right, int object_index);
     void wield_torch(int object_index);
 
+    // The bytes ZSAVE writes are the direct page and common RAM from $0200
+    // through MM.END (CD.ASM, COMMON.ASM SAVE). This core stores the fields
+    // it models from that range. The cassette leaders and video buffers are
+    // not reconstructed.
+    std::string historical_payload() const;
+    void restore_historical_payload(const std::string& payload);
+
+    // Suspend snapshot: every field required to continue bit-identically.
+    // Not a game command.
+    std::string snapshot() const;
+    void restore_snapshot(const std::string& bytes);
+
     // HUPDAX: heart rate = (P*64)/(P+2D) - 19, by repeated subtraction, stored
     // in one signed byte. Faint at <= 3, recover above 4.
     void update_heart_rate();
@@ -131,6 +145,11 @@ private:
     void cmd_incant(const std::string& line, std::size_t& pos);
     void cmd_examine();
     void cmd_climb(const std::string& line, std::size_t& pos);
+    void cmd_zsave(const std::string& line, std::size_t& pos);
+    void cmd_zload(const std::string& line, std::size_t& pos);
+    void endgame_image();
+    void endgame_wizard();
+    std::string filename_token(const std::string& line, std::size_t& pos) const;
     bool parse_hand(const std::string& line, std::size_t& pos, bool& right, int& held);
     bool parse_object(const std::string& line, std::size_t& pos, bool& specific, std::uint8_t& kind);
     void add_weight(int delta);
@@ -168,6 +187,7 @@ private:
     int hslow_task_ = -1;
     std::vector<int> creature_tasks_;
     bool frozen_ = false;
+    std::vector<std::pair<std::string, std::string>> tapes_;
     // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
     bool sync_pending_ = false;
 };
