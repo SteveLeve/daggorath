@@ -21,6 +21,7 @@
 #include "daggorath/parser.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snoise.hpp"
+#include "daggorath/vctlst.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
 
@@ -975,6 +976,12 @@ void test_projection() {
     check(dag::set_fade(7, 0) == 0, "light 7 at range 0 is full brightness");
     check(dag::set_fade(0, 0) == 0xFF, "light 0 is darkness");
     check(dag::set_fade(6, 0) == 0x01, "one step below full brightness uses BIT0");
+    const std::uint8_t list[] = {76, 128, 76, 138, 0xFE};
+    const auto lines = dag::decode_vectors(list, 128, 128, 128, 76, 0);
+    check(lines.size() == 1 && lines[0].x0 == 128 && lines[0].x1 == 138 && lines[0].y0 == 76,
+          "an absolute list draws one scaled segment");
+    check(dag::decode_vectors(list, 128, 128, 128, 76, 0xFF).empty(),
+          "fade $FF draws no vectors");
 }
 
 }  // namespace
