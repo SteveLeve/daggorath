@@ -11,6 +11,7 @@ ViewSnapshot snapshot_from(const Game& game) {
     view.magic_light = game.player().magic_light;
     view.mode = static_cast<int>(game.display_mode());
     view.map_features = game.player().map_features;
+    if (game.player().torch >= 0) view.foreground = 5;
     static constexpr int dr[4] = {-1, 0, 1, 0};
     static constexpr int dc[4] = {0, 1, 0, -1};
     int r = view.row;

@@ -1,5 +1,7 @@
 #include "daggorath/raster.hpp"
 
+#include "daggorath/vctlst.hpp"
+
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
@@ -128,6 +130,8 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnaps
         std::min(255, view.regular_light + view.magic_light));
     const std::uint8_t fade = set_fade(light, 0);
     for (const DrawSegment& segment : project(view).segments) draw_segment(pixels, segment, fade);
+    for (const DrawSegment& segment : forward_object(view.foreground))
+        draw_segment(pixels, segment, fade);
     return pixels;
 }
 

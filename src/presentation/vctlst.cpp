@@ -1,5 +1,7 @@
 #include "daggorath/vctlst.hpp"
 
+#include "daggorath/vctlst.hpp"
+
 namespace dag {
 namespace {
 
@@ -104,6 +106,28 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
         y_raw = list[i - 2];
     }
     return out;
+}
+
+std::vector<DrawSegment> forward_object(int object_class) {
+    static constexpr std::uint8_t kTorch[] = {118, 60, 0xFC, 0xF7, 0xFF, 0x2A, 0x00, 0xFE};
+    static constexpr std::uint8_t kSword[] = {114, 80, 124, 100, 0xFF, 118, 82, 114, 86, 0xFE};
+    static constexpr std::uint8_t kFlask[] = {110, 162, 0xFC, 0x51, 0x0E, 0xB1, 0x00, 0xFE};
+    static constexpr std::uint8_t kRing[] = {122, 60, 0xFC, 0x11, 0x1F, 0xFF, 0xF1, 0x00, 0xFE};
+    static constexpr std::uint8_t kShield[] = {134, 172, 128, 192, 122, 186, 128, 168, 0xFC, 0x3E, 0x04,
+                                                0x00, 0xFE};
+    static constexpr std::uint8_t kScroll[] = {118, 194, 0xFC, 0x1F, 0x34, 0xF1, 0xDC, 0x00, 0xFE};
+    const std::uint8_t* bytes = nullptr;
+    std::size_t count = 0;
+    switch (object_class) {
+        case 0: bytes = kFlask; count = sizeof kFlask; break;
+        case 1: bytes = kRing; count = sizeof kRing; break;
+        case 2: bytes = kScroll; count = sizeof kScroll; break;
+        case 3: bytes = kShield; count = sizeof kShield; break;
+        case 4: bytes = kSword; count = sizeof kSword; break;
+        case 5: bytes = kTorch; count = sizeof kTorch; break;
+        default: return {};
+    }
+    return decode_vectors(std::span<const std::uint8_t>(bytes, count), 128, 128, 128, 76, 0);
 }
 
 }  // namespace dag

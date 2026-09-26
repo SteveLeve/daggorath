@@ -14,4 +14,7 @@ std::vector<DrawSegment> decode_vectors(std::span<const std::uint8_t> list, std:
                                         std::uint8_t y_scale, int centroid_x, int centroid_y,
                                         std::uint8_t fade);
 
+// Forward object shape from VOBJ.ASM for a class, at scale 128. Empty if unknown.
+std::vector<DrawSegment> forward_object(int object_class);
+
 }  // namespace dag
