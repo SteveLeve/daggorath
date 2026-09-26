@@ -11,7 +11,7 @@ different agent and produce comparable work.
 | [`phase-1-rom-captures.md`](phase-1-rom-captures.md) | 1 (continued) — remaining ROM captures, task log, #13 evidence | complete: recorded at `f669183` in reconciliation §1 |
 | [`phase-1-apply-issue-13.md`](phase-1-apply-issue-13.md) | 1 (close-out) — apply the owner's decision on issue #13 | complete: Original Mode counts the 377 build interrupts; reconciliation §6 |
 | [`phase-2-creature-movement.md`](phase-2-creature-movement.md) | 2 — `CMOVE` without attack; scheduler lap model (ADR-0002) | done — [reconciliation](../archaeology/phase-2/reconciliation.md) |
-| [`phase-6a-core-events.md`](phase-6a-core-events.md) | 6a — core-owned `CoreEvent` contract (ADR-0004), run after 2 and before 3 | planned |
+| [`phase-6a-core-events.md`](phase-6a-core-events.md) | 6a — core-owned `CoreEvent` contract (ADR-0004), run after 2 and before 3 | done — CoreEvent stream, `dcli --events`, `sounds.json` |
 | [`phase-3-combat.md`](phase-3-combat.md) | 3 — `PATTK`, `ATTACK`, `DAMAGE`, creature attack, faint, death | planned |
 | [`phase-4-objects-and-magic.md`](phase-4-objects-and-magic.md) | 4 — objects, inventory, torches, magic, `CLIMB` | planned |
 | [`phase-5-progression-and-save.md`](phase-5-progression-and-save.md) | 5 — endings, `ZSAVE`/`ZLOAD`; headless game complete | planned |

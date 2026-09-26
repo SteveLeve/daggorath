@@ -86,6 +86,11 @@ void Scheduler::advance_clock_counters(std::uint32_t n) {
 void Scheduler::interrupt(const std::vector<std::uint8_t>& keys_this_jiffy) {
     if (halted_) return;
     ++counters_.total_jiffies;
+    if (irq_hook_) {
+        in_irq_ = true;
+        irq_hook_();
+        in_irq_ = false;
+    }
 
     scan_queue(Queue::Jiffy);                     // CLK40: always the jiffy queue
     bump_counters(true);
@@ -125,7 +130,9 @@ void Scheduler::run_ready_pass() {
             Task& t = tasks_[static_cast<std::size_t>(id)];
             if (!t.alive || halted_) continue;
             if (trace_) trace_("TASK run " + t.name);
+            running_ = t.name;
             const TaskResult r = t.run();
+            running_.clear();
             if (restart_) {
                 // `t` no longer exists. Every new TCB is unrun this jiffy.
                 restart_ = false;

@@ -49,6 +49,8 @@ fixtures: check-pin
 	    src/presentation/include/daggorath/vector_tables.hpp
 	python3 tools/viewer_ref.py --vectors "$(PHASE6)/vectors.json" \
 	    --maze-dir "$(FIXTURES)" --write "$(PHASE6)"
+	python3 tools/extract_sounds.py "$(ASM_DIR)" "$(FIXTURES)" \
+	    src/core/include/daggorath/sound_tables.hpp
 
 build:
 	cmake -S . -B $(BUILD) -DDAGGORATH_FIXTURE_DIR=$(CURDIR)/$(FIXTURES)

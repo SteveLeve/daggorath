@@ -1,0 +1,543 @@
+{
+  "description": "SOUNDS dispatch table, object-cue base, generator immediates, SNOISE",
+  "source": "SOUNDS.ASM SNDTAB/SNDOBJ/SOUNDX/SOUNDI/SNOISE; SWCHAR.ASM THUDD/BANGD",
+  "extraction_method": "SND macro arguments and SNDOBJ EQU read verbatim. Generator immediates are the LDA/LDB/LDX/LDY/FCB/FDB literals between a generator label and the next unindented label. THUDD and BANGD FDB words come from SWCHAR.ASM. SNOISE is recorded as operating on SNDRND only.",
+  "sndobj": {
+    "value": 12,
+    "source": "SOUNDS.ASM:80"
+  },
+  "cues": [
+    {
+      "index": 0,
+      "symbol": "A$SQK0",
+      "generator": "SQUEAK",
+      "source": "SOUNDS.ASM:49"
+    },
+    {
+      "index": 1,
+      "symbol": "A$RTL0",
+      "generator": "RATTLE",
+      "source": "SOUNDS.ASM:51"
+    },
+    {
+      "index": 2,
+      "symbol": "A$ROR0",
+      "generator": "GROWL",
+      "source": "SOUNDS.ASM:53"
+    },
+    {
+      "index": 3,
+      "symbol": "A$BEP0",
+      "generator": "BEOOP",
+      "source": "SOUNDS.ASM:55"
+    },
+    {
+      "index": 4,
+      "symbol": "A$KLK0",
+      "generator": "KLANK",
+      "source": "SOUNDS.ASM:57"
+    },
+    {
+      "index": 5,
+      "symbol": "A$ROR1",
+      "generator": "GRAWL",
+      "source": "SOUNDS.ASM:59"
+    },
+    {
+      "index": 6,
+      "symbol": "A$RTL1",
+      "generator": "PSSST",
+      "source": "SOUNDS.ASM:61"
+    },
+    {
+      "index": 7,
+      "symbol": "A$KLK1",
+      "generator": "KKLANK",
+      "source": "SOUNDS.ASM:63"
+    },
+    {
+      "index": 8,
+      "symbol": "A$PSHT",
+      "generator": "PSSHT",
+      "source": "SOUNDS.ASM:65"
+    },
+    {
+      "index": 9,
+      "symbol": "A$ROR2",
+      "generator": "SNARL",
+      "source": "SOUNDS.ASM:67"
+    },
+    {
+      "index": 10,
+      "symbol": "A$SQK1",
+      "generator": "BDLBDL",
+      "source": "SOUNDS.ASM:72"
+    },
+    {
+      "index": 11,
+      "symbol": "A$SQK2",
+      "generator": "BDLBDL",
+      "source": "SOUNDS.ASM:74"
+    },
+    {
+      "index": 12,
+      "symbol": "A$FLAS",
+      "generator": "GLUGLG",
+      "source": "SOUNDS.ASM:82"
+    },
+    {
+      "index": 13,
+      "symbol": "A$RING",
+      "generator": "PHASER",
+      "source": "SOUNDS.ASM:84"
+    },
+    {
+      "index": 14,
+      "symbol": "A$SCRO",
+      "generator": "WHOOP",
+      "source": "SOUNDS.ASM:86"
+    },
+    {
+      "index": 15,
+      "symbol": "A$SHIE",
+      "generator": "CLANG",
+      "source": "SOUNDS.ASM:88"
+    },
+    {
+      "index": 16,
+      "symbol": "A$SWOR",
+      "generator": "WHOOSH",
+      "source": "SOUNDS.ASM:90"
+    },
+    {
+      "index": 17,
+      "symbol": "A$TORC",
+      "generator": "CHUCK",
+      "source": "SOUNDS.ASM:92"
+    },
+    {
+      "index": 18,
+      "symbol": "A$KLK2",
+      "generator": "KLINK",
+      "source": "SOUNDS.ASM:98"
+    },
+    {
+      "index": 19,
+      "symbol": "A$KLK3",
+      "generator": "CLANK",
+      "source": "SOUNDS.ASM:100"
+    },
+    {
+      "index": 20,
+      "symbol": "A$THUD",
+      "generator": "THUD",
+      "source": "SOUNDS.ASM:102"
+    },
+    {
+      "index": 21,
+      "symbol": "A$EXP0",
+      "generator": "BANG",
+      "source": "SOUNDS.ASM:107"
+    },
+    {
+      "index": 22,
+      "symbol": "A$EXP1",
+      "generator": "KABOOM",
+      "source": "SOUNDS.ASM:109"
+    }
+  ],
+  "generators": {
+    "SQUEAK": {
+      "label": "SQUEAK",
+      "source": "SOUNDS.ASM:155",
+      "immediates": [
+        {
+          "line": 155,
+          "value": 32,
+          "hex": "0x20",
+          "comment": "pitch and duration",
+          "insn": "SQUEAK  LDX     #$0020"
+        }
+      ],
+      "loop_count": null
+    },
+    "RATTLE": {
+      "label": "RATTLE",
+      "source": "SOUNDS.ASM:195",
+      "immediates": [
+        {
+          "line": 195,
+          "value": 10,
+          "hex": "0xa",
+          "comment": "rattle count + 1",
+          "insn": "RATTLE  LDA     #10"
+        }
+      ],
+      "loop_count": 10
+    },
+    "GROWL": {
+      "label": "GROWL",
+      "source": "SOUNDS.ASM:464",
+      "immediates": [
+        {
+          "line": 464,
+          "value": 768,
+          "hex": "0x300",
+          "comment": "parameter",
+          "insn": "GROWL   LDX     #$0300"
+        },
+        {
+          "line": 465,
+          "value": 16,
+          "hex": "0x10",
+          "comment": "skip next 3 bytes (LDY)",
+          "insn": "FCB     $10"
+        }
+      ],
+      "loop_count": null
+    },
+    "BEOOP": {
+      "label": "BEOOP",
+      "source": "SOUNDS.ASM:167",
+      "immediates": [
+        {
+          "line": 167,
+          "value": 1280,
+          "hex": "0x500",
+          "comment": "",
+          "insn": "BEOOP   LDX     #$0500"
+        }
+      ],
+      "loop_count": null
+    },
+    "KLANK": {
+      "label": "KLANK",
+      "source": "SOUNDS.ASM:355",
+      "immediates": [
+        {
+          "line": 356,
+          "value": 175,
+          "hex": "0xaf",
+          "comment": "frequency 1",
+          "insn": "FCB     $AF"
+        },
+        {
+          "line": 357,
+          "value": 54,
+          "hex": "0x36",
+          "comment": "frequency 2",
+          "insn": "FCB     $36"
+        }
+      ],
+      "loop_count": null
+    },
+    "GRAWL": {
+      "label": "GRAWL",
+      "source": "SOUNDS.ASM:467",
+      "immediates": [
+        {
+          "line": 467,
+          "value": 512,
+          "hex": "0x200",
+          "comment": "parameter",
+          "insn": "GRAWL   LDX     #$0200"
+        },
+        {
+          "line": 468,
+          "value": 16,
+          "hex": "0x10",
+          "comment": "skip next 3 bytes (LDY)",
+          "insn": "FCB     $10"
+        }
+      ],
+      "loop_count": null
+    },
+    "PSSST": {
+      "label": "PSSST",
+      "source": "SOUNDS.ASM:191",
+      "immediates": [
+        {
+          "line": 191,
+          "value": 2,
+          "hex": "0x2",
+          "comment": "",
+          "insn": "PSSST   LDA     #2"
+        }
+      ],
+      "loop_count": null
+    },
+    "KKLANK": {
+      "label": "KKLANK",
+      "source": "SOUNDS.ASM:351",
+      "immediates": [
+        {
+          "line": 352,
+          "value": 50,
+          "hex": "0x32",
+          "comment": "",
+          "insn": "FCB     $32"
+        },
+        {
+          "line": 353,
+          "value": 18,
+          "hex": "0x12",
+          "comment": "",
+          "insn": "FCB     $12"
+        }
+      ],
+      "loop_count": null
+    },
+    "PSSHT": {
+      "label": "PSSHT",
+      "source": "SOUNDS.ASM:193",
+      "immediates": [
+        {
+          "line": 193,
+          "value": 1,
+          "hex": "0x1",
+          "comment": "rattle count +1",
+          "insn": "PSSHT   LDA     #1"
+        }
+      ],
+      "loop_count": 1
+    },
+    "SNARL": {
+      "label": "SNARL",
+      "source": "SOUNDS.ASM:470",
+      "immediates": [
+        {
+          "line": 470,
+          "value": 256,
+          "hex": "0x100",
+          "comment": "parameter",
+          "insn": "SNARL   LDX     #$0100"
+        }
+      ],
+      "loop_count": null
+    },
+    "BDLBDL": {
+      "label": "BDLBDL",
+      "source": "SOUNDS.ASM:231",
+      "immediates": [
+        {
+          "line": 231,
+          "value": 8,
+          "hex": "0x8",
+          "comment": "whoop count",
+          "insn": "BDLBDL  LDA     #8"
+        }
+      ],
+      "loop_count": 8
+    },
+    "GLUGLG": {
+      "label": "GLUGLG",
+      "source": "SOUNDS.ASM:134",
+      "immediates": [
+        {
+          "line": 135,
+          "value": 4,
+          "hex": "0x4",
+          "comment": "iteration count",
+          "insn": "LDA     #4"
+        }
+      ],
+      "loop_count": 4
+    },
+    "PHASER": {
+      "label": "PHASER",
+      "source": "SOUNDS.ASM:138",
+      "immediates": [
+        {
+          "line": 139,
+          "value": 10,
+          "hex": "0xa",
+          "comment": "iteration count",
+          "insn": "LDA     #10"
+        }
+      ],
+      "loop_count": 10
+    },
+    "WHOOP": {
+      "label": "WHOOP",
+      "source": "SOUNDS.ASM:152",
+      "immediates": [
+        {
+          "line": 152,
+          "value": 256,
+          "hex": "0x100",
+          "comment": "pitch and duration",
+          "insn": "WHOOP   LDX     #$0100"
+        },
+        {
+          "line": 153,
+          "value": 16,
+          "hex": "0x10",
+          "comment": "skip next 3 bytes (LDY)",
+          "insn": "FCB     $10"
+        }
+      ],
+      "loop_count": null
+    },
+    "CLANG": {
+      "label": "CLANG",
+      "source": "SOUNDS.ASM:347",
+      "immediates": [
+        {
+          "line": 348,
+          "value": 100,
+          "hex": "0x64",
+          "comment": "",
+          "insn": "FCB     $64"
+        },
+        {
+          "line": 349,
+          "value": 36,
+          "hex": "0x24",
+          "comment": "",
+          "insn": "FCB     $24"
+        }
+      ],
+      "loop_count": null
+    },
+    "WHOOSH": {
+      "label": "WHOOSH",
+      "source": "SOUNDS.ASM:277",
+      "immediates": [
+        {
+          "line": 278,
+          "value": 128,
+          "hex": "0x80",
+          "comment": "increment",
+          "insn": "FCB     $80"
+        }
+      ],
+      "loop_count": null
+    },
+    "CHUCK": {
+      "label": "CHUCK",
+      "source": "SOUNDS.ASM:283",
+      "immediates": [
+        {
+          "line": 284,
+          "value": 160,
+          "hex": "0xa0",
+          "comment": "decrement",
+          "insn": "FCB     $A0"
+        }
+      ],
+      "loop_count": null
+    },
+    "KLINK": {
+      "label": "KLINK",
+      "source": "SOUNDS.ASM:445",
+      "immediates": [
+        {
+          "line": 446,
+          "value": 96,
+          "hex": "0x60",
+          "comment": "decrement constant",
+          "insn": "FCB     $60"
+        }
+      ],
+      "loop_count": null
+    },
+    "CLANK": {
+      "label": "CLANK",
+      "source": "SOUNDS.ASM:359",
+      "immediates": [
+        {
+          "line": 360,
+          "value": 25,
+          "hex": "0x19",
+          "comment": "frequency 1",
+          "insn": "FCB     $19"
+        },
+        {
+          "line": 361,
+          "value": 9,
+          "hex": "0x9",
+          "comment": "frequency 2",
+          "insn": "FCB     $09"
+        }
+      ],
+      "loop_count": null
+    },
+    "THUD": {
+      "label": "THUD",
+      "source": "SOUNDS.ASM:228",
+      "immediates": [],
+      "loop_count": null
+    },
+    "BANG": {
+      "label": "BANG",
+      "source": "SOUNDS.ASM:225",
+      "immediates": [],
+      "loop_count": null
+    },
+    "KABOOM": {
+      "label": "KABOOM",
+      "source": "SOUNDS.ASM:243",
+      "immediates": [],
+      "loop_count": null
+    }
+  },
+  "tables": {
+    "THUDD": {
+      "label": "THUDD",
+      "source": "SWCHAR.ASM:272",
+      "words": [
+        {
+          "line": 272,
+          "value": 128
+        },
+        {
+          "line": 273,
+          "value": 1
+        },
+        {
+          "line": 278,
+          "value": 80
+        },
+        {
+          "line": 279,
+          "value": 4
+        }
+      ]
+    },
+    "BANGD": {
+      "label": "BANGD",
+      "source": "SWCHAR.ASM:281",
+      "words": [
+        {
+          "line": 281,
+          "value": 80
+        },
+        {
+          "line": 282,
+          "value": 5
+        }
+      ]
+    }
+  },
+  "snoise": {
+    "source": "SOUNDS.ASM:320",
+    "updates": "SNDRND",
+    "reads_seed": false,
+    "writes_seed": false,
+    "method": "LDD SNDRND; multiply by five (two left shifts plus add); INCB; STD SNDRND"
+  },
+  "volume": {
+    "isound": {
+      "B": 255,
+      "source": "SOUNDS.ASM:19 SOUNDI LDB #$FF"
+    },
+    "same_cell": {
+      "B": 255,
+      "source": "CRETUR.ASM:78 CMOV20 LDB #$FF"
+    },
+    "range": {
+      "formula": "B = ~(T0 * 31)  (8-bit)",
+      "source": "CRETUR.ASM:355-358 CWLK20"
+    }
+  }
+}

@@ -24,6 +24,12 @@ target_compile_definitions(viewer_regressions
   PRIVATE DAG_PHASE6_DIR="${DAGGORATH_PHASE6_DIR}")
 add_test(NAME viewer_regressions COMMAND viewer_regressions)
 
+add_executable(event_regressions conformance/event_regressions.cpp)
+target_link_libraries(event_regressions PRIVATE daggorath::core)
+target_compile_definitions(event_regressions
+  PRIVATE DAG_FIXTURE_DIR="${DAGGORATH_FIXTURE_DIR}")
+add_test(NAME event_regressions COMMAND event_regressions)
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")
