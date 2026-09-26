@@ -101,6 +101,12 @@ public:
     // write the same slots the object commands will.
     void hold(bool right, int object_index);
     void wield_torch(int object_index);
+    // Test hooks: write PROW/PCOL and PDAM directly, then run HUPDAT.
+    void place_player(int row, int col) { player_.row = row; player_.col = col; }
+    void set_player_damage(std::uint16_t damage) {
+        player_.damage = damage;
+        update_heart_rate();
+    }
 
     // HUPDAX: heart rate = (P*64)/(P+2D) - 19, by repeated subtraction, stored
     // in one signed byte. Faint at <= 3, recover above 4.
