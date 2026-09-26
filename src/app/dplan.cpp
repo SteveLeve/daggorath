@@ -437,6 +437,15 @@ struct Runner {
         return n;
     }
 
+    int mobs() const {
+        int n = 0;
+        for (int i = 0; i < dag::kCcbSlots; ++i) {
+            const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(i)];
+            if (c.in_use && !wizard(c)) ++n;
+        }
+        return n;
+    }
+
     bool relight() {
         if (torch_live()) return true;
         if (game.level_index() >= 2)
@@ -486,6 +495,18 @@ struct Runner {
         return true;
     }
 
+    int cell_danger(int r, int c) const {
+        int near = 0, dmin = 99;
+        for (int i = 0; i < dag::kCcbSlots; ++i) {
+            const dag::Ccb& cr = game.creatures()[static_cast<std::size_t>(i)];
+            if (!cr.in_use || cr.type < 6) continue;
+            const int d = std::abs(cr.row - r) + std::abs(cr.col - c);
+            if (d < dmin) dmin = d;
+            if (d <= 2) ++near;
+        }
+        return near * 16 - dmin;
+    }
+
     const char* leave_cmd() const {
         const char* cmds[] = {"MOVE BACK", "MOVE LEFT", "MOVE RIGHT", "MOVE"};
         const int rels[] = {2, 3, 1, 0};
@@ -499,7 +520,8 @@ struct Runner {
             int nr = 0, nc = 0;
             dag::step_ok(game.maze(), pr, pc, d, nr, nc);
             if (creature_at(game, nr, nc) >= 0) continue;
-            const int dist = camp_r < 0 ? i : std::abs(nr - camp_r) + std::abs(nc - camp_c);
+            int dist = camp_r < 0 ? i : std::abs(nr - camp_r) + std::abs(nc - camp_c);
+            if (game.level_index() >= 4) dist = cell_danger(nr, nc);
             if (best == nullptr || dist < best_d) {
                 best = cmds[i];
                 best_d = dist;
@@ -562,8 +584,11 @@ struct Runner {
                     continue;
                 const int ni = idx(nr, nc);
                 if (parent[static_cast<std::size_t>(ni)] != -2) continue;
-                if (avoid && !(nr == tr && nc == tc) && creature_at(game, nr, nc) >= 0)
-                    continue;
+                const int sl = creature_at(game, nr, nc);
+                if (sl >= 0) {
+                    const dag::Ccb& cr = game.creatures()[static_cast<std::size_t>(sl)];
+                    if (avoid || cr.type >= 6) continue;
+                }
                 parent[static_cast<std::size_t>(ni)] = cur;
                 q.push(ni);
             }
@@ -593,6 +618,11 @@ struct Runner {
             type({"TURN LEFT"});
         else if (delta == 2)
             type({"TURN AROUND"});
+        const int step_sl = creature_at(game, nr, nc);
+        if (step_sl >= 0) {
+            const dag::Ccb& cr = game.creatures()[static_cast<std::size_t>(step_sl)];
+            if (avoid || cr.type >= 6) return false;
+        }
         type({"MOVE"});
         return true;
     }
@@ -712,15 +742,27 @@ struct Runner {
     // IRON is born with WOODEN stats (pho 16). Without REVEAL a scorpion
     // survives the swing and its 4-tenth sting connects.
     void ensure_sword() {
+        const bool holding_elvish = hand_type(false) == kElvish || hand_type(true) == kElvish;
+        if (find_owned(game, kElvish) >= 0 && !holding_elvish) {
+            const bool left_ring = charged_ring(hand_type(false));
+            empty_hand(!left_ring);
+            type({left_ring ? "PULL RIGHT ELVISH SWORD" : "PULL LEFT ELVISH SWORD"});
+            reveal_held();
+            return;
+        }
         if (holding_iron()) {
             reveal_held();
             return;
         }
-        if (find_owned(game, kIron) >= 0 || find_owned(game, kElvish) >= 0) {
+        if (find_owned(game, kElvish) >= 0) {
+            empty_hand(false);
+            type({"PULL LEFT ELVISH SWORD"});
+            reveal_held();
+            return;
+        }
+        if (find_owned(game, kIron) >= 0) {
             empty_hand(false);
             type({"PULL LEFT IRON SWORD"});
-            if (hand_type(false) != kIron && hand_type(false) != kElvish)
-                type({"PULL LEFT ELVISH SWORD"});
             reveal_held();
             return;
         }
@@ -731,6 +773,26 @@ struct Runner {
         empty_hand(false);
         type({"PULL LEFT SWORD"});
         reveal_held();
+    }
+
+    void ensure_mithril() {
+        const int lt = hand_type(false), rt = hand_type(true);
+        if (lt == kMithril || rt == kMithril) {
+            reveal_held();
+            return;
+        }
+        if (find_owned(game, kMithril) < 0) return;
+        empty_hand(true);
+        type({"PULL RIGHT MITHRIL SHIELD"});
+        if (hand_type(true) != kMithril) type({"PULL RIGHT SHIELD"});
+        reveal_held();
+    }
+
+    bool hole_occupied_by_stingy(int r, int c) const {
+        const int sl = creature_at(game, r, c);
+        if (sl < 0) return false;
+        const dag::Ccb& cr = game.creatures()[static_cast<std::size_t>(sl)];
+        return cr.type >= 6;
     }
 
     void douse_torch() {
@@ -795,6 +857,7 @@ struct Runner {
 
     bool go_down() {
         int best_d = 1e9, br = -1, bc = -1;
+        int any_d = 1e9, ar = -1, ac = -1;
         const int pr = game.player().row, pc = game.player().col;
         for (int r = 0; r < 32; ++r)
             for (int c = 0; c < 32; ++c) {
@@ -802,20 +865,40 @@ struct Runner {
                 if (f < 0 || (f & 2) == 0) continue;
                 if (game.maze().at(r, c) == 0xFF) continue;
                 const int d = std::abs(r - pr) + std::abs(c - pc);
+                if (d < any_d) {
+                    any_d = d;
+                    ar = r;
+                    ac = c;
+                }
+                if (hole_occupied_by_stingy(r, c)) continue;
+                if (creature_at(game, r, c) >= 0) continue;
                 if (d < best_d) {
                     best_d = d;
                     br = r;
                     bc = c;
                 }
             }
+        if (br < 0) {
+            br = ar;
+            bc = ac;
+        }
         if (br < 0) return false;
         if (pr == br && pc == bc) {
-            // Tour: turn right before the level-0 hole. TURN SYNC would
-            // separate CLIMB from ATTACK+MOVE, so the turn is its own burst.
+            if (here() >= 0) {
+                // Clear the hole; do not climb onto a balrog.
+                hit_run(false);
+                return false;
+            }
+            if (use_fudge) fudge_rest_now();
             if (game.level_index() == 0) type({"TURN RIGHT"});
-            // CLIMB has no SYNC: ATTACK+MOVE BACK leave before CMOVE.
             type({"CLIMB DOWN", attack_cmd(false), "MOVE BACK"}, 1);
             return true;
+        }
+        if (hole_occupied_by_stingy(br, bc) || creature_at(game, br, bc) >= 0) {
+            if (!adjacent_to(br, bc)) go_adjacent(br, bc);
+            else
+                idle(8);
+            return false;
         }
         if (!path_step(br, bc, true)) idle(20);
         return false;
@@ -856,6 +939,12 @@ struct Runner {
             if (!dag::step_ok(game.maze(), tr, tc, static_cast<dag::Dir>(d), nr, nc))
                 continue;
             if (creature_at(game, nr, nc) >= 0) continue;
+            const int wz = slot_of_type(game, 11);
+            if (wz >= 0 && phase == Clear) {
+                const dag::Ccb& w = game.creatures()[static_cast<std::size_t>(wz)];
+                if (nr == w.row && nc == w.col) continue;
+                if (std::abs(nr - w.row) + std::abs(nc - w.col) == 0) continue;
+            }
             const int dist = std::abs(nr - pr) + std::abs(nc - pc);
             if (dist < bd) {
                 bd = dist;
@@ -954,7 +1043,11 @@ struct Runner {
             return false;
         }
         const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(occ)];
-        if (!torch_live() && !wimp(c)) {
+        if (wizard(c) && phase != KillImage && phase != KillWizard) {
+            type({leave_cmd()});
+            return true;
+        }
+        if (!torch_live() && !wimp(c) && !wizard(c)) {
             relight();
             if (!torch_live() && c.type >= 2) {
                 hit_run(false);
@@ -984,7 +1077,7 @@ struct Runner {
                 if (ring_ready() && ring_safe())
                     hit_run(true);
                 else
-                    type({leave_cmd()});
+                    hit_run(false);
                 return true;
             }
             type({leave_cmd()});
@@ -1262,7 +1355,7 @@ struct Runner {
                         ensure_sword();
                         break;
                     }
-                    if (!torch_live()) {
+                    if (!torch_live() && game.level_index() < 4) {
                         relight();
                         break;
                     }
@@ -1271,8 +1364,57 @@ struct Runner {
                         break;
                     }
                     if (game.level_index() >= 4) {
-                        if (lethal_aligned()) {
+                        if (use_fudge && game.player().damage > 63) fudge_rest_now();
+                        if (hand_type(false) != kElvish && find_owned(game, kElvish) >= 0)
+                            ensure_sword();
+                        if (hand_type(false) != kMithril && hand_type(true) != kMithril)
+                            ensure_mithril();
+                        if (!torch_live()) {
+                            light_named(kLunar, "LUNAR TORCH") ||
+                                light_named(kSolar, "SOLAR TORCH") || light_pine();
+                        }
+                        int br = -1, bc = -1, bd = 1e9, bt = -1;
+                        const int pr = game.player().row, pc = game.player().col;
+                        const int wiz = slot_of_type(game, 11);
+                        int wr = -99, wc = -99;
+                        if (wiz >= 0) {
+                            wr = game.creatures()[static_cast<std::size_t>(wiz)].row;
+                            wc = game.creatures()[static_cast<std::size_t>(wiz)].col;
+                        }
+                        for (int pass = 0; pass < 2 && br < 0; ++pass) {
+                            bd = 1e9;
+                            for (int i = 0; i < dag::kCcbSlots; ++i) {
+                                const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(i)];
+                                if (!c.in_use) continue;
+                                if (wizard(c)) continue;
+                                if (pass == 0 && wiz >= 0 &&
+                                    std::abs(c.row - wr) + std::abs(c.col - wc) <= 2)
+                                    continue;
+                                const int d = std::abs(c.row - pr) + std::abs(c.col - pc);
+                                if (d < bd) {
+                                    bd = d;
+                                    br = c.row;
+                                    bc = c.col;
+                                    bt = c.type;
+                                }
+                            }
+                        }
+                        if (br < 0) {
+                            idle(8);
+                            break;
+                        }
+                        if (bd == 0) {
+                            hit_run(false);
+                            break;
+                        }
+                        if (lethal_aligned() && bd > 1) {
                             sidestep();
+                            break;
+                        }
+                        if (bd > 1 || bt >= 6) {
+                            if (!adjacent_to(br, bc)) go_adjacent(br, bc);
+                            else
+                                idle(6);
                             break;
                         }
                         idle(8);
@@ -1447,15 +1589,24 @@ struct Runner {
                         }
                         break;
                     }
+                    if (game.level_index() >= 4) {
+                        phase = mobs() == 0 ? KillWizard : Clear;
+                        break;
+                    }
                     phase = Descend;
                     break;
                 }
                 case Descend: {
                     if (game.level_index() >= 4) {
-                        phase = KillWizard;
+                        phase = mobs() == 0 ? KillWizard : Clear;
                         break;
                     }
                     const int before = game.level_index();
+                    if (before == 3) {
+                        ensure_sword();
+                        ensure_mithril();
+                        if (use_fudge) fudge_rest_now();
+                    }
                     if (before == 2 && clearable() > 0 && slot_of_type(game, 10) >= 0) {
                         // Image is not last: do not fight it. Climb up to farm
                         // if a hole up exists, else keep clearing.
@@ -1478,7 +1629,12 @@ struct Runner {
                         return 1;
                     }
                     if (game.level_index() > before) {
-                        mark_camp();
+                        if (game.level_index() >= 4) {
+                            camp_r = -1;
+                            camp_c = -1;
+                        } else {
+                            mark_camp();
+                        }
                         // Do not PULL/DROP on the landing cell. L4 holes spawn
                         // next to balrogs; inventory burns the attack delay.
                         if (game.level_index() == 3) {
@@ -1577,7 +1733,7 @@ struct Runner {
                 }
                 case Survive3: {
                     if (game.level_index() >= 4) {
-                        phase = KillWizard;
+                        phase = mobs() == 0 ? KillWizard : Clear;
                         break;
                     }
                     if (clearable() == 0) {
@@ -1607,13 +1763,25 @@ struct Runner {
                         phase = TakeSupreme;
                         break;
                     }
-                    if (live_count(game) > 1) {
-                        phase = Survive3;
-                        mark_camp();
+                    if (mobs() > 0) {
+                        phase = Clear;
                         break;
                     }
-                    if (!ring_ready() && cls_of(game.player().left_hand) != kClassSword &&
-                        cls_of(game.player().right_hand) != kClassSword) {
+                    if (use_fudge && game.player().damage > 63) fudge_rest_now();
+                    ensure_sword();
+                    // Always type JOULE + INCANT so a power-on replay that
+                    // still holds the unincanted ring records the same keys
+                    // as a resume from a snap that already has ENERGY.
+                    if (!charged_ring(hand_type(false)) && !charged_ring(hand_type(true))) {
+                        empty_hand(true);
+                        type({"PULL RIGHT JOULE RING"});
+                        type({"INCANT ENERGY"});
+                        if (hand_type(true) != kEnergy) {
+                            empty_hand(true);
+                            type({"PULL RIGHT ENERGY RING"});
+                        }
+                    }
+                    if (!ring_ready() && !have_sword()) {
                         report_block("no weapon for type 11");
                         return 1;
                     }
@@ -1624,7 +1792,9 @@ struct Runner {
                     const dag::Ccb& w = game.creatures()[static_cast<std::size_t>(sl)];
                     const int adj = std::abs(game.player().row - w.row) +
                                     std::abs(game.player().col - w.col);
-                    if (adj > 0) path_step(w.row, w.col, true);
+                    if (adj > 1) go_adjacent(w.row, w.col);
+                    else if (adj == 1)
+                        idle(8);
                     if (waits > 5000) {
                         report_block("cannot reach type 11");
                         return 1;
