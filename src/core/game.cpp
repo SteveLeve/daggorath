@@ -1072,6 +1072,9 @@ void Game::save_ram(std::ostream& out) const {
         << static_cast<int>(p.regular_light) << ' ' << static_cast<int>(p.magic_light) << '\n';
     out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' '
         << level_index_ << ' ' << line_.size() << ' ' << line_ << "|\n";
+    out << static_cast<int>(heart_.heartf) << ' ' << static_cast<int>(heart_.heartc) << ' '
+        << static_cast<int>(heart_.hearts) << ' ' << static_cast<int>(heart_.hbeatf) << ' '
+        << (heart_.audio_level ? 1 : 0) << '\n';
     for (const auto& row : matrix_) {
         for (const std::uint8_t v : row) out << static_cast<int>(v) << ' ';
         out << '\n';
@@ -1130,6 +1133,13 @@ void Game::load_ram(std::istream& in) {
     line_.assign(line_size, ' ');
     in.read(line_.data(), static_cast<std::streamsize>(line_size));
     in.get();   // '|'
+    int hf = 0, hc = 0, hs = 0, hb = 0, al = 0;
+    in >> hf >> hc >> hs >> hb >> al;
+    heart_.heartf = static_cast<std::uint8_t>(hf);
+    heart_.heartc = static_cast<std::uint8_t>(hc);
+    heart_.hearts = static_cast<std::uint8_t>(hs);
+    heart_.hbeatf = static_cast<std::uint8_t>(hb);
+    heart_.audio_level = al != 0;
     int v = 0;
     for (auto& row : matrix_)
         for (std::uint8_t& cell : row) {

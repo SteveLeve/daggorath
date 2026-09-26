@@ -1,8 +1,6 @@
 #include "daggorath/core_event.hpp"
 #include "daggorath/sound_tables.hpp"
 
-#include <array>
-
 namespace dag {
 
 static_assert(kSndObj == kExtractedSndObj);

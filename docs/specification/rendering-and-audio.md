@@ -4,6 +4,10 @@ Logical surface is 256 dots wide. The Phase 0 report places the centroid at (128
 
 `project` emits one wall segment per open cell along the facing ray, scaled by `NORSCL`, and emits none when regular plus magic light is zero. Map mode emits `MAP features` or `MAP plain`. This is not a `VCTLST` interpreter.
 
-**[SRC]** `SOUNDS.ASM SNOISE` updates `SNDRND` only. It does not read or write `SEED`.
+## Core events
 
-D-4 durations: the `BURNER` and `HSLOW` countdowns are source-derived (one minute, and the heart-rate delay). Sound loop counts inside `SOUNDS.ASM` are not yet transcribed, so those durations stay unresolved.
+**[SRC]** The simulation emits an ordered `CoreEvent` stream (ADR-0004 rule 1): sound requests (`SOUNDS`/`ISOUND`), `OUTSTI` text, stores to `DSPMOD`, foreground blocks (`SYNC`, `TURN`/`MOVE` sweeps, `WAITX`), and the `CLOCK` `CLK30` heartbeat toggle. Each event is stamped with the interrupt count and the running task (`IRQ`, a TCB name, or `FG`). Where D-4a/D-4b apply, `duration_jiffies` is 0 and `duration_known` is false. `dcli --events` prints the stream; the default trace keeps its older `SOUND`/`SYNC` lines.
+
+## Sound
+
+**[SRC]** `SOUNDS.ASM` `SNDTAB` is 23 cues; `SNDOBJ` is 12. Creature type is the cue index. Object classes add `SNDOBJ`. `ISOUND` forces `B = $FF`. `CWLK20` attenuates with `B = ~(T0 * 31)` when the larger row/column delta is ≤ 8 and the smaller ≤ 2. A same-cell attack uses `$FF`. `SNOISE` updates `SNDRND` only and does not read or write `SEED`. Generator immediates and `THUDD`/`BANGD` are in `fixtures/sounds.json`. Jiffy durations remain D-4b.

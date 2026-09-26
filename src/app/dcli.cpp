@@ -19,7 +19,7 @@ namespace {
 
 int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
-                 "            [--dump-maze FILE] [--trace FILE] [--present]\n"
+                 "            [--dump-maze FILE] [--trace FILE] [--present] [--events]\n"
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n";
@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
     std::uint64_t jiffies = 600;
     bool have_second = false;
     bool present = false;
+    bool events = false;
     int second = 0;
 
     for (int i = 1; i < argc; ++i) {
@@ -72,6 +73,7 @@ int main(int argc, char** argv) {
         else if (a == "--dump-maze") maze_out = next();
         else if (a == "--trace") trace_out = next();
         else if (a == "--present") present = true;
+        else if (a == "--events") events = true;
         else return usage();
     }
 
@@ -107,7 +109,12 @@ int main(int argc, char** argv) {
         out = &file;
     }
     *out << "# jiffy\tclock\tevent\tdetail\n";
-    for (const auto& e : game.trace()) *out << e.to_line() << "\n";
+    if (events) {
+        *out << "# CoreEvent stream (ADR-0004)\n";
+        for (const auto& e : game.events()) *out << e.to_line() << "\n";
+    } else {
+        for (const auto& e : game.trace()) *out << e.to_line() << "\n";
+    }
     *out << "# final\trow=" << game.player().row << "\tcol=" << game.player().col
          << "\tdir=" << static_cast<int>(game.player().dir)
          << "\tdamage=" << game.player().damage << "\n";
