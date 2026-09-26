@@ -27,10 +27,6 @@ RenderState project(const ViewSnapshot& view) {
     const int light = view.regular_light + view.magic_light;
     state.text = "VIEW light=" + std::to_string(light);
     if (light == 0) return state;
-    static constexpr int dr[4] = {-1, 0, 1, 0};
-    static constexpr int dc[4] = {0, 1, 0, -1};
-    (void)dr;
-    (void)dc;
     for (int distance = 1; distance <= 4; ++distance) {
         if (view.ahead[distance] == 0xFF) break;
         const int scale = kNormalScale[distance];
