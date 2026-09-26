@@ -1189,6 +1189,24 @@ void test_prepared_winner() {
     check(fresh.damage == 14, "the fire ring deals 14 damage to the wizard at power 160");
 }
 
+void test_hslow_floor() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    std::uint64_t at = 0;
+    auto line = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        at += static_cast<std::uint64_t>(text.size()) + 2;
+        game.advance_jiffies(at);
+    };
+    line("TURN RIGHT");
+    for (int i = 0; i < 15; ++i) line("MOVE");
+    check(game.player().damage == 71, "fifteen wall bumps add 71 damage");
+    game.advance_jiffies(at + 8000);
+    check(game.player().damage == 63 && !game.player().dead,
+          "resting while frozen heals down to 63 and then stops");
+}
+
 }  // namespace
 
 int main() {
@@ -1213,6 +1231,7 @@ int main() {
     test_projection();
     test_incant_fire_script();
     test_prepared_winner();
+    test_hslow_floor();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";
