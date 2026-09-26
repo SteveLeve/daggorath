@@ -1055,6 +1055,25 @@ void test_projection() {
     check(mix.pending().size() == 104, "the mixer queues the blocked-move THUD");
 }
 
+void test_incant_fire_script() {
+    std::ifstream in(std::string(DAG_FIXTURE_DIR) + "/../../phase-7/traces/incant-fire.script");
+    check(in.good(), "incant-fire script is present");
+    if (!in.good()) return;
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    std::string error;
+    dag::Game game(1, 0);
+    game.load_script(dag::parse_script(buffer.str(), error));
+    check(error.empty(), "incant-fire script parses");
+    game.advance_jiffies(400);
+    bool incanted = false;
+    for (const auto& event : game.trace()) {
+        if (event.kind == "INCANT" && event.detail.find("type=21") != std::string::npos) incanted = true;
+    }
+    check(incanted, "the script incants the ring into FIRE");
+    check(!game.player().dead, "the player survives the incant script");
+}
+
 }  // namespace
 
 int main() {
@@ -1077,6 +1096,7 @@ int main() {
     test_objects_and_climb();
     test_save_and_snapshot();
     test_projection();
+    test_incant_fire_script();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";

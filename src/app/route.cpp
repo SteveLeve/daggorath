@@ -1,6 +1,7 @@
 // Prints a keystroke script that walks to the nearest floor object of a type.
 // Usage: route <type> [--second N]
 #include "daggorath/game.hpp"
+#include "daggorath/lexicon_tables.hpp"
 #include "daggorath/maze.hpp"
 
 #include <algorithm>
@@ -149,6 +150,16 @@ int main(int argc, char** argv) {
                     if (got.player().right_hand < 0) {
                         script = saved;
                         jiffy = saved_jiffy;
+                    } else {
+                        const dag::Ocb& ring =
+                            got.objects()[static_cast<std::size_t>(got.player().right_hand)];
+                        if (ring.spec[1] != 0) {
+                            for (const dag::TokenEntry& entry : dag::kAdjTab) {
+                                if (entry.index != ring.spec[1]) continue;
+                                add("INCANT " + std::string(entry.word));
+                                break;
+                            }
+                        }
                     }
                 }
                 break;
