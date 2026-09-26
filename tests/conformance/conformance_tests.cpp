@@ -946,6 +946,11 @@ void test_projection() {
     check(pixels_on == 10, "VECTOR plots one dot per step of a 10-pixel run");
     check(pixels[0] == 1 && pixels[9] == 1 && pixels[10] == 0,
           "the run covers x=0 through x=9");
+    pixels.fill(0);
+    dag::draw_segment(pixels, horizontal, 1);
+    int faded = 0;
+    for (std::uint8_t pixel : pixels) faded += pixel;
+    check(faded == 5, "fade 1 plots every second step");
     std::uint64_t owed = 0;
     check(dag::jiffies_due(1000000, owed) == 60, "one second is sixty jiffies");
     check(owed == 40, "the leftover microseconds are kept");

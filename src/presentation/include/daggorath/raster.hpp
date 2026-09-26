@@ -9,11 +9,11 @@ namespace dag {
 inline constexpr int kScreenWidth = 256;
 inline constexpr int kScreenHeight = 192;
 
-// VECTOR.ASM plot walk on a 256×192 byte surface. One byte per pixel, 0 or 1.
-// The step count and the 8.8 increment follow DIVIDE and INCRE. The bitmap
-// bit masks and the fade counter are not applied; every step is plotted.
+// `fade` is VCTFAD before VECTOR's opening INC. Zero plots every step.
+// A starting value of 0xFF draws nothing. Otherwise a dot is plotted every
+// `fade + 1` steps.
 void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
-                  const DrawSegment& segment);
+                  const DrawSegment& segment, std::uint8_t fade = 0);
 
 // Host microseconds owed to the 60 Hz core. Every owed jiffy is returned.
 // A stall catches up; it does not drop jiffies.

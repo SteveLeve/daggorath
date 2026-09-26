@@ -41,7 +41,9 @@ std::int32_t increment_for(std::int16_t delta, std::uint16_t length) {
 }  // namespace
 
 void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
-                  const DrawSegment& segment) {
+                  const DrawSegment& segment, std::uint8_t fade) {
+    const std::uint8_t fade_now = static_cast<std::uint8_t>(fade + 1u);
+    if (fade_now == 0) return;
     // VECTOR.ASM. Length is the larger absolute delta. The walk starts at
     // coordinate + 1/2 and repeats `length` times. A zero-length line is skipped.
     const std::int16_t dx = static_cast<std::int16_t>(segment.x1 - segment.x0);
@@ -54,12 +56,17 @@ void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels
     const std::int32_t y_step = increment_for(dy, length);
     std::int32_t x = (static_cast<std::int32_t>(segment.x0) << 8) | 0x80;
     std::int32_t y = (static_cast<std::int32_t>(segment.y0) << 8) | 0x80;
+    std::uint8_t countdown = fade_now;
     for (std::uint16_t i = 0; i < length; ++i) {
         const int high_x = (x >> 16) & 0xFF;
         const int px = (x >> 8) & 0xFF;
         const int py = (y >> 8) & 0xFF;
-        if (high_x == 0 && py >= 0 && py < kScreenHeight) {
-            pixels[static_cast<std::size_t>(py * kScreenWidth + px)] = 1;
+        countdown = static_cast<std::uint8_t>(countdown - 1u);
+        if (countdown == 0) {
+            countdown = fade_now;
+            if (high_x == 0 && py >= 0 && py < kScreenHeight) {
+                pixels[static_cast<std::size_t>(py * kScreenWidth + px)] = 1;
+            }
         }
         x += x_step;
         y += y_step;
