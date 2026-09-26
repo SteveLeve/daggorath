@@ -1172,6 +1172,14 @@ void test_prepared_winner() {
     magic_ring.physical_offense = 255;
     dag::apply_damage(magic_ring, wizard);
     check(wizard.damage > 0, "magic offense passes the wizard's magic defense");
+    dag::Fighter fresh = wizard;
+    fresh.damage = 0;
+    dag::Fighter elvish;
+    elvish.power = 160;
+    elvish.magic_offense = 64;
+    elvish.physical_offense = 64;
+    dag::apply_damage(elvish, fresh);
+    check(fresh.damage == 3, "the elvish sword deals 3 damage to the wizard at power 160");
 }
 
 }  // namespace
