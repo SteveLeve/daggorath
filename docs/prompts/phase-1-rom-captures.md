@@ -22,17 +22,14 @@ this, and do not re-open the firmware question. It is settled.
 **Environment.** Check these before calling anything blocked:
 
 ```sh
-export PATH="/tmp/lwtools-4.25/lwasm:$PATH"
-export LD_LIBRARY_PATH=/tmp/mame-user/usr/lib/x86_64-linux-gnu
-export DOD_MAME=/tmp/mame-user/usr/games/mame
-export DOD_HASHPATH=/tmp/mame-user/usr/share/games/mame/hash
-export DOD_FIRMWARE=$HOME/coco-firmware
+. tools/rom/env.sh
 tools/rom/assemble.sh && tools/rom/run-capture.sh
 ```
 
-The `/tmp` tools do not survive a reboot. If they are missing, re-extract the
-Ubuntu `mame 0.264+dfsg.1-1` package into `/tmp/mame-user` and rebuild
-LWTOOLS 4.25 from its tarball. Record that in the ledger if the version
+`tools/rom/env.sh` expects MAME in `~/coco-tools/mame`, extracted from the Ubuntu
+`mame 0.264+dfsg.1-1` and `mame-data` packages with `dpkg -x`. Pin the plain
+Ubuntu versions, because the ESM ones return 401. LWTOOLS 4.25 is built in
+`~/coco-tools/lwtools-4.25`. Record that in the ledger if the version
 changes. Never copy firmware, the `.ccc`, or anything under `captures/` into
 the tree.
 
