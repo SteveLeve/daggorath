@@ -20,6 +20,7 @@
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
 #include "daggorath/raster.hpp"
+#include "daggorath/snoise.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
 
@@ -948,6 +949,11 @@ void test_projection() {
     std::uint64_t owed = 0;
     check(dag::jiffies_due(1000000, owed) == 60, "one second is sixty jiffies");
     check(owed == 40, "the leftover microseconds are kept");
+    std::uint16_t noise = 1;
+    const int expect[] = {6, 31, 156, 781};
+    for (int value : expect) {
+        check(dag::snoise(noise) == value, "SNOISE matches the Python walk");
+    }
 }
 
 }  // namespace
