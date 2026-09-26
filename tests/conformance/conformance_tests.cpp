@@ -1033,6 +1033,13 @@ void test_projection() {
     const auto torch_lines = dag::decode_vectors(torch, 128, 128, 128, 76, 0);
     check(torch_lines.size() == 3 && torch_lines.back().x1 == 60 && torch_lines.back().y1 == 118,
           "the forward torch list closes on its tip");
+    // VOBJ.ASM FSWORD. V$NEW is $FF.
+    const std::uint8_t sword[] = {114, 80, 124, 100, 0xFF, 118, 82, 114, 86, 0xFE};
+    const auto sword_lines = dag::decode_vectors(sword, 128, 128, 128, 76, 0);
+    check(sword_lines.size() == 2 && sword_lines[0].x0 == 80 && sword_lines[0].y0 == 114 &&
+              sword_lines[0].x1 == 100 && sword_lines[0].y1 == 124 && sword_lines[1].x0 == 82 &&
+              sword_lines[1].y0 == 118,
+          "the forward sword list has a blade and a guard");
 }
 
 }  // namespace
