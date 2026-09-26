@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <string>
 
 #include "daggorath/render_state.hpp"
 
@@ -30,5 +31,8 @@ std::uint8_t set_fade(std::uint8_t light, std::uint8_t range);
 // Host microseconds owed to the 60 Hz core. Every owed jiffy is returned.
 // A stall catches up; it does not drop jiffies.
 int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us);
+
+// P1 portable bitmap, one character per pixel. Used by the offscreen tests.
+std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels);
 
 }  // namespace dag

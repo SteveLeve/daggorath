@@ -1,6 +1,7 @@
 #include "daggorath/raster.hpp"
 
 #include <cstdlib>
+#include <sstream>
 
 namespace dag {
 namespace {
@@ -104,6 +105,19 @@ int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us) {
         ++count;
     }
     return count;
+}
+
+std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels) {
+    std::ostringstream out;
+    out << "P1\n" << kScreenWidth << ' ' << kScreenHeight << '\n';
+    for (int y = 0; y < kScreenHeight; ++y) {
+        for (int x = 0; x < kScreenWidth; ++x) {
+            out << (pixels[static_cast<std::size_t>(y * kScreenWidth + x)] ? '1' : '0');
+            if (x + 1 != kScreenWidth) out << ' ';
+        }
+        out << '\n';
+    }
+    return out.str();
 }
 
 }  // namespace dag
