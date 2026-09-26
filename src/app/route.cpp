@@ -136,7 +136,8 @@ int main(int argc, char** argv) {
                     for (const auto& event : after.trace()) {
                         if (event.kind == "KILL") killed = true;
                     }
-                    if (after.player().dead || after.player().damage + 15 >= after.player().power) {
+                    if (after.player().dead ||
+                        (!frozen && after.player().damage + 15 >= after.player().power)) {
                         script = saved;
                         jiffy = saved_jiffy;
                         break;
