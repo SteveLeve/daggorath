@@ -12,8 +12,7 @@ std::uint16_t snoise(std::uint16_t& state);
 // bits of that product cleared, is the DAC byte written to $FF20.
 std::uint8_t dac_sample(std::uint8_t noise_high, std::uint8_t volume);
 
-// RATTLE. Ten pulses of 192 DAC samples. The silence between pulses is a
-// CPU wait and does not produce samples.
-std::vector<std::uint8_t> rattle(std::uint16_t& state, std::uint8_t volume);
+// PSSHT, PSSST, and RATTLE. The loaded count is the number of 192-sample pulses.
+std::vector<std::uint8_t> noise_pulses(std::uint16_t& state, std::uint8_t volume, int pulses);
 
 }  // namespace dag

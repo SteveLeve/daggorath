@@ -967,8 +967,11 @@ void test_projection() {
     }
     check(dag::dac_sample(0x10, 0xFF) == 0x0C, "SNOUT masks the DAC byte with $FC");
     std::uint16_t rattle_state = 1;
-    const std::vector<std::uint8_t> pulses = dag::rattle(rattle_state, 0xFF);
+    const std::vector<std::uint8_t> pulses = dag::noise_pulses(rattle_state, 0xFF, 10);
     check(pulses.size() == 10 * 0xC0, "RATTLE emits ten pulses of 192 samples");
+    std::uint16_t hiss = 1;
+    check(dag::noise_pulses(hiss, 0xFF, 1).size() == 0xC0, "PSSHT emits one pulse");
+    check(dag::noise_pulses(hiss, 0xFF, 2).size() == 2 * 0xC0, "PSSST emits two pulses");
 }
 
 }  // namespace
