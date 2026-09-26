@@ -264,6 +264,8 @@ struct Runner {
         const char* cmds[] = {"MOVE BACK", "MOVE LEFT", "MOVE RIGHT", "MOVE"};
         const int rels[] = {2, 3, 1, 0};
         const int pr = game.player().row, pc = game.player().col;
+        const char* best = nullptr;
+        int best_d = 1e9;
         for (int i = 0; i < 4; ++i) {
             if (!dest_ok(rels[i])) continue;
             const dag::Dir d =
@@ -271,10 +273,15 @@ struct Runner {
             int nr = 0, nc = 0;
             dag::step_ok(game.maze(), pr, pc, d, nr, nc);
             if (creature_at(game, nr, nc) >= 0) continue;
-            return cmds[i];
+            const int dist = camp_r < 0 ? i : std::abs(nr - camp_r) + std::abs(nc - camp_c);
+            if (best == nullptr || dist < best_d) {
+                best = cmds[i];
+                best_d = dist;
+            }
         }
+        if (best != nullptr) return best;
         for (int i = 0; i < 4; ++i)
-            if (dest_ok(rels[i])) return cmds[i];
+            if (dest_ok(rels[i], false)) return cmds[i];
         return "MOVE BACK";
     }
 
@@ -453,10 +460,21 @@ struct Runner {
     }
 
     void ensure_sword() {
+        const int lt = hand_type(false), rt = hand_type(true);
+        if (lt == kIron || lt == kElvish || rt == kIron || rt == kElvish) return;
+        if (owned_by_player(game, find_obj(game, kIron)) ||
+            owned_by_player(game, find_obj(game, kElvish))) {
+            empty_hand(false);
+            type({"PULL LEFT IRON SWORD"});
+            if (hand_type(false) != kIron && hand_type(false) != kElvish)
+                type({"PULL LEFT ELVISH SWORD"});
+            if (hand_type(false) != kIron && hand_type(false) != kElvish)
+                type({"PULL LEFT SWORD"});
+            return;
+        }
         if (have_sword()) return;
         empty_hand(false);
-        type({"PULL LEFT IRON SWORD"});
-        if (!have_sword()) type({"PULL LEFT SWORD"});
+        type({"PULL LEFT SWORD"});
     }
 
     void douse_torch() {
@@ -715,9 +733,10 @@ struct Runner {
         }
         if (phase == Clear || phase == LightUp || phase == Survive3) {
             ensure_sword();
-            // Shield knights and worse: hit-once-and-leave. Their attack
-            // delay is 7 tenths; sitting through EXAMINE lets them swing.
-            if (c.type >= 4) {
+            // Club giants and worse: hit and leave before CMOVE's attack
+            // delay (23 tenths for type 2). Sitting through EXAMINE lets them
+            // swing. Wimps still wait on a pickup.
+            if (c.type >= 2) {
                 hit_run(false);
                 return true;
             }
@@ -727,7 +746,6 @@ struct Runner {
                 return true;
             }
             swing();
-            if (lethal(c) && here() >= 0 && floor_here() == 0) type({leave_cmd()});
             return true;
         }
         if (lethal(c)) {
@@ -792,7 +810,9 @@ struct Runner {
         if (slot == -2) return false;
         if (slot >= 0) return false;
         if (game.player().row != tr || game.player().col != tc) {
-            path_step(tr, tc, true);
+            if (!path_step(tr, tc, true)) {
+                if (!path_step(tr, tc, false)) idle(20);
+            }
             return false;
         }
         empty_hand(true);
@@ -862,6 +882,10 @@ struct Runner {
                         phase = WallWalk;
                         break;
                     }
+                    if (rest_needed()) {
+                        idle(40);
+                        break;
+                    }
                     if (game.counters().total_jiffies - phase_since > 8000 ||
                         lethal_aligned()) {
                         // A club giant or blob is on the corridor. Light and
@@ -871,10 +895,6 @@ struct Runner {
                     }
                     if (camp_r >= 0 && !at_camp()) {
                         return_camp();
-                        break;
-                    }
-                    if (rest_needed()) {
-                        idle(40);
                         break;
                     }
                     idle(30);
@@ -894,10 +914,26 @@ struct Runner {
                     break;
                 }
                 case LightUp: {
+                    if (rest_needed()) {
+                        idle(40);
+                        break;
+                    }
                     ensure_sword();
                     seed_bait();
-                    if (!light_pine()) {
-                        report_block("could not light pine");
+                    bool lit = torch_live();
+                    if (!lit && game.level_index() >= 2)
+                        lit = light_named(kLunar, "LUNAR TORCH") ||
+                              light_named(kSolar, "SOLAR TORCH");
+                    if (!lit) lit = light_pine();
+                    if (!lit) {
+                        empty_hand(true);
+                        type({"GET RIGHT TORCH"});
+                        if (cls_of(game.player().right_hand) == kClassTorch)
+                            type({"USE RIGHT"});
+                        lit = torch_live();
+                    }
+                    if (!lit) {
+                        report_block("could not light a torch");
                         return 1;
                     }
                     last_floor = floor_here();
@@ -930,10 +966,12 @@ struct Runner {
                                 bc = c.col;
                             }
                         }
-                        if (br >= 0 && bd > 1) {
-                            if (!go_adjacent(br, bc)) path_step(br, bc, false);
+                        // 0,0 is a normal walkable cell. CBIRTH skips it;
+                        // walking onto it is the way to finish a straggler.
+                        if (br >= 0 && bd > 0) {
+                            if (!path_step(br, bc, false)) idle(20);
                         } else {
-                            idle(20);
+                            idle(8);
                         }
                         break;
                     }
@@ -949,58 +987,110 @@ struct Runner {
                     // Leave ABYE on the floor. Collect weapons, rings, Hale,
                     // Thews, bronze, and spare torches. Do not INCANT yet.
                     if (game.level_index() == 0) {
-                        if (!get_if_here(kIron, "IRON SWORD")) collect(kIron, "IRON SWORD");
-                        if (!owned_by_player(game, find_obj(game, kVulcan)) &&
-                            !owned_by_player(game, find_obj(game, kFire)))
-                            collect(kVulcan, "VULCAN RING");
-                        collect(kLunar, "LUNAR TORCH");
-                        collect(kLeather, "LEATHER SHIELD");
-                        if (owned_by_player(game, find_obj(game, kIron)) &&
-                            (owned_by_player(game, find_obj(game, kVulcan)) ||
-                             find_obj(game, kVulcan) < 0)) {
-                            if (hand_type(false) == kVulcan || hand_type(true) == kVulcan)
-                                empty_hand(hand_type(true) == kVulcan);
-                            phase = Descend;
+                        if (rest_needed()) {
+                            idle(40);
+                            break;
                         }
-                        if (waits > 1500) phase = Descend;
+                        if (hand_type(false) == kVulcan) type({"INCANT FIRE"});
+                        if (hand_type(true) == kVulcan) type({"INCANT FIRE"});
+                        if (hand_type(false) == kFire) empty_hand(false);
+                        if (hand_type(true) == kFire) empty_hand(true);
+                        if (!owned_by_player(game, find_obj(game, kIron))) {
+                            collect(kIron, "IRON SWORD");
+                            break;
+                        }
+                        if (!owned_by_player(game, find_obj(game, kFire))) {
+                            if (!owned_by_player(game, find_obj(game, kVulcan))) {
+                                collect(kVulcan, "VULCAN RING");
+                                break;
+                            }
+                            empty_hand(false);
+                            type({"PULL LEFT VULCAN RING"});
+                            if (hand_type(false) != kVulcan) type({"PULL LEFT RING"});
+                            if (hand_type(false) == kVulcan) type({"INCANT FIRE"});
+                            if (hand_type(false) == kFire) empty_hand(false);
+                            break;
+                        }
+                        if (!owned_by_player(game, find_obj(game, kLunar))) {
+                            collect(kLunar, "LUNAR TORCH");
+                            if (!owned_by_player(game, find_obj(game, kLunar)) && waits < 400)
+                                break;
+                        }
+                        phase = Descend;
+                        break;
+                    }
+                    if (rest_needed()) {
+                        if (owned_by_player(game, find_obj(game, kHale))) {
+                            empty_hand(true);
+                            type({"PULL RIGHT HALE FLASK"});
+                            if (hand_type(true) != kHale) type({"GET RIGHT HALE FLASK"});
+                            if (hand_type(true) == kHale) type({"USE RIGHT"});
+                        } else if (find_obj(game, kHale) >= 0 &&
+                                   game.objects()[static_cast<std::size_t>(find_obj(game, kHale))]
+                                           .level == game.level_index()) {
+                            collect(kHale, "HALE FLASK");
+                        } else {
+                            idle(40);
+                        }
                         break;
                     }
                     if (game.level_index() == 1) {
-                        collect(kHoth, "RIME RING");
-                        collect(kHale, "HALE FLASK");
+                        if (!owned_by_player(game, find_obj(game, kHoth)) &&
+                            !owned_by_player(game, find_obj(game, kIce))) {
+                            collect(kHoth, "RIME RING");
+                            break;
+                        }
+                        if (hand_type(false) == kHoth || hand_type(true) == kHoth)
+                            type({"INCANT ICE"});
+                        if (owned_by_player(game, find_obj(game, kHoth)) &&
+                            hand_type(false) != kIce && hand_type(true) != kIce &&
+                            hand_type(false) != kHoth && hand_type(true) != kHoth) {
+                            empty_hand(true);
+                            type({"PULL RIGHT RIME RING"});
+                            if (hand_type(true) != kHoth) type({"PULL RIGHT RING"});
+                            if (hand_type(true) == kHoth) type({"INCANT ICE"});
+                            if (hand_type(true) == kIce) empty_hand(true);
+                            break;
+                        }
+                        if (!owned_by_player(game, find_obj(game, kSolar))) {
+                            collect(kSolar, "SOLAR TORCH");
+                            if (!owned_by_player(game, find_obj(game, kSolar)) && waits < 400)
+                                break;
+                        }
                         collect(kBronze, "BRONZE SHIELD");
-                        collect(kSolar, "SOLAR TORCH");
-                        collect(kVision, "VISION SCROLL");
-                        collect(kIron, "IRON SWORD");
-                        if (owned_by_player(game, find_obj(game, kHoth)) || waits > 2000)
-                            phase = Descend;
+                        if (!owned_by_player(game, find_obj(game, kBronze)) && waits < 400)
+                            break;
+                        phase = Descend;
                         break;
                     }
                     if (game.level_index() == 2) {
-                        collect(kThews, "THEWS FLASK");
-                        collect(kHale, "HALE FLASK");
-                        collect(kVision, "VISION SCROLL");
-                        if (owned_by_player(game, find_obj(game, kThews)) &&
-                            game.player().power < 1000) {
+                        if (game.player().power < 1000) {
+                            if (!owned_by_player(game, find_obj(game, kThews))) {
+                                collect(kThews, "THEWS FLASK");
+                                break;
+                            }
                             empty_hand(true);
                             type({"PULL RIGHT THEWS FLASK"});
-                            if (hand_type(true) != kThews)
-                                type({"GET RIGHT THEWS FLASK"});
+                            if (hand_type(true) != kThews) type({"GET RIGHT THEWS FLASK"});
                             if (hand_type(true) == kThews) type({"USE RIGHT"});
                             break;
                         }
-                        if (game.player().power >= 1000 || waits > 2500) {
-                            phase = PrepRings;
-                        }
+                        phase = PrepRings;
                         break;
                     }
                     if (game.level_index() == 3) {
-                        collect(kJoule, "JOULE RING");
-                        collect(kElvish, "ELVISH SWORD");
+                        if (!owned_by_player(game, find_obj(game, kJoule)) &&
+                            !owned_by_player(game, find_obj(game, kEnergy))) {
+                            collect(kJoule, "JOULE RING");
+                            break;
+                        }
+                        if (!owned_by_player(game, find_obj(game, kElvish))) {
+                            collect(kElvish, "ELVISH SWORD");
+                            break;
+                        }
                         collect(kMithril, "MITHRIL SHIELD");
-                        collect(kSeer, "SEER SCROLL");
-                        collect(kThews, "THEWS FLASK");
-                        if (owned_by_player(game, find_obj(game, kJoule)) || waits > 3000)
+                        if (owned_by_player(game, find_obj(game, kJoule)) ||
+                            owned_by_player(game, find_obj(game, kEnergy)) || waits > 800)
                             phase = Descend;
                         break;
                     }
