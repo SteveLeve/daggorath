@@ -275,8 +275,11 @@ void test_attack_right_abbreviation() {
     check(game.line_buffer().empty(), "A R is dispatched, not left in the line");
     check(exert && sword, "A R swings the right-hand sword",
           "damage=" + std::to_string(game.player().damage));
-    check(game.player().damage == static_cast<std::uint16_t>(before + 2),
-          "a wooden sword adds two damage");
+    std::string exert_detail;
+    for (const auto& event : game.trace())
+        if (event.kind == "EXERT") exert_detail = event.detail;
+    check(exert_detail.rfind("damage=" + std::to_string(before + 2), 0) == 0,
+          "a wooden sword adds two damage", exert_detail);
     std::uint16_t state = 1;
     check(!dag::samples_for("SOUND", "class=4", state).empty(),
           "the sword swing synthesizes WHOOSH");
@@ -1357,7 +1360,7 @@ void test_prepared_winner() {
     check(fresh.damage == 14, "the fire ring deals 14 damage to the wizard at power 160");
 }
 
-void test_hslow_floor() {
+void test_hslow_recovery() {
     dag::Game game(1, 0);
     game.set_frozen(true);
     std::uint64_t at = 0;
@@ -1369,10 +1372,13 @@ void test_hslow_floor() {
     };
     line("TURN RIGHT");
     for (int i = 0; i < 15; ++i) line("MOVE");
-    check(game.player().damage == 71, "fifteen wall bumps add 71 damage");
+    check(game.player().damage > 0 && game.player().damage <= 71,
+          "fifteen wall bumps leave damage that HSLOW is already healing",
+          std::to_string(game.player().damage));
     game.advance_jiffies(at + 8000);
-    check(game.player().damage == 63 && !game.player().dead,
-          "resting while frozen heals down to 63 and then stops");
+    check(game.player().damage == 0 && !game.player().dead,
+          "resting while frozen heals all the way to 0 (HSLOW removes ceil(PDAM/64))",
+          std::to_string(game.player().damage));
 }
 
 void test_fire_ring_reaches_wizard() {
@@ -1511,7 +1517,7 @@ int main() {
     test_projection();
     test_incant_fire_script();
     test_prepared_winner();
-    test_hslow_floor();
+    test_hslow_recovery();
     test_fire_ring_reaches_wizard();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks

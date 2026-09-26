@@ -272,7 +272,7 @@ struct Runner {
         if (use_fudge)
             fudge_rest_now();
         else
-            recover();
+            idle(20);  // HSLOW heals damage fully; wait it out.
     }
 
     std::filesystem::path stage_path(const std::string& stage, const char* ext) const {
@@ -1238,7 +1238,10 @@ struct Runner {
                 }
                 last_j = game.counters().total_jiffies;
             }
+            if (use_fudge && game.level_index() >= 4 && game.player().damage > 63)
+                fudge_rest_now();
             if (game.player().fainted) {
+                if (use_fudge && game.player().damage > 63) fudge_rest_now();
                 idle(20);
                 continue;
             }
@@ -1724,7 +1727,9 @@ struct Runner {
                     if (std::abs(game.player().row - w.row) +
                             std::abs(game.player().col - w.col) >
                         0)
-                        path_step(w.row, w.col, true);
+                        if (!path_step(w.row, w.col, true) &&
+                            !path_step(w.row, w.col, false))
+                            idle(20);
                     if (waits > 4000) {
                         report_block("cannot reach type 10");
                         return 1;

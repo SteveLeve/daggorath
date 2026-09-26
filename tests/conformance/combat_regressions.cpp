@@ -512,6 +512,26 @@ void test_death_on_exact_jiffy() {
 
 }  // namespace
 
+void test_damage_recovers_to_zero() {
+    // COMPLR.ASM HSLOW adds (-PDAM) >>arith 6, i.e. removes ceil(PDAM/64), so
+    // small damage heals fully rather than stalling at 63.
+    for (const std::uint16_t start : {std::uint16_t{35}, std::uint16_t{63}, std::uint16_t{100}}) {
+        dag::Game game;
+        game.set_frozen(true);
+        game.set_player_damage(start);
+        std::uint16_t last = start;
+        bool stalled = false;
+        for (int step = 0; step < 4000 && game.player().damage != 0; ++step) {
+            game.advance_jiffies(1);
+            if (game.player().damage > last) stalled = true;
+            last = game.player().damage;
+        }
+        check(game.player().damage == 0 && !stalled,
+              "damage " + std::to_string(start) + " heals to 0 under HSLOW",
+              "damage=" + std::to_string(game.player().damage));
+    }
+}
+
 int main() {
     test_attack_while_fainted();
     test_attack_in_darkness();
@@ -524,6 +544,7 @@ int main() {
     test_viper_damage();
     test_leather_shield_does_not_soften_a_viper();
     test_death_on_exact_jiffy();
+    test_damage_recovers_to_zero();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";
     return g_failures == 0 ? 0 : 1;

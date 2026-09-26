@@ -325,19 +325,23 @@ void test_fudge_harness_is_not_source_behaviour() {
     const dag::Ccb& c = a.creatures()[static_cast<std::size_t>(sl)];
     a.place_player(c.row, c.col);
     const std::string snap = a.snapshot();
-    const std::uint16_t before = a.player().damage;
-    a.advance_jiffies(400);
-    const unsigned full =
-        static_cast<unsigned>(a.player().damage) + (a.player().damage < before ? 65536u : 0u) -
-        before;
+    const auto first_hit_damage = [](dag::Game& g) {
+        const auto hits = [&g] {
+            std::size_t n = 0;
+            for (const auto& e : g.trace()) n += e.kind == "HIT";
+            return n;
+        };
+        const std::size_t seen = hits();
+        const std::uint16_t before = g.player().damage;
+        for (int i = 0; i < 400 && hits() == seen; ++i) g.advance_jiffies(1);
+        return static_cast<unsigned>(g.player().damage) - before;
+    };
+    const unsigned full = first_hit_damage(a);
     dag::Game b;
     b.restore_snapshot(snap);
     check(b.incoming_damage_percent() == 100, "snapshot default incoming stays 100");
     b.set_incoming_damage_percent(25);
-    const std::uint16_t b0 = b.player().damage;
-    b.advance_jiffies(400);
-    const unsigned quarter =
-        static_cast<unsigned>(b.player().damage) + (b.player().damage < b0 ? 65536u : 0u) - b0;
+    const unsigned quarter = first_hit_damage(b);
     check(full > 0, "a creature hit the player at 100%", "added=" + std::to_string(full));
     check(quarter == full * 25u / 100u, "FUDGE incoming 25 scales creature-to-player damage",
           "full=" + std::to_string(full) + " quarter=" + std::to_string(quarter));

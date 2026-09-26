@@ -437,11 +437,13 @@ TaskResult Game::task_player() {
 }
 
 TaskResult Game::task_hslow() {
-    // HSLOW: recover 1/64th of accumulated damage, then reschedule at HEARTR.
+    // HSLOW: D = (-PDAM) >>arith 6, PDAM += D, BGT else 0. The arithmetic shift
+    // rounds toward minus infinity, so each run recovers ceil(PDAM/64) >= 1.
     const std::uint16_t d = player_.damage;
-    const std::int32_t recovered = static_cast<std::int32_t>(d) -
-                                   static_cast<std::int32_t>(d >> 6);
-    player_.damage = static_cast<std::uint16_t>(recovered > 0 ? recovered : 0);
+    const auto negated = static_cast<std::int16_t>(static_cast<std::uint16_t>(0u - d));
+    const auto sum = static_cast<std::int16_t>(
+        static_cast<std::uint16_t>((negated >> 6) + d));
+    player_.damage = sum > 0 ? static_cast<std::uint16_t>(sum) : 0;
     update_heart_rate();
     std::uint8_t delay = player_.heart_rate;
     if (delay == 0) delay = 1;    // a zero countdown would never expire

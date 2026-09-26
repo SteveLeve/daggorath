@@ -255,8 +255,11 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
   borrow**, so it yields `floor(num/den) + 1`. The result is stored in one byte
   and compared **signed**.
 - Faint when `HEARTR ≤ 3`; recover when `HEARTR > 4` (hysteresis band at 4).
-- `HSLOW` removes `damage/64` per run and then reschedules itself `HEARTR` jiffies
-  later, so recovery accelerates as the player recovers **[SRC]**.
+- `HSLOW` adds `(-PDAM) >>arith 6` to `PDAM` (`ASRD6`), which removes
+  `ceil(PDAM/64)`: at least 1 per run, so damage heals all the way to 0 **[SRC]**.
+  It then reschedules itself `HEARTR` jiffies later, so recovery accelerates as
+  the player recovers **[SRC]**. (Corrected 2026-09-26: earlier text and code used
+  a floor and stalled at 63; see `docs/archaeology/phase-3/reconciliation.md`.)
 - At game start `P = 160`, `D = 0` (see §10), giving `HEARTR = 46` jiffies.
 
 ## 10. Startup state relevant to timing
@@ -323,7 +326,7 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-8 | Retired 2026-09-25 | Killing type 10 runs `ENDGAM` and type 11 runs the ring riddle (`PATTK.ASM`). Phase 5. |
 | D-9 | Retired 2026-09-25 | Incanting `FINAL` runs `WINNER` (`PINCAN.ASM`). Phase 5. |
 | D-11 | `ZLOAD` of a name that is not on the cassette reports `???` | **[SRC]** `LOAD` reads blocks until a header's name matches and never gives up. The core's cassette is an in-memory list, so an absent name would hang forever. ADR-0005. |
-| D-12 | `FUDGE incoming <percent>` scales creature damage applied to the player by percent/100; `FUDGE rest` sets `PDAM` to 63 | **Not source behaviour.** Harness script lines, ignored by the command parser. Default construction stays at 100 (Original Mode). ADR-0007: `Game::set_incoming_damage_percent` is a harness API; player hits are not scaled. Phase 5 playthrough. |
+| D-12 | `FUDGE incoming <percent>` scales creature damage applied to the player by percent/100; `FUDGE rest` sets `PDAM` to 63 (a harness value; not a source floor) | **Not source behaviour.** Harness script lines, ignored by the command parser. Default construction stays at 100 (Original Mode). ADR-0007: `Game::set_incoming_damage_percent` is a harness API; player hits are not scaled. Phase 5 playthrough. |
 | D-13 | Desktop-only presentation of a forward/back half-step and of a turn/sidestep wipe | **Not source behaviour; presentation only, no simulated time.** `src/platform/sdl_app.cpp` draws an extra intermediate frame between the cell being left and the cell entered: `HLFSCL` (`half_scale = 1`, forward) or `BAKSCL` (`half_scale = 2`, backward) for a straight move, held one video frame (`SDL_Delay(12)`, ~1/60 s) before the standing view; and, for a turn or a `MOVE LEFT`/`MOVE RIGHT` sidestep, a wipe bar (`turn_wipe`) starting at screen x=8 for a left turn or `MOVE LEFT` and x=248 for a right turn, about-face or `MOVE RIGHT`, also held 12 ms. **[INF]** the hold duration and the two x-origins are not timed or positioned from the listing; they render the `Block(MoveAnimation)`/`Block(TurnAnimation)` events from D-4a on screen. This is presentation only: it adds no jiffy and changes no core state. |
 
 ### Initial clock (applied)
