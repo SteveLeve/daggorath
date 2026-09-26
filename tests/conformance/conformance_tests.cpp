@@ -19,6 +19,7 @@
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
+#include "daggorath/render_state.hpp"
 #include "daggorath/rng.hpp"
 
 namespace {
@@ -920,6 +921,23 @@ void test_save_and_snapshot() {
     check(other.snapshot() == again, "snapshot round trip matches");
 }
 
+void test_projection() {
+    dag::ViewSnapshot dark;
+    dark.ahead[1] = 0;
+    check(dag::project(dark).segments.empty(), "zero light draws no walls");
+    dag::ViewSnapshot lit;
+    lit.regular_light = 7;
+    lit.ahead[1] = 0;
+    lit.ahead[2] = 0xFF;
+    const dag::RenderState state = dag::project(lit);
+    check(state.segments.size() == 1, "one open cell draws one wall");
+    check(state.segments[0].x0 == 128 - dag::kNormalScale[1] / 2, "wall uses NORSCL");
+    dag::ViewSnapshot mapper;
+    mapper.mode = 2;
+    mapper.map_features = true;
+    check(dag::project(mapper).text == "MAP features", "map mode names features");
+}
+
 }  // namespace
 
 int main() {
@@ -941,6 +959,7 @@ int main() {
     test_combat_fixtures_and_flow();
     test_objects_and_climb();
     test_save_and_snapshot();
+    test_projection();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";
