@@ -53,8 +53,27 @@ int main(int argc, char** argv) {
             goal_col = object.col;
         }
     }
+    bool carried = false;
     if (goal_row < 0) {
-        std::cerr << "no placed floor object of type " << want << " on level 0\n";
+        for (int slot = 0; slot < dag::kCcbSlots; ++slot) {
+            const dag::Ccb& creature = game.creatures()[static_cast<std::size_t>(slot)];
+            if (!creature.in_use) continue;
+            for (int obj = creature.object_head; obj >= 0;
+                 obj = game.objects()[static_cast<std::size_t>(obj)].next) {
+                if (game.objects()[static_cast<std::size_t>(obj)].type != want) continue;
+                const int dist = std::abs(creature.row - game.player().row) +
+                                 std::abs(creature.col - game.player().col);
+                if (dist < best) {
+                    best = dist;
+                    goal_row = creature.row;
+                    goal_col = creature.col;
+                    carried = true;
+                }
+            }
+        }
+    }
+    if (goal_row < 0) {
+        std::cerr << "no placed object of type " << want << " on level 0\n";
         return 1;
     }
 
@@ -109,7 +128,8 @@ int main(int argc, char** argv) {
         facing = step_dir;
         emit_line(jiffy, "MOVE");
     }
-    emit_line(jiffy, "GET LEFT RING");
-    std::cerr << "jiffies " << jiffy << " target " << goal_row << "," << goal_col << "\n";
+    if (!carried) emit_line(jiffy, "GET LEFT RING");
+    std::cerr << (carried ? "carried" : "floor") << " target " << goal_row << "," << goal_col
+              << " jiffies " << jiffy << "\n";
     return 0;
 }
