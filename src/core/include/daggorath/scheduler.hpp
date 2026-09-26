@@ -95,10 +95,15 @@ public:
     // CLOCK before SCHED starts, so those interrupts move the clock only.
     void advance_clock_counters(std::uint32_t n);
 
-    // The foreground SCHED pass: run every task currently ready, in list order.
-    // A task returning Queue::Sched stays ready and runs again on the next pass
-    // (see docs/.../clock-scheduler-spec.md, deviation D-2).
+    // One foreground jiffy of SCHED (ADR-0002, option 3). Walk SCDQUE in order.
+    // Repeat the lap while a task queued onto SCDQUE during this jiffy has not
+    // run yet. A task that returns Queue::Sched has had its one run this jiffy
+    // and stays linked for the next jiffy. Queue::Null removes the task.
     void run_ready_pass();
+
+    // Drop a task from SCDQUE and the countdown lists. NEWLVL zeros creature
+    // blocks; their previous CMOVE tasks must not keep running.
+    void retire(int id);
 
     const std::vector<int>& ready() const { return ready_; }
 
@@ -106,9 +111,12 @@ private:
     void scan_queue(Queue q);
     void requeue(int id, TaskResult r);
     void bump_counters(bool scan_rollover_queues);
+    void erase_id(std::vector<int>& ids, int id);
 
     std::vector<Task> tasks_;
     std::vector<int> ready_;             // SCDQUE, in order
+    // QUEADD lists for the countdown queues, keyed by the queue's byte code.
+    std::array<std::vector<int>, 13> countdown_{};
     Counters counters_;
     KeyboardBuffer keyboard_;
     TraceFn trace_;

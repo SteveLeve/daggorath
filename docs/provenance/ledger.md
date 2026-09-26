@@ -103,3 +103,7 @@ Color BASIC 1.1 were not legally obtained. No frame was captured, so
 behavioural claims are not ROM-observed. Maze hashes remain hashes of this
 project's serialization, cross-checked between the Python extractor and the
 C++ core.
+
+Phase 2 added no fixture and no ROM. `docs/archaeology/phase-2/traces/idle-10min.trace`
+is `dcli` output from the core, not a capture. Creature delays were already in
+`fixtures/creatures.json` (`DTABAS.ASM` `CREXXX`).

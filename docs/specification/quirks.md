@@ -33,4 +33,14 @@ implementation artifact, comment error, or a discrepancy between two sources.
 | Cell (0, 0) cannot be a birth cell | implementation artifact of marking the block in use before storing its position | preserve |
 | Shields, swords, and torches carry generic parameters until `REVEAL` | source behaviour | preserve |
 | `NEWLVL` object attachment spins until it finds a live creature (`NLVL42`) | source behaviour | preserve. With no live creature the original never returns, and this core loops the same way. Every shipped level births at least one creature before attachment, so the loop terminates for those rows |
-| `CMOVE` is not queued | deviation of this core, not original behaviour | D-6 in `clock-and-scheduler.md` §13. Retire when movement is implemented |
+| `CMOVE` is not queued | retired 2026-09-25 | was D-6; `CBIRTH` queues `CMOVE` |
+
+## Phase 2
+
+| Observation | Classification | Original Mode |
+|---|---|---|
+| Frozen is tested before death, so a frozen dead creature stays queued at the movement delay | source behaviour | preserve |
+| A dead creature returns with `B = 0`, and `SCHED` parks it on queue 0 | source behaviour | preserve by dropping the task; queue 0 is not scanned |
+| Scorpions and both wizard types do not pick objects up | source behaviour | preserve |
+| `MOVTAB` tries a side before forward when the random byte's low two bits are 0 | source behaviour | preserve; 64 of 256 |
+| `CMOVE` stops at `JSR ATTACK` | deviation of this core | D-7; Phase 3 retires it |

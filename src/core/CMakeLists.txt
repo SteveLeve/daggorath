@@ -8,6 +8,7 @@ add_library(daggorath_core
   scheduler.cpp
   parser.cpp
   population.cpp
+  creature_move.cpp
   game.cpp
 )
 target_include_directories(daggorath_core PUBLIC include)

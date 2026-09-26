@@ -311,12 +311,13 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 
 | ID | Deviation | Why |
 |---|---|---|
-| D-1 | The slice models per-jiffy foreground passes rather than the endless `SCHED` lap | A faithful endless loop would re-enter any task returning `Q.SCD` without bound. No in-scope task returns `Q.SCD`. Creature tasks are the reason this stays explicit: see D-6. **[OPEN]** for that re-entry. The ROM did run every task the interrupt had readied in that same interrupt, in queue-scan order (reconciliation §1). |
-| D-2 | Tasks made ready during a pass run on the following pass | Keeps the pass deterministic and terminating. **[OPEN]** for a task readied by another task in the same foreground pass. Tasks readied by the interrupt itself ran before the next interrupt: at isr 3222 the order was `PLAYER`, `LUKNEW`, `BURNER`. |
+| D-1 | One jiffy runs a bounded `SCHED` lap, not an endless one | **[SRC]** `SCHED` restarts at the head when the tail is reached. **[INF]** a task returning `Q.SCD` runs at most once per jiffy, because a lap's CPU cost is unknown (ADR-0002). No in-scope task returns `Q.SCD`. The ROM ran every task the interrupt had readied before the next interrupt (Phase 1 reconciliation §1). |
+| D-2 | A task queued onto `SCDQUE` during the jiffy runs before the jiffy ends; a `Q.SCD` return does not run again until the next jiffy | **[SRC]** the lap walks to the tail, so a newly linked TCB is reached in that lap. The once-per-jiffy guard on a `Q.SCD` return is the same inference as D-1. Tasks readied by the interrupt ran before the next interrupt: at isr 3222 the order was `PLAYER`, `LUKNEW`, `BURNER`. |
 | D-3 | `HSLOW` clamps a computed countdown of 0 to 1 | A 0 countdown would wrap to 255 in the original; the clamp avoids silently modelling a 255-jiffy delay. Only reachable at `HEARTR == 0`, i.e. near faint. |
 | D-4 | Animation and sound cost no simulated time | The core still spends none. The ROM durations are now measured (reconciliation §1): a turn's facing change is visible 1 jiffy after dispatch; a half-step changes position 6 or 7 jiffies after dispatch; the blocked-move `THUD` holds the foreground for 14 or 15 interrupts. `SNOISE` does not modify `SEED`. |
 | D-5 | The trace samples the clock counters when an event is emitted | Interrupt-phase events can therefore print a pre-bump counter value. |
-| D-6 | `CBIRTH` does not queue `CMOVE` | The control block is filled and the movement delay is stored, and the task is not inserted into `Q.TEN`. Queuing an inert `CMOVE` would change the foreground order while movement itself is still unspecified, and would tangle D-1 and D-2 with creatures. Retire this when creature movement is implemented. |
+| D-6 | Retired 2026-09-25 | `CBIRTH` queues `CMOVE` on `Q.TEN` with the definition's movement delay (`COMCRE.ASM`). Phase 2. |
+| D-7 | `CMOVE` does not call `ATTACK` | Same-cell and post-move occupancy still select the attack delay, emit the loud sound event, and stop. Damage, `HUPDAT` on that path, and the hit sound are Phase 3. ADR-0008. |
 
 ### Initial clock (applied)
 

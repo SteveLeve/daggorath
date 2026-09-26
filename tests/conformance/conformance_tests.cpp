@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "daggorath/creature_move.hpp"
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
@@ -495,6 +496,165 @@ void test_population_against_fixture() {
           "rows=" + std::to_string(objects_checked));
 }
 
+dag::Ccb live_spider(int row, int col) {
+    dag::Ccb c;
+    c.in_use = 0xFF;
+    c.type = 0;
+    c.move_delay = 23;
+    c.attack_delay = 11;
+    c.row = static_cast<std::uint8_t>(row);
+    c.col = static_cast<std::uint8_t>(col);
+    c.dir = 0;
+    return c;
+}
+
+void test_cmove_priorities() {
+    dag::Rng rng({1, 2, 3});
+    dag::Maze open;
+    for (int r = 0; r < 32; ++r)
+        for (int c = 0; c < 32; ++c) open.put(r, c, 0);
+    std::array<dag::Ccb, dag::kCcbSlots> ccbs{};
+    std::vector<dag::Ocb> objects;
+    std::vector<std::string> events;
+    dag::CmoveView view;
+
+    ccbs[0] = live_spider(4, 4);
+    view.frozen = true;
+    view.player_row = 4;
+    view.player_col = 5;
+    dag::TaskResult r = dag::cmove(0, ccbs, objects, open, rng, view, events);
+    check(r.queue == dag::Queue::Tenth && r.countdown == 23, "frozen creature requeues at the movement delay");
+    check(ccbs[0].row == 4 && ccbs[0].col == 4, "frozen creature does not move");
+    check(events.empty(), "frozen creature emits nothing");
+
+    view.frozen = false;
+    ccbs[0].in_use = 0;
+    events.clear();
+    r = dag::cmove(0, ccbs, objects, open, rng, view, events);
+    check(r.queue == dag::Queue::Null, "dead creature leaves the scheduler queue");
+
+    ccbs[0] = live_spider(4, 4);
+    dag::Ocb torch;
+    torch.level = 0;
+    torch.row = 4;
+    torch.col = 4;
+    torch.owner = 0;
+    torch.type = 15;
+    objects.push_back(torch);
+    events.clear();
+    r = dag::cmove(0, ccbs, objects, open, rng, view, events);
+    check(r.countdown == 23, "pickup requeues at the movement delay");
+    check(objects[0].owner == 0xFF && ccbs[0].object_head == 0, "pickup sets creature ownership");
+    check(ccbs[0].row == 4, "pickup does not also move");
+
+    ccbs[1] = live_spider(6, 6);
+    ccbs[1].type = 6;
+    objects[0].owner = 0;
+    objects[0].row = 6;
+    objects[0].col = 6;
+    view.player_row = 0;
+    view.player_col = 0;
+    events.clear();
+    dag::Rng rng2({0x80, 0, 0});
+    r = dag::cmove(1, ccbs, objects, open, rng2, view, events);
+    check(objects[0].owner == 0, "scorpion does not pick up");
+    check(r.queue == dag::Queue::Tenth, "scorpion still requeues");
+
+    ccbs[2] = live_spider(8, 8);
+    view.player_row = 8;
+    view.player_col = 8;
+    events.clear();
+    r = dag::cmove(2, ccbs, objects, open, rng, view, events);
+    check(r.countdown == 11, "same cell requeues at the attack delay");
+    bool deferred = false;
+    for (const auto& e : events)
+        if (e.find("DEFER creature-attack 2") != std::string::npos) deferred = true;
+    check(deferred, "same cell defers the attack");
+    check(ccbs[2].row == 8 && ccbs[2].col == 8, "deferred attack does not move the creature");
+
+    ccbs[3] = live_spider(2, 2);
+    view.player_row = 2;
+    view.player_col = 5;
+    events.clear();
+    r = dag::cmove(3, ccbs, objects, open, rng, view, events);
+    check(ccbs[3].col == 3 && ccbs[3].row == 2, "aligned creature steps toward the player");
+    check(ccbs[3].dir == static_cast<std::uint8_t>(dag::Dir::East), "aligned creature faces the player");
+    check(r.countdown == 23, "aligned step uses the movement delay");
+
+    dag::Maze box;
+    box.put(10, 10, 0);
+    ccbs[4] = live_spider(10, 10);
+    view.player_row = 0;
+    view.player_col = 0;
+    events.clear();
+    dag::Rng rng3({0xFF, 0xFF, 0xFF});
+    r = dag::cmove(4, ccbs, objects, box, rng3, view, events);
+    check(ccbs[4].row == 10 && ccbs[4].col == 10, "boxed creature stays put");
+    check(r.countdown == 23, "boxed creature still spends the movement delay");
+
+    int side_first = 0, right_bias = 0;
+    for (int b = 0; b < 256; ++b) {
+        const dag::Preference p = dag::movement_preference(static_cast<std::uint8_t>(b));
+        if (p.side_first) ++side_first;
+        if ((b & 0x80) == 0) {
+            ++right_bias;
+            check(p.relative[p.side_first ? 0 : 1] == 1, "bit7 clear prefers right before left");
+        } else {
+            check(p.relative[p.side_first ? 0 : 1] == 3, "bit7 set prefers left before right");
+        }
+    }
+    check(side_first == 64, "side-first is 64 of 256 random bytes");
+    check(right_bias == 128, "right-before-left is 128 of 256 random bytes");
+}
+
+void test_same_jiffy_creature_and_key() {
+    dag::Game probe(1, 0);
+    probe.advance_jiffies(400);
+    std::uint64_t at = 0;
+    bool saw = false;
+    for (const auto& ev : probe.trace()) {
+        if (ev.kind == "TASK" && ev.detail == "run CMOVE-0") {
+            at = ev.jiffy;
+            saw = true;
+            break;
+        }
+    }
+    check(saw, "a level-0 creature moves inside 400 jiffies");
+    dag::Game game(1, 0);
+    game.load_script({{at, static_cast<std::uint8_t>('M')}});
+    game.advance_jiffies(at + 1);
+    bool player = false, move = false, player_first = false;
+    for (const auto& ev : game.trace()) {
+        if (ev.jiffy != at) continue;
+        if (ev.kind == "TASK" && ev.detail == "run PLAYER") player = true;
+        if (ev.kind == "TASK" && ev.detail == "run CMOVE-0") {
+            move = true;
+            player_first = player;
+        }
+    }
+    check(player && move && player_first,
+          "same-jiffy keystroke task runs before the creature task");
+}
+
+void test_reentry_mid_move() {
+    dag::Game game(1, 0);
+    game.advance_jiffies(400);
+    const auto before = game.creatures();
+    game.enter_level(0);
+    const auto after = game.creatures();
+    int live = 0;
+    bool changed = false;
+    for (int i = 0; i < dag::kCcbSlots; ++i) {
+        if (after[static_cast<std::size_t>(i)].in_use) ++live;
+        if (before[static_cast<std::size_t>(i)].row != after[static_cast<std::size_t>(i)].row ||
+            before[static_cast<std::size_t>(i)].col != after[static_cast<std::size_t>(i)].col)
+            changed = true;
+    }
+    check(live == 25, "re-entry births the regenerated level-0 row", std::to_string(live));
+    check(changed, "re-entry replaces creature positions");
+    game.advance_jiffies(20);
+}
+
 void test_look() {
     dag::Game game(1, 0);
     game.load_script(type_at(2, "L"));
@@ -517,6 +677,9 @@ int main() {
     test_keystroke_burst_in_one_jiffy();
     test_population_against_fixture();
     test_look();
+    test_cmove_priorities();
+    test_same_jiffy_creature_and_key();
+    test_reentry_mid_move();
 
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures\n";

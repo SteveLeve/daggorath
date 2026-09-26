@@ -300,6 +300,7 @@ fixture hash changed. `population-entry.txt` was not regenerated.
 
 Issue #13 is applied. The source-backed slice after Phase 1 is `CMOVE` only,
 retiring D-6, still without attacks. This close-out does not implement it.
+Phase 2's record is [`../phase-2/reconciliation.md`](../phase-2/reconciliation.md).
 The prompt was [`../../prompts/phase-1-apply-issue-13.md`](../../prompts/phase-1-apply-issue-13.md).
 Attacks need the matrix decrement in `PATT40`, which this phase left unread
 for implementation.

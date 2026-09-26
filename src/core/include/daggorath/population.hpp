@@ -4,9 +4,8 @@
 //         COMDAT.ASM (CMTTAB), DTABAS.ASM (CREXXX, OBJXXX, CDBTAB, ODBTAB),
 //         CD.ASM (CCB and OCB layouts).
 //
-// Creature movement and attacks are not implemented. CBIRTH's CMOVE task is
-// recorded on the control block and deliberately not queued; see deviation D-6
-// in docs/specification/clock-and-scheduler.md.
+// CMOVE is queued by Game::queue_creatures (COMCRE.ASM CBIRTH). Attacks are
+// deferred; see deviation D-7.
 #pragma once
 #include <array>
 #include <cstdint>
