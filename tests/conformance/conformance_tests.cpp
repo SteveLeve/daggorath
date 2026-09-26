@@ -1294,6 +1294,17 @@ void test_fire_ring_reaches_wizard() {
     line("ATTACK LEFT");
     check(game.creatures()[static_cast<std::size_t>(wizard)].damage == 14,
           "one fire-ring swing deals 14 wizard damage");
+    for (int swing = 1; swing < 4 && !game.player().dead; ++swing) {
+        const std::uint64_t rest_start = at;
+        while (game.player().damage > 63 && at < rest_start + 30000 && !game.player().dead) {
+            at += 500;
+            game.advance_jiffies(at);
+        }
+        line("ATTACK LEFT");
+    }
+    check(!game.player().dead &&
+              game.creatures()[static_cast<std::size_t>(wizard)].damage == 14 * 4,
+          "four rested fire-ring swings deal 56 wizard damage");
 }
 
 }  // namespace
