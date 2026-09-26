@@ -96,8 +96,8 @@ public:
     }
 
     // NEWLVL for `level`, using the clock's current SECOND. Does not move the
-    // player. Previous CMOVE tasks are retired and the new level's creatures
-    // are queued. System tasks are not rebuilt (SYSTCB is not re-run).
+    // player. SYSTCB rebuilds the system tasks and drops every CMOVE task, then
+    // the new level's creatures are queued.
     void enter_level(int level);
 
     // FRZFLG. Frozen creatures take the movement-delay return and do not act.
@@ -158,6 +158,7 @@ private:
     TaskResult task_cregen();
     TaskResult task_cmove(int slot);
     void queue_creatures();
+    void systcb();
     void build_level(int level, std::uint8_t second);
     void start(bool rom_build, std::uint8_t second_at_entry, int level);
 

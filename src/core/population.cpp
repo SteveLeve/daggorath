@@ -175,10 +175,9 @@ void birth_creatures(int level, const std::array<std::uint8_t, kCreatureTypes>& 
 }
 
 void attach_objects(int level, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& objects) {
-    for (Ocb& o : objects) {
-        o.next = -1;
-        o.carrier = -1;
-    }
+    // NLVL40 writes P.OCPTR only for creature-owned objects on this level, so
+    // the player's bag chain survives a level change.
+    for (Ocb& o : objects) o.carrier = -1;
     for (Ccb& c : ccbs) c.object_head = -1;
     int u = -1;
     int idx = -1;
