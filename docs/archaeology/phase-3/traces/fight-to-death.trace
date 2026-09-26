@@ -4747,6 +4747,7 @@
 1759	0:0:35.6.0	TASK	run CMOVE-8
 1759	0:0:35.6.0	FAINT	heart_rate=2
 1759	0:0:35.6.0	DEATH	power=160 damage=174
+1759	0:0:35.6.0	DIALOGUE	^ YET ANOTHER DOES NOT RETURN...
 1759	0:0:35.6.0	SOUND	slot=8 type=1 vol=255
 1759	0:0:35.6.0	HIT	slot=8 damage=174
 # final	row=16	col=11	dir=0	damage=174

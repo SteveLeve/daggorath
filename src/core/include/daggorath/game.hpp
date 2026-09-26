@@ -6,6 +6,8 @@
 // the attack branch is D-7. CREGEN updates the matrix only.
 #pragma once
 #include <cstdint>
+#include <functional>
+#include <iosfwd>
 #include <string>
 #include <utility>
 #include <vector>
@@ -121,15 +123,17 @@ public:
         update_heart_rate();
     }
 
-    // The bytes ZSAVE writes are the direct page and common RAM from $0200
-    // through MM.END (CD.ASM, COMMON.ASM SAVE). This core stores the fields
-    // it models from that range. The cassette leaders and video buffers are
-    // not reconstructed.
-    std::string historical_payload() const;
-    void restore_historical_payload(const std::string& payload);
+    // What ZSAVE writes: the direct page and common RAM, DP.BEG ($0200)
+    // through MM.END (COMMON.ASM SAVE). That range holds the player, clock,
+    // SEED, queue heads and TCBs, keyboard and line buffers, CMXLND, CCBLND,
+    // MAZLND, and OCBLND, so this is every field the core models. The stack
+    // and video buffers lie outside it.
+    std::string ram_image() const;
+    void restore_ram_image(const std::string& image);
 
-    // Suspend snapshot: every field required to continue bit-identically.
-    // Not a game command.
+    // Suspend snapshot: the RAM image plus what lies outside it (the trace
+    // clock, the halt state, and the cassette), enough to continue
+    // bit-identically. Not a game command.
     std::string snapshot() const;
     void restore_snapshot(const std::string& bytes);
 
@@ -157,6 +161,10 @@ private:
     void cmd_climb(const std::string& line, std::size_t& pos);
     void cmd_zsave(const std::string& line, std::size_t& pos);
     void cmd_zload(const std::string& line, std::size_t& pos);
+    void tape_operation();                 // SCHED1 -> SAVE / LOAD -> LOAD90
+    std::function<TaskResult()> task_body(const std::string& name);
+    void save_ram(std::ostream& out) const;
+    void load_ram(std::istream& in);
     void endgame_image();
     void endgame_wizard();
     std::string filename_token(const std::string& line, std::size_t& pos) const;
@@ -199,6 +207,9 @@ private:
     std::vector<int> creature_tasks_;
     bool frozen_ = false;
     std::vector<std::pair<std::string, std::string>> tapes_;
+    // ZFLAG: +1 save, -1 load, with the TOKEN filename.
+    int zflag_ = 0;
+    std::string tape_name_;
     // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
     bool sync_pending_ = false;
 };

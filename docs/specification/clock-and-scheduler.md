@@ -318,8 +318,9 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-5 | The trace samples the clock counters when an event is emitted | Interrupt-phase events can therefore print a pre-bump counter value. |
 | D-6 | Retired 2026-09-25 | `CBIRTH` queues `CMOVE` on `Q.TEN` with the definition's movement delay (`COMCRE.ASM`). Phase 2. |
 | D-7 | Retired 2026-09-25 | `CMOVE` calls `ATTACK`. Phase 3. |
-| D-8 | Killing creature type 10 or 11 emits `DEFER endgame <type>` instead of running `ENDGAM` or the ring riddle | **[SRC]** `PATTK.ASM` branches to `ENDGAM` for type 10 and runs the ring riddle for type 11. Type 11 still sets the freeze flag. Retired by Phase 5. ADR-0008. |
-| D-9 | Incanting the final ring emits `DEFER winner` instead of running `WINNER` | **[SRC]** `PINCAN.ASM` jumps to `WINNER` when the incanted type is `T.RN15`. Retired by Phase 5. ADR-0008. |
+| D-8 | Retired 2026-09-25 | Killing type 10 runs `ENDGAM` and type 11 runs the ring riddle (`PATTK.ASM`). Phase 5. |
+| D-9 | Retired 2026-09-25 | Incanting `FINAL` runs `WINNER` (`PINCAN.ASM`). Phase 5. |
+| D-11 | `ZLOAD` of a name that is not on the cassette reports `???` | **[SRC]** `LOAD` reads blocks until a header's name matches and never gives up. The core's cassette is an in-memory list, so an absent name would hang forever. ADR-0005. |
 
 ### Initial clock (applied)
 

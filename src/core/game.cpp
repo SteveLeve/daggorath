@@ -1,6 +1,9 @@
 #include "daggorath/game.hpp"
 
 #include <cctype>
+#include <cstdlib>
+#include <istream>
+#include <ostream>
 #include <sstream>
 
 #include "daggorath/creature_move.hpp"
@@ -262,7 +265,7 @@ void Game::update_heart_rate() {
         sched_.halt();
         emit("DEATH", "power=" + std::to_string(player_.power) +
                           " damage=" + std::to_string(player_.damage));
-        emit("DIALOGUE", "YET ANOTHER DOES NOT RETURN");
+        emit("DIALOGUE", "^ YET ANOTHER DOES NOT RETURN...");   // HUPDAT.ASM:143 OUTSTI
     }
 }
 
@@ -290,6 +293,7 @@ TaskResult Game::task_player() {
         if (sync_pending_) break;   // the command blocked on SYNC
         if (sched_.halted()) break; // DEATH ends in BRA * (HUPDAT.ASM)
     }
+    if (zflag_ != 0) sched_.end_lap([this] { tape_operation(); });
     return {Queue::Jiffy, 1};                           // SCHED$ 1,Q.JIF
 }
 
@@ -656,6 +660,9 @@ bool Game::incant_hand(int index, std::uint8_t word) {
         player_.won = true;
         sched_.halt();
         emit("WINNER", "final ring");
+        // PINCAN.ASM:64 and :88 OUTSTI, then BRA *.
+        emit("DIALOGUE", "^BEHOLD! DESTINY AWAITS THE HAND");
+        emit("DIALOGUE", "        OF A NEW WIZARD...");
     }
     return object.type == kTypeRingFinal;
 }
@@ -748,17 +755,18 @@ void Game::kill_creature(int slot) {
 }
 
 void Game::endgame_image() {
-    // ENDGAM: torch stays in the bag, everything else is dropped from the
-    // player's slots, weight becomes 200, level 3 is rebuilt, FNDCEL relocates.
-    player_.left_hand = -1;
-    player_.right_hand = -1;
+    // ENDGAM (PATTK.ASM): the two messages, then BAGPTR = PTORCH with the
+    // torch's link cleared. PLHAND, PRHAND, and PTORCH are kept. Weight becomes
+    // 200, level 3 is rebuilt, and FNDCEL relocates.
+    emit("ENDGAM", "image");
+    emit("DIALOGUE", "^ ENOUGH! I TIRE OF THIS PLAY...");   // PATTK.ASM:198
+    emit("DIALOGUE", "   PREPARE TO MEET THY DOOM!!!");     // PATTK.ASM:222
     player_.bag_head = -1;
     if (player_.torch >= 0) {
         objects_[static_cast<std::size_t>(player_.torch)].next = -1;
         player_.bag_head = player_.torch;
     }
     player_.carried_weight = 200;
-    emit("ENDGAM", "image");
     enter_level(3);
     for (;;) {
         const int col = level_.rng.next() & 31;
@@ -790,23 +798,43 @@ std::string Game::filename_token(const std::string& line, std::size_t& pos) cons
     return name;
 }
 
+// PZSAVE / PZLOAD only record the filename and set ZFLAG. SCHED1 performs the
+// tape operation once PLAYER has been requeued.
 void Game::cmd_zsave(const std::string& line, std::size_t& pos) {
-    const std::string name = filename_token(line, pos);
-    const std::string payload = historical_payload();
-    tapes_.push_back({name, payload});
-    emit("ZSAVE", name + " bytes=" + std::to_string(payload.size()));
+    tape_name_ = filename_token(line, pos);
+    zflag_ = 1;
 }
 
 void Game::cmd_zload(const std::string& line, std::size_t& pos) {
-    const std::string name = filename_token(line, pos);
-    for (auto it = tapes_.rbegin(); it != tapes_.rend(); ++it) {
-        if (it->first == name) {
-            restore_historical_payload(it->second);
-            emit("ZLOAD", name);
+    tape_name_ = filename_token(line, pos);
+    zflag_ = -1;
+}
+
+void Game::tape_operation() {
+    const int flag = zflag_;
+    const std::string name = tape_name_;
+    if (flag > 0) {
+        const std::string image = ram_image();
+        tapes_.push_back({name, image});
+        emit("ZSAVE", name + " bytes=" + std::to_string(image.size()));
+    } else {
+        // LOAD reads blocks until a file header's name matches. With no match
+        // the original keeps reading tape; this core reports ??? and resumes.
+        const std::string* image = nullptr;
+        for (auto it = tapes_.rbegin(); it != tapes_.rend(); ++it)
+            if (it->first == name) { image = &it->second; break; }
+        if (image == nullptr) {
+            zflag_ = 0;
+            emit("OUTPUT", "???");
             return;
         }
+        restore_ram_image(*image);
+        emit("ZLOAD", name);
     }
-    emit("OUTPUT", "???");
+    // LOAD90: CLR ZFLAG, INIVU (HUPDAT then PLOOK), PROMPT.
+    zflag_ = 0;
+    update_heart_rate();
+    mode_ = DisplayMode::Viewer;
 }
 
 void Game::cmd_attack(const std::string& line, std::size_t& pos) {
@@ -918,58 +946,207 @@ void Game::movement_exertion() {
                       std::to_string(static_cast<int>(static_cast<std::int8_t>(player_.heart_rate))));
 }
 
-std::string Game::historical_payload() const {
-    std::ostringstream os;
-    os << player_.row << ' ' << player_.col << ' ' << static_cast<int>(player_.dir) << ' '
-       << player_.power << ' ' << player_.damage << ' ' << player_.carried_weight << ' '
-       << player_.left_hand << ' ' << player_.right_hand << ' ' << player_.torch << ' '
-       << player_.bag_head << ' ' << level_index_ << ' ' << static_cast<int>(frozen_) << ' '
-       << static_cast<int>(player_.fainted) << '\n';
-    const auto seed = level_.rng.seed();
-    os << static_cast<int>(seed[0]) << ' ' << static_cast<int>(seed[1]) << ' '
-       << static_cast<int>(seed[2]) << '\n';
-    os << static_cast<int>(sched_.counters().jiffy) << ' '
-       << static_cast<int>(sched_.counters().tenth) << ' '
-       << static_cast<int>(sched_.counters().second) << ' '
-       << static_cast<int>(sched_.counters().minute) << '\n';
-    for (const auto& row : matrix_) {
-        for (std::uint8_t cell : row) os << static_cast<int>(cell) << ' ';
-        os << '\n';
+std::function<TaskResult()> Game::task_body(const std::string& name) {
+    if (name == "PLAYER") return [this] { return task_player(); };
+    if (name == "LUKNEW") return [] { return TaskResult{Queue::Tenth, 3}; };
+    if (name == "HSLOW") return [this] { return task_hslow(); };
+    if (name == "BURNER") return [this] { return task_burner(); };
+    if (name == "CREGEN") return [this] { return task_cregen(); };
+    if (name.rfind("CMOVE-", 0) == 0) {
+        const int slot = std::stoi(name.substr(6));
+        return [this, slot] { return task_cmove(slot); };
     }
+    std::abort();   // every TCB the core creates has one of these names
+}
+
+void Game::save_ram(std::ostream& out) const {
+    const PlayerState& p = player_;
+    out << p.row << ' ' << p.col << ' ' << static_cast<int>(p.dir) << ' ' << p.power << ' '
+        << p.damage << ' ' << p.carried_weight << ' ' << static_cast<int>(p.heart_rate) << ' '
+        << p.fainted << ' ' << p.dead << ' ' << p.won << ' ' << p.left_hand << ' '
+        << p.right_hand << ' ' << p.torch << ' ' << p.bag_head << ' ' << p.map_features << ' '
+        << static_cast<int>(p.regular_light) << ' ' << static_cast<int>(p.magic_light) << '\n';
+    out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' '
+        << level_index_ << ' ' << line_.size() << ' ' << line_ << "|\n";
+    for (const auto& row : matrix_) {
+        for (const std::uint8_t v : row) out << static_cast<int>(v) << ' ';
+        out << '\n';
+    }
+    for (const Ccb& c : ccbs_) {
+        out << c.power << ' ' << static_cast<int>(c.magic_offense) << ' '
+            << static_cast<int>(c.magic_defense) << ' ' << static_cast<int>(c.physical_offense)
+            << ' ' << static_cast<int>(c.physical_defense) << ' ' << static_cast<int>(c.move_delay)
+            << ' ' << static_cast<int>(c.attack_delay) << ' ' << c.object_head << ' ' << c.damage
+            << ' ' << static_cast<int>(c.in_use) << ' ' << static_cast<int>(c.type) << ' '
+            << static_cast<int>(c.dir) << ' ' << static_cast<int>(c.row) << ' '
+            << static_cast<int>(c.col) << '\n';
+    }
+    out << objects_.size() << '\n';
+    for (const Ocb& o : objects_) {
+        out << o.next << ' ' << static_cast<int>(o.row) << ' ' << static_cast<int>(o.col) << ' '
+            << static_cast<int>(o.level) << ' ' << static_cast<int>(o.owner) << ' '
+            << static_cast<int>(o.spec[0]) << ' ' << static_cast<int>(o.spec[1]) << ' '
+            << static_cast<int>(o.spec[2]) << ' ' << static_cast<int>(o.type) << ' '
+            << static_cast<int>(o.cls) << ' ' << static_cast<int>(o.reveal) << ' '
+            << static_cast<int>(o.magic_offense) << ' ' << static_cast<int>(o.physical_offense)
+            << ' ' << o.carrier << '\n';
+    }
+    for (const std::uint8_t b : level_.maze.bytes()) out << static_cast<int>(b) << ' ';
+    out << '\n';
+    for (const auto* seed : {&level_.rng_before_spin, &level_.rng_after_spin, &level_.rng.seed()})
+        out << static_cast<int>((*seed)[0]) << ' ' << static_cast<int>((*seed)[1]) << ' '
+            << static_cast<int>((*seed)[2]) << ' ';
+    out << level_.spin_count << '\n';
+    sched_.save_state(out);
+    out << player_task_ << ' ' << hslow_task_ << ' ' << creature_tasks_.size();
+    for (const int id : creature_tasks_) out << ' ' << id;
+    out << '\n';
+}
+
+void Game::load_ram(std::istream& in) {
+    PlayerState& p = player_;
+    int dir = 0, heart = 0, fainted = 0, dead = 0, won = 0, features = 0, rl = 0, ml = 0;
+    in >> p.row >> p.col >> dir >> p.power >> p.damage >> p.carried_weight >> heart >> fainted >>
+        dead >> won >> p.left_hand >> p.right_hand >> p.torch >> p.bag_head >> features >> rl >> ml;
+    p.dir = static_cast<Dir>(dir & 3);
+    p.heart_rate = static_cast<std::uint8_t>(heart);
+    p.fainted = fainted != 0;
+    p.dead = dead != 0;
+    p.won = won != 0;
+    p.map_features = features != 0;
+    p.regular_light = static_cast<std::uint8_t>(rl);
+    p.magic_light = static_cast<std::uint8_t>(ml);
+    int mode = 0, frozen = 0, sync = 0;
+    std::size_t line_size = 0;
+    in >> mode >> frozen >> sync >> level_index_ >> line_size;
+    mode_ = static_cast<DisplayMode>(mode);
+    frozen_ = frozen != 0;
+    sync_pending_ = sync != 0;
+    in.get();
+    line_.assign(line_size, ' ');
+    in.read(line_.data(), static_cast<std::streamsize>(line_size));
+    in.get();   // '|'
+    int v = 0;
+    for (auto& row : matrix_)
+        for (std::uint8_t& cell : row) {
+            in >> v;
+            cell = static_cast<std::uint8_t>(v);
+        }
+    auto byte = [&in]() {
+        int x = 0;
+        in >> x;
+        return static_cast<std::uint8_t>(x);
+    };
+    for (Ccb& c : ccbs_) {
+        in >> c.power;
+        c.magic_offense = byte();
+        c.magic_defense = byte();
+        c.physical_offense = byte();
+        c.physical_defense = byte();
+        c.move_delay = byte();
+        c.attack_delay = byte();
+        in >> c.object_head >> c.damage;
+        c.in_use = byte();
+        c.type = byte();
+        c.dir = byte();
+        c.row = byte();
+        c.col = byte();
+    }
+    std::size_t count = 0;
+    in >> count;
+    objects_.assign(count, Ocb{});
+    for (Ocb& o : objects_) {
+        in >> o.next;
+        o.row = byte();
+        o.col = byte();
+        o.level = byte();
+        o.owner = byte();
+        o.spec[0] = byte();
+        o.spec[1] = byte();
+        o.spec[2] = byte();
+        o.type = byte();
+        o.cls = byte();
+        o.reveal = byte();
+        o.magic_offense = byte();
+        o.physical_offense = byte();
+        in >> o.carrier;
+    }
+    for (int i = 0; i < Maze::kBytes; ++i) level_.maze.put(i / Maze::kSize, i % Maze::kSize, byte());
+    Rng::Seed seeds[3] = {};
+    for (auto& s : seeds) s = {byte(), byte(), byte()};
+    level_.rng_before_spin = seeds[0];
+    level_.rng_after_spin = seeds[1];
+    level_.rng.set_seed(seeds[2]);
+    in >> level_.spin_count;
+    sched_.load_state(in, [this](const std::string& name) { return task_body(name); });
+    std::size_t creatures = 0;
+    in >> player_task_ >> hslow_task_ >> creatures;
+    creature_tasks_.assign(creatures, 0);
+    for (int& id : creature_tasks_) in >> id;
+}
+
+std::string Game::ram_image() const {
+    std::ostringstream os;
+    os << "DAGRAM 1\n";
+    save_ram(os);
     return os.str();
 }
 
-void Game::restore_historical_payload(const std::string& payload) {
-    std::istringstream in(payload);
-    int dir = 0, frozen = 0, fainted = 0;
-    in >> player_.row >> player_.col >> dir >> player_.power >> player_.damage >>
-        player_.carried_weight >> player_.left_hand >> player_.right_hand >> player_.torch >>
-        player_.bag_head >> level_index_ >> frozen >> fainted;
-    player_.dir = static_cast<Dir>(dir & 3);
-    frozen_ = frozen != 0;
-    player_.fainted = fainted != 0;
-    int s0 = 0, s1 = 0, s2 = 0;
-    in >> s0 >> s1 >> s2;
-    level_.rng.set_seed({static_cast<std::uint8_t>(s0), static_cast<std::uint8_t>(s1),
-                         static_cast<std::uint8_t>(s2)});
-    int jiffy = 0, tenth = 0, second = 0, minute = 0;
-    in >> jiffy >> tenth >> second >> minute;
-    sched_.counters().jiffy = static_cast<std::uint8_t>(jiffy);
-    sched_.counters().tenth = static_cast<std::uint8_t>(tenth);
-    sched_.counters().second = static_cast<std::uint8_t>(second);
-    sched_.counters().minute = static_cast<std::uint8_t>(minute);
-    for (auto& row : matrix_) {
-        for (std::uint8_t& cell : row) {
-            int value = 0;
-            in >> value;
-            cell = static_cast<std::uint8_t>(value);
-        }
-    }
+void Game::restore_ram_image(const std::string& image) {
+    std::istringstream in(image);
+    std::string magic;
+    int version = 0;
+    in >> magic >> version;
+    if (magic != "DAGRAM" || version != 1) std::abort();
+    load_ram(in);
 }
 
-std::string Game::snapshot() const { return historical_payload(); }
+std::string Game::snapshot() const {
+    std::ostringstream os;
+    os << "DAGSNAP 1\n";
+    save_ram(os);
+    os << sched_.counters().total_jiffies << ' ' << sched_.halted() << ' ' << zflag_ << ' '
+       << tape_name_.size() << ' ' << tape_name_ << "|\n";
+    os << tapes_.size() << '\n';
+    for (const auto& [name, image] : tapes_)
+        os << name.size() << ' ' << name << '|' << image.size() << ' ' << image << '\n';
+    return os.str();
+}
 
-void Game::restore_snapshot(const std::string& bytes) { restore_historical_payload(bytes); }
+void Game::restore_snapshot(const std::string& bytes) {
+    std::istringstream in(bytes);
+    std::string magic;
+    int version = 0;
+    in >> magic >> version;
+    if (magic != "DAGSNAP" || version != 1) std::abort();
+    load_ram(in);
+    std::uint64_t total = 0;
+    int halted = 0;
+    std::size_t name_size = 0;
+    in >> total >> halted >> zflag_ >> name_size;
+    sched_.counters().total_jiffies = total;
+    sched_.set_halted(halted != 0);
+    in.get();
+    tape_name_.assign(name_size, ' ');
+    in.read(tape_name_.data(), static_cast<std::streamsize>(name_size));
+    in.get();
+    std::size_t tapes = 0;
+    in >> tapes;
+    tapes_.clear();
+    for (std::size_t i = 0; i < tapes; ++i) {
+        std::size_t n = 0, m = 0;
+        in >> n;
+        in.get();
+        std::string name(n, ' ');
+        in.read(name.data(), static_cast<std::streamsize>(n));
+        in.get();
+        in >> m;
+        in.get();
+        std::string image(m, ' ');
+        in.read(image.data(), static_cast<std::streamsize>(m));
+        tapes_.push_back({name, image});
+    }
+}
 
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) {
     std::vector<KeyEvent> out;
