@@ -73,6 +73,19 @@ void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels
     }
 }
 
+void pack_bitmap(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
+                 std::array<std::uint8_t, kPackedBytes>& bitmap) {
+    bitmap.fill(0);
+    for (int y = 0; y < kScreenHeight; ++y) {
+        for (int x = 0; x < kScreenWidth; ++x) {
+            if (pixels[static_cast<std::size_t>(y * kScreenWidth + x)] == 0) continue;
+            const int byte = y * kScreenStride + (x >> 3);
+            bitmap[static_cast<std::size_t>(byte)] = static_cast<std::uint8_t>(
+                bitmap[static_cast<std::size_t>(byte)] | (0x80u >> (x & 7)));
+        }
+    }
+}
+
 int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us) {
     accumulator_us += elapsed_us;
     int count = 0;

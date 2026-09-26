@@ -951,6 +951,12 @@ void test_projection() {
     int faded = 0;
     for (std::uint8_t pixel : pixels) faded += pixel;
     check(faded == 5, "fade 1 plots every second step");
+    std::array<std::uint8_t, dag::kPackedBytes> bitmap{};
+    dag::pack_bitmap(pixels, bitmap);
+    pixels.fill(0);
+    dag::draw_segment(pixels, horizontal, 0);
+    dag::pack_bitmap(pixels, bitmap);
+    check(bitmap[0] == 0xFF && bitmap[1] == 0xC0, "BITMSK packs the first ten columns");
     std::uint64_t owed = 0;
     check(dag::jiffies_due(1000000, owed) == 60, "one second is sixty jiffies");
     check(owed == 40, "the leftover microseconds are kept");
