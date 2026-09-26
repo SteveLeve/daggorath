@@ -127,6 +127,10 @@ void Game::queue_creatures() {
     }
 }
 
+void Game::press(std::uint8_t ascii) {
+    script_.push_back(KeyEvent{sched_.counters().total_jiffies, ascii});
+}
+
 void Game::hold(bool right, int object_index) {
     (right ? player_.right_hand : player_.left_hand) = object_index;
 }

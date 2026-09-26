@@ -993,6 +993,12 @@ void test_projection() {
     const auto restarted = dag::decode_vectors(fresh, 128, 128, 128, 76, 0);
     check(restarted.size() == 2 && restarted[1].x0 == 140 && restarted[1].x1 == 150,
           "$FF starts a new pen position");
+    dag::Game keys(1, 0);
+    keys.set_frozen(true);
+    for (char ch : std::string("TURN RIGHT")) keys.press(static_cast<std::uint8_t>(ch));
+    keys.press(0x0D);
+    keys.advance_jiffies(30);
+    check(keys.player().dir == dag::Dir::East, "pressed keys turn the player right");
 }
 
 }  // namespace
