@@ -972,6 +972,9 @@ void test_projection() {
     std::uint16_t hiss = 1;
     check(dag::noise_pulses(hiss, 0xFF, 1).size() == 0xC0, "PSSHT emits one pulse");
     check(dag::noise_pulses(hiss, 0xFF, 2).size() == 2 * 0xC0, "PSSST emits two pulses");
+    check(dag::set_fade(7, 0) == 0, "light 7 at range 0 is full brightness");
+    check(dag::set_fade(0, 0) == 0xFF, "light 0 is darkness");
+    check(dag::set_fade(6, 0) == 0x01, "one step below full brightness uses BIT0");
 }
 
 }  // namespace

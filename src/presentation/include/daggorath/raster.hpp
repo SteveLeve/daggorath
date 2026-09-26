@@ -23,6 +23,12 @@ void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels
 
 // Host microseconds owed to the 60 Hz core. Every owed jiffy is returned.
 // A stall catches up; it does not drop jiffies.
+// SETFAX. Light minus 7 minus range. Non-negative is full brightness (fade 0).
+// -7 or below is darkness (fade 0xFF). The values in between are BITMSK entries.
+std::uint8_t set_fade(std::uint8_t light, std::uint8_t range);
+
+// Host microseconds owed to the 60 Hz core. Every owed jiffy is returned.
+// A stall catches up; it does not drop jiffies.
 int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us);
 
 }  // namespace dag

@@ -86,6 +86,15 @@ void pack_bitmap(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& p
     }
 }
 
+std::uint8_t set_fade(std::uint8_t light, std::uint8_t range) {
+    const std::uint8_t adjusted = static_cast<std::uint8_t>(static_cast<std::uint8_t>(light - 7u) - range);
+    const auto signed_level = static_cast<std::int8_t>(adjusted);
+    if (signed_level >= 0) return 0;
+    if (signed_level <= -7) return 0xFF;
+    static constexpr std::uint8_t kBitMask[8] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
+    return kBitMask[8 + signed_level];
+}
+
 int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us) {
     accumulator_us += elapsed_us;
     int count = 0;
