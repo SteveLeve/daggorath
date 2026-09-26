@@ -733,6 +733,71 @@ void test_combat_fixtures_and_flow() {
     }
     check(matched == 88, "SCAL16 fixture rows were checked", "rows=" + std::to_string(matched));
 
+    // Index order matches tools/gen_combat_fixtures.py. The expected numbers
+    // come from the fixture file, not from this table.
+    struct Stat5 { int a, b, c, d, e; };
+    const Stat5 creatures[] = {
+        {32, 0, 255, 128, 255}, {56, 0, 255, 80, 128}, {200, 0, 255, 52, 192},
+        {304, 0, 255, 96, 167}, {504, 0, 128, 96, 60}, {704, 0, 128, 128, 48},
+        {400, 255, 128, 255, 128}, {800, 0, 64, 255, 8}, {800, 192, 16, 192, 8},
+        {1000, 255, 5, 255, 3}, {1000, 255, 6, 255, 0}, {8000, 255, 6, 255, 0},
+    };
+    const int weapons[][2] = {{0, 5}, {0, 16}, {0, 40}, {64, 64}, {255, 255}};
+    const int shields[][2] = {{0x80, 0x80}, {108, 128}, {96, 128}, {64, 64}};
+    int damage_rows = 0;
+    pos = 0;
+    while (true) {
+        const auto line = text.find("\"D ", pos);
+        if (line == std::string::npos) break;
+        unsigned ci = 0, wi = 0, si = 0, dealt = 0, taken = 0;
+        if (std::sscanf(text.c_str() + line, "\"D %u %u %u %u %u\"", &ci, &wi, &si, &dealt,
+                        &taken) == 5) {
+            dag::Fighter weapon;
+            weapon.power = 160;
+            weapon.magic_offense = static_cast<std::uint8_t>(weapons[wi][0]);
+            weapon.physical_offense = static_cast<std::uint8_t>(weapons[wi][1]);
+            dag::Fighter creature;
+            creature.power = static_cast<std::uint16_t>(creatures[ci].a);
+            creature.magic_defense = static_cast<std::uint8_t>(creatures[ci].c);
+            creature.physical_defense = static_cast<std::uint8_t>(creatures[ci].e);
+            dag::apply_damage(weapon, creature);
+            dag::Fighter player;
+            player.magic_defense = static_cast<std::uint8_t>(shields[si][0]);
+            player.physical_defense = static_cast<std::uint8_t>(shields[si][1]);
+            dag::Fighter attacker;
+            attacker.power = static_cast<std::uint16_t>(creatures[ci].a);
+            attacker.magic_offense = static_cast<std::uint8_t>(creatures[ci].b);
+            attacker.physical_offense = static_cast<std::uint8_t>(creatures[ci].d);
+            dag::apply_damage(attacker, player);
+            check(creature.damage == dealt && player.damage == taken,
+                  "DAMAGE matches the Python fixture");
+            ++damage_rows;
+        }
+        pos = line + 3;
+    }
+    check(damage_rows == 240, "DAMAGE fixture rows were checked",
+          "rows=" + std::to_string(damage_rows));
+
+    int attack_rows = 0;
+    pos = 0;
+    while (true) {
+        const auto line = text.find("\"A ", pos);
+        if (line == std::string::npos) break;
+        unsigned power = 0, defender = 0, damage = 0, roll = 0, hit = 0;
+        if (std::sscanf(text.c_str() + line, "\"A %u %u %u %u %u\"", &power, &defender, &damage,
+                        &roll, &hit) == 5) {
+            const bool connected = dag::attack_hits(static_cast<std::uint16_t>(power),
+                                                     static_cast<std::uint16_t>(defender),
+                                                     static_cast<std::uint16_t>(damage),
+                                                     static_cast<std::uint8_t>(roll));
+            check(connected == (hit == 1), "ATTACK matches the Python fixture");
+            ++attack_rows;
+        }
+        pos = line + 3;
+    }
+    check(attack_rows == 256, "ATTACK fixture rows were checked",
+          "rows=" + std::to_string(attack_rows));
+
     dag::Game game;
     const auto& objects = game.objects();
     int sword = -1;
