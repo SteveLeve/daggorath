@@ -1,0 +1,22 @@
+{
+  "description": "Examine headers and empty-hand name",
+  "source": "PEXAM.ASM OUTSTI; STATUS.ASM M$EMPT",
+  "extraction_method": "OUTSTI 5-bit decode (EXPAND EXPANX count+1 chars); M$EMPT display codes until $FF",
+  "empty_hand": "EMPTY",
+  "empty_hand_bytes": [
+    "0x05",
+    "0x0D",
+    "0x10",
+    "0x14",
+    "0x19",
+    "0xFF"
+  ],
+  "in_this_room": "IN THIS ROOM",
+  "creature": "!CREATURE!",
+  "backpack": "BACKPACK",
+  "pexam_source_lines": [
+    37,
+    58,
+    101
+  ]
+}

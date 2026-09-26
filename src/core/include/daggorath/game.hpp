@@ -89,6 +89,8 @@ public:
     const std::vector<TraceEvent>& trace() const { return trace_; }
     const Counters& counters() const { return sched_.counters(); }
     DisplayMode display_mode() const { return mode_; }
+    // LINBUF as collected by HUMAN. Empty after a line is dispatched.
+    const std::string& line_buffer() const { return line_; }
 
     const std::array<Ccb, kCcbSlots>& creatures() const { return ccbs_; }
     const std::vector<Ocb>& objects() const { return objects_; }

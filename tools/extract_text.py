@@ -151,12 +151,12 @@ def project_map(cells, player, features, objects, creatures, verticals):
         if b == 0xFF:
             lines.append("SOLID %d %d" % (i // 32, i % 32))
     if features:
-        for r, c in objects:
+        for r, c in sorted(objects):
             lines.append("OBJECT %d %d" % (r, c))
-        for r, c in creatures:
+        for r, c in sorted(creatures):
             lines.append("CREATURE %d %d" % (r, c))
     lines.append("PLAYER %d %d" % (player[0], player[1]))
-    for r, c in verticals:
+    for r, c in sorted(set(verticals)):
         lines.append("VFEATURE %d %d" % (r, c))
     return "\n".join(lines) + "\n"
 
@@ -272,8 +272,7 @@ def load_creatures(path, level):
         for line in f:
             if line.startswith("creature %d 1 " % level):
                 p = line.split()
-                out.append((int(p[4]), int(p[5])))
-    out.sort()
+                out.append((int(p[5]), int(p[6])))
     return out
 
 
@@ -327,7 +326,7 @@ def main():
     if viewport != 152 or status_end != 160 or command_end != 192:
         raise SystemExit("screen region constants changed")
 
-    empt = must_find(status, r"M\$EMPT\s+FCB\s+(.+)")
+    empt = must_find(status, r"M\$EMPT\s+FCB\s+(.+)", "M$EMPT")
     empty_bytes = []
     for tok in empt.group(1).split(","):
         tok = tok.strip().split(";")[0].strip()

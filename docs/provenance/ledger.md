@@ -7,7 +7,7 @@ SHA-256 unless stated.
 
 | Tool | Version | Used for |
 |---|---|---|
-| Python | 3.11.15 | `tools/extract_fixtures.py`, `tools/gen_lexicon_header.py` |
+| Python | 3.11.15 | `tools/extract_fixtures.py`, `tools/gen_lexicon_header.py`, `tools/extract_text.py` |
 | g++ | 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) | reference slice |
 | CMake | 3.28.3 | reference slice build |
 | Platform | Linux 6.18.44 x86_64 | build and test host |
@@ -84,6 +84,8 @@ undetermined-licence ports out of the provenance chain entirely.
 | `reference/**` | written for this project from the behavioural reading | new project code |
 | `reference/include/daggorath/lexicon_tables.hpp` | **generated** from `fixtures/tokens.json` | carries copied data into the build; treat as a licensed artifact |
 | `traces/*.trace` | output of the reference slice | new work |
+| `docs/archaeology/phase-6/fixtures/text/*` | `tools/extract_text.py` from `COMDAT.ASM`, `PEXAM.ASM`, `STATUS.ASM`, `SWCHAR.ASM`, `MAPPER.ASM` plus the Phase 0b maze/population dumps | mixed: copied font/string bytes and computed occupancy lists |
+| `src/presentation/include/daggorath/text_tables.hpp` | **generated** from those text fixtures | carries copied font and region constants into the build |
 
 **Open rights question, unchanged from Phase 0 and now sharper:** the fixtures in
 the "copied data" rows are original tuning and lexicon data, not behaviour. They

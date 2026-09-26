@@ -18,4 +18,5 @@ Rules for this module:
 First work here: decode the original vector lists (`VCTLST`, `VECTOR`, `VARC`,
 `VERT`, `VOBJ`, `D3`, `D4`) into immutable model coordinates on a logical
 256×192 surface, and reproduce `VIEWER`'s range walk, lighting and
-line-of-sight stop.
+line-of-sight stop. `MAPPER`, `EXAMIN`, and the status/command TXBs are
+separate character-cell projections (`mapper.hpp`, `examine.hpp`, `text.hpp`).
