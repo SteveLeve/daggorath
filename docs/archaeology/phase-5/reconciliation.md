@@ -1,6 +1,6 @@
 # Phase 5 reconciliation
 
-`ENDGAM` and `WINNER` replace the `DEFER` stubs from Phases 3 and 4. `ZSAVE` and `ZLOAD` no longer report `UNIMPLEMENTED`.
+`ENDGAM` and `WINNER` replace the `DEFER` stubs from Phases 3 and 4. D-8 and D-9 are retired in behaviour. They are not marked retired in `clock-and-scheduler.md` §13, and the phase 3 and phase 4 reconciliation tables still describe the old stubs. `ZSAVE` and `ZLOAD` no longer report `UNIMPLEMENTED`. `Game::snapshot` is the historical payload, not a full suspend image.
 
 ## Remaining
 

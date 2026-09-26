@@ -123,8 +123,8 @@ public:
     std::string historical_payload() const;
     void restore_historical_payload(const std::string& payload);
 
-    // Suspend snapshot: every field required to continue bit-identically.
-    // Not a game command.
+    // Same bytes as historical_payload. Not the full suspend snapshot:
+    // creatures, objects, and the scheduler queues are not in the string.
     std::string snapshot() const;
     void restore_snapshot(const std::string& bytes);
 

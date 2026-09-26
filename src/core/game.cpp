@@ -961,6 +961,7 @@ void Game::restore_historical_payload(const std::string& payload) {
             cell = static_cast<std::uint8_t>(value);
         }
     }
+    refresh_light();
 }
 
 std::string Game::snapshot() const { return historical_payload(); }

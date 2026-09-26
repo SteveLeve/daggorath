@@ -6,7 +6,7 @@
 
 `COMMON.ASM SAVE` writes 128-byte cassette blocks from `DP.BEG` (`$0200`) through `MM.END`. That image includes the direct page (player, torch, bag, freeze, clock, queue heads, heart, `ZFLAG`) and common RAM (keyboard and line buffers, `CMXLND`, creature blocks, the maze, task blocks, object blocks). `LOAD` copies those bytes back from `$0200` and restarts through `IRQSYN`. It does not call `NEWLVL`. Queue link words are raw pointers, so they survive only because the whole image returns to the same addresses.
 
-Original Mode's `ZSAVE`/`ZLOAD` keep that rule for the fields this core models: player, hands, torch, bag head, level, freeze, faint, RNG seed, clock counters, and `CMXLND`. Cassette leaders, video buffers, and the 6809 pointer-sized queue links are not reconstructed. The suspend snapshot is the same byte string; restoring it is not a command.
+Original Mode's `ZSAVE`/`ZLOAD` keep that rule for the fields this core models: player, hands, torch, bag head, level, freeze, faint, RNG seed, the four clock bytes `jiffy`/`tenth`/`second`/`minute`, and `CMXLND`. `hour`, `day`, and `total_jiffies` are not in that string. Cassette leaders, video buffers, creature blocks, object blocks, and the 6809 pointer-sized queue links are not reconstructed. `Game::snapshot` returns that same historical string. A separate suspend snapshot that could resume bit-identically on a new process is not implemented.
 
 ## Context
 
