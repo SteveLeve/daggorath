@@ -282,10 +282,28 @@ void test_inivu_returns_to_the_viewer() {
     climb.place_player(0, 23);   // level 0 ladder down (VFTTAB)
     const std::size_t from = climb.trace().size();
     run(climb, {"CLIMB DOWN"});
+    climb.advance_jiffies(500);
     bool inivu = false;
-    for (std::size_t i = from; i < climb.trace().size(); ++i)
-        if (climb.trace()[i].kind == "PUPDAT" && climb.trace()[i].detail == "inivu") inivu = true;
+    std::uint64_t climbed = 0, built = 0, redrawn = 0;
+    for (std::size_t i = from; i < climb.trace().size(); ++i) {
+        const auto& e = climb.trace()[i];
+        if (e.kind == "CLIMB") climbed = e.jiffy;
+        if (e.kind == "NEWLVL") built = e.jiffy;
+        if (e.kind == "PUPDAT" && e.detail == "inivu") { inivu = true; redrawn = e.jiffy; }
+    }
     check(climb.level_index() == 1 && inivu, "CLIMB runs INIVU after NEWLVL");
+    // [ROM] C-22 / descend-early: level 1's DGEN90 spin reads SECOND 326
+    // interrupts after the command; the tail to PLAYER is 22-24 (+ spin).
+    check(built - climbed == 326, "NEWLVL 1 reads SECOND 326 jiffies after CLIMB");
+    // D-19: spin (draws + 5) / 10 [INF], then level 1's tail of 23 [ROM], whose
+    // last jiffy is INIVU's SYNC.
+    int second = -1;
+    for (const auto& e : climb.trace())
+        if (e.kind == "NEWLVL") second = std::stoi(e.detail.substr(e.detail.find("second=") + 7));
+    const int draws = second == 0 ? 256 : second;
+    check(second >= 0 && redrawn - built == static_cast<std::uint64_t>((draws + 5) / 10 + 22),
+          "INIVU follows the spin and level 1's 23-jiffy tail");
+    check(climb.polarity_level() == 1 && !climb.preparing(), "the build is over: NLVL50 ran, PREPARE! is gone");
 }
 
 void test_examine_costs_a_sync() {
@@ -340,7 +358,7 @@ void test_image_ending() {
               std::all_of(text.begin(), text.begin() + 32, [](std::uint8_t c) { return c == 0; }) &&
               std::count(text.begin(), text.end(), std::uint8_t{0x1B}) == 4,
           "WIZIN clears the text and no prompt precedes ENDGAM's messages");
-    game.advance_jiffies(200);
+    game.advance_jiffies(800);
     // PATTK.ASM ENDGAM / MISC.ASM: WIZIN's one WIZZES SYNC and WAITX's 81 SYNCs
     // come before NEWLVL; WIZOUT's 16 WIZZES SYNCs come before INIVU.
     std::uint64_t start = 0, relocate = 0, inivu_at = 0;
@@ -350,8 +368,13 @@ void test_image_ending() {
         if (e.kind == "PUPDAT" && e.detail == "inivu" && relocate != 0 && inivu_at == 0)
             inivu_at = e.jiffy;
     }
-    // From the kill: PATT40's PUPDAT SYNC, WIZIN's WIZZES SYNC, WAITX's 81.
-    check(relocate - start == 83, "NEWLVL 3 waits for PATT40's, WIZIN's and WAITX's SYNCs");
+    // From the kill: PATT40's PUPDAT SYNC, WIZIN's WIZZES SYNC, WAITX's 81,
+    // then NEWLVL 3's pre-spin build time (C-22: 377).
+    std::uint64_t built = 0;
+    for (const auto& e : game.trace())
+        if (e.kind == "NEWLVL") built = e.jiffy;
+    check(built - start == 83 + 377, "NEWLVL 3 reads SECOND after the SYNCs and its build time");
+    check(relocate > built, "FNDCEL relocates after NEWLVL 3 is built");
     check(inivu_at - relocate == 16, "INIVU waits for WIZOUT's 16 WIZZES SYNCs");
     check(std::count(text.begin(), text.end(), std::uint8_t{0x1E}) == 1,
           "HMAN70 prompts once, after ENDGAM's closing INIVU");

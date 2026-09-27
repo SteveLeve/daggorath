@@ -209,11 +209,13 @@ void test_climb() {
           "a hole cannot be climbed upward");
     game.place_player(0, 23);   // level-0 ladder down (feature 3)
     run(game, {"CLIMB DOWN"});
+    game.advance_jiffies(500);   // NEWLVL's build time (C-22)
     check(game.level_index() == 1 && count(game, "CLIMB", "level=1") == 1,
           "CLIMB DOWN on the ladder enters level 1");
     check(game.player().row == 0 && game.player().col == 23, "the player keeps the cell");
     // Level 1 cell 0,23 is the ladder top (feature 1).
     run(game, {"CLIMB UP"});
+    game.advance_jiffies(500);
     check(game.level_index() == 0 && count(game, "CLIMB", "level=0") == 1,
           "CLIMB UP returns to level 0");
     game.place_player(16, 11);
@@ -463,26 +465,26 @@ void test_climb_keeps_bag_and_runs_systcb() {
     const std::uint8_t timer = obj(game, pine).spec[0];
     game.place_player(0, 23);
     run(game, {"CLIMB DOWN"});
+    game.advance_jiffies(500);   // NEWLVL's build time (C-22)
     check(game.level_index() == 1, "the ladder leads to level 1");
     // NLVL40 relinks only creature-owned objects on the new level.
     std::vector<int> bag;
     for (int i = game.player().bag_head; i >= 0; i = obj(game, i).next) bag.push_back(i);
     check(bag.size() == 2 && bag[0] == pine && bag[1] == sword,
           "the bag chain survives NEWLVL");
-    // SYSTCB queues fresh system TCBs on SCDQUE and sets RSTART, so they all
-    // run on the CLIMB's jiffy, and BURNER burns one unit.
-    std::uint64_t at = 0;
-    for (const auto& e : game.trace())
-        if (e.kind == "CLIMB") at = e.jiffy;
+    // SYSTCB queues fresh system TCBs in Q.SCD and sets RSTART; SCHED reaches
+    // them once PLAYER returns from the build, in TCBDAT order, and BURNER
+    // burns one unit. [ROM] descend-early: PLAYER, LUKNEW (isr 2130), HSLOW,
+    // BURNER, CREGEN (isr 2133).
     std::vector<std::string> ran;
     bool after = false;
     for (const auto& e : game.trace()) {
-        if (e.kind == "CLIMB") after = true;
-        if (after && e.jiffy == at && e.kind == "TASK") ran.push_back(e.detail);
+        if (e.kind == "NEWLVL") after = true;
+        if (after && e.kind == "TASK" && ran.size() < 5) ran.push_back(e.detail);
     }
     const std::vector<std::string> want = {"run PLAYER", "run LUKNEW", "run HSLOW",
                                            "run BURNER", "run CREGEN"};
-    check(ran == want, "SYSTCB's tasks run in TCBDAT order on the CLIMB jiffy",
+    check(ran == want, "SYSTCB's tasks run in TCBDAT order once the build ends",
           std::to_string(ran.size()) + " tasks");
     check(obj(game, pine).spec[0] == timer - 1, "the fresh BURNER burns one torch unit",
           std::to_string(obj(game, pine).spec[0]));
