@@ -128,10 +128,58 @@ here:
 - §2's `CLIMB` direction handling, checked against the listing when `CLIMB` is
   implemented.
 
-## Later sections (added by 8.1–8.5)
+## 7. Adapter API (8.1)
 
-- Adapter API and per-gesture fixtures (8.1).
-- Shell menu, pause/resume and slot behaviour (8.2).
+`src/input/gesture.{hpp,cpp}` (`dag::input`). `GestureLine` composes a touch
+control's command text (§1) into `dag::KeyEvent`s stamped on one shared
+jiffy, per deviation D-17 (`docs/specification/clock-and-scheduler.md` §13):
+unlike typed input's one-key-per-jiffy pacing, a finished gesture delivers
+its whole line at once. Enforced at `kMaxGestureLine` = 31 characters
+including CR, so a gesture can never itself produce the 32-byte keyboard
+buffer overrun (typing-only, `t5-keyboard-overrun`). Per-gesture fixtures:
+`docs/archaeology/phase-8/fixtures/gesture-lines.txt`, checked by
+`tests/input/gesture_tests.cpp`.
+
+## 8. Shell (8.2, ADR-0009)
+
+`src/shell/shell.{hpp,cpp}` (`dag::shell::Shell`), headless (links only
+`daggorath::core`, no SDL). What it does to a running `Game` — nothing else,
+per ADR-0009 §2:
+
+- **Pause/resume** (`pause()`/`resume()`/`tick()`): pausing withholds jiffy
+  delivery entirely (`tick()` becomes a no-op); resuming continues from the
+  same clock value, so no jiffy is owed for paused wall time (D-16).
+- **Five save/load slots plus one hidden slot** (`slots()`, `save_to_slot`,
+  `load_from_slot`, `write_hidden_slot`/`restore_hidden_slot`), each a
+  `Game::snapshot()`/`restore_snapshot()` suspend snapshot, auto-named from
+  dungeon level and time played (`Shell::auto_name`, read-only core
+  accessors only). The shell validates a slot's snapshot magic/version
+  itself before calling `restore_snapshot`, which otherwise aborts on a bad
+  one (ADR-0009 §5).
+- **Confirmations** (`ConfirmKind`): an occupied-slot overwrite, Restart, and
+  Quit all set a pending confirmation instead of acting immediately;
+  Restart/Quit are handed back to the caller to perform, since constructing
+  a new `Game` or exiting the process is outside what ADR-0009 §2 lets the
+  shell do itself.
+- **Trace markers**: `PAUSE`/`RESUME` lines are recorded in `Shell::trace()`,
+  separate from `Game::trace()` — they are shell lines, not `CoreEvent`s
+  (ADR-0004 rule 1), so the core trace stays diffable with ROM traces
+  without filtering.
+
+**Pause-invariance test** (ADR-0009 §4, the 8.2 gate):
+`tests/shell/shell_tests.cpp` `test_pause_invariance` runs the same scripted
+keystrokes twice — once with no shell involved, once wrapped in a `Shell`
+that pauses partway through and resumes later — and asserts `Game::trace()`
+is byte-for-byte identical between the two. `test_save_and_load_round_trip`
+and related tests cover slot save/load, overwrite confirmation, and the
+hidden slot.
+
+The SDL menu UI (Esc key, the on-screen button, backgrounding hook) is
+deferred to 8.4, which wires this headless shell into `src/platform`;
+ADR-0009 is accepted on that basis (see its Resolution).
+
+## Later sections (added by 8.3–8.5)
+
 - `crisp` segment fixtures and the render-style decision record (8.3).
 - Layouts evaluated and the chosen default, with screenshots kept out of tree
   (8.4).
