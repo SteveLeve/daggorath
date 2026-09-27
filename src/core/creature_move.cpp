@@ -147,7 +147,10 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
 
     // Frozen is tested before the dead check (CMOV12 -> CMOV90).
     if (view.frozen) {
-        if (self.row == view.player_row && self.col == view.player_col) return attack;
+        if (self.row == view.player_row && self.col == view.player_col) {
+            events.push_back("PUPDAT slot=" + std::to_string(slot) + " cmov90");
+            return attack;
+        }
         return movement;
     }
 
@@ -163,7 +166,7 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
     // in which case PUPDAT and the attack delay (CMOV92).
     const auto finish = [&]() -> TaskResult {
         if (self.row == view.player_row && self.col == view.player_col) {
-            events.push_back("PUPDAT slot=" + std::to_string(slot));
+            events.push_back("PUPDAT slot=" + std::to_string(slot) + " cmov90");
             return attack;
         }
         return movement;
@@ -179,6 +182,7 @@ TaskResult cmove(int slot, std::array<Ccb, kCcbSlots>& ccbs, std::vector<Ocb>& o
             o.carrier = slot;
             events.push_back("PICKUP slot=" + std::to_string(slot) +
                              " object=" + std::to_string(obj));
+            events.push_back("PUPDAT slot=" + std::to_string(slot));   // CMOV10 SWI PUPDAT
             return finish();
         }
     }

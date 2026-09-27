@@ -103,14 +103,15 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
 }
 
 // ONCE.ASM SYSTCB: every queue and TCB is cleared, then the TCBDAT tasks go
-// onto SCDQUE in this order. LUKNEW stays inert. CREGEN performs the matrix
+// onto SCDQUE in this order. CREGEN performs the matrix
 // increment. CBIRTH later queues CMOVE on Q.TEN, ahead of LUKNEW's QUEADD.
 void Game::systcb() {
     sched_.reset_tasks();
     creature_tasks_.clear();
     player_task_ = sched_.add({"PLAYER", [this] { return task_player(); },
                               Queue::Sched, 0, true});
-    sched_.add({"LUKNEW", [] { return TaskResult{Queue::Tenth, 3}; },
+    newluk_ = false;
+    sched_.add({"LUKNEW", [this] { return task_luknew(); },
                 Queue::Sched, 0, true});
     hslow_task_ = sched_.add({"HSLOW", [this] { return task_hslow(); },
                               Queue::Sched, 0, true});
@@ -206,6 +207,11 @@ TaskResult Game::task_cmove(int slot) {
         events_.back().entry = s.entry;
     }
     for (const std::string& e : events) {
+        if (e.rfind("LOOK", 0) == 0) newluk_ = true;           // CWLK90 DEC NEWLUK
+        if (e.rfind("PUPDAT", 0) == 0) {
+            pupdat();
+            if (e.find("cmov90") != std::string::npos) newluk_ = false;   // CLR NEWLUK
+        }
         const auto sp = e.find(' ');
         if (sp == std::string::npos) emit(e, "");
         else emit(e.substr(0, sp), e.substr(sp + 1));
@@ -356,8 +362,8 @@ void Game::advance_jiffies(std::uint64_t n) {
         }
         sched_.interrupt(keys);
 
-        if (sync_pending_) {       // a command ended in SYNC: it owns this jiffy
-            sync_pending_ = false;
+        if (sync_pending_ > 0) {   // a SYNC in the last pass owns this jiffy
+            --sync_pending_;
             block(BlockKind::Sync, 1, 1, true);
             emit("SYNC", "display swap");
             continue;
@@ -428,8 +434,9 @@ TaskResult Game::task_player() {
         } else {
             internal = kISp;                            // non-alpha becomes space
         }
+        const int syncs_before = sync_pending_;
         feed_char(internal);
-        if (sync_pending_) break;   // the command blocked on SYNC
+        if (sync_pending_ > syncs_before) break;   // the command blocked on SYNC
         if (sched_.halted()) break; // DEATH ends in BRA * (HUPDAT.ASM)
     }
     if (zflag_ != 0) sched_.end_lap([this] { tape_operation(); });
@@ -448,6 +455,22 @@ TaskResult Game::task_hslow() {
     std::uint8_t delay = player_.heart_rate;
     if (delay == 0) delay = 1;    // a zero countdown would never expire
     return {Queue::Jiffy, delay};
+}
+
+// PUPDAT.ASM PUPDAX: nothing while fainted; otherwise redraw, DEC UPDATE, SYNC.
+void Game::pupdat() {
+    if (player_.fainted) return;
+    ++sync_pending_;
+}
+
+// COMPLR.ASM LUKNEW: redraw when a creature asked for it or the map is up.
+TaskResult Game::task_luknew() {
+    if (newluk_ || mode_ == DisplayMode::Mapper) {
+        newluk_ = false;
+        emit("PUPDAT", "luknew");
+        pupdat();
+    }
+    return {Queue::Tenth, 3};                           // SCHED$ 3,Q.TEN
 }
 
 void Game::clear_primary_text() {
@@ -575,7 +598,7 @@ void Game::cmd_turn(const std::string& line, std::size_t& pos) {
     player_.dir = static_cast<Dir>(b & 3);   // PREVU: ANDB #3 / STB PDIR
     block(BlockKind::TurnAnimation, 8, 0, false);  // PTURN.ASM LRTURN, D-4a
     emit("TURN", "dir=" + dir_name(player_.dir));
-    sync_pending_ = true;
+    ++sync_pending_;
 }
 
 // PMOVE: no direction means forward. Every path, including a blocked step,
@@ -596,7 +619,7 @@ void Game::cmd_move(const std::string& line, std::size_t& pos) {
     step_player(relative);
     movement_exertion();
     block(BlockKind::MoveAnimation, 8, 0, false);  // PTURN.ASM PMOVE, D-4a
-    sync_pending_ = true;
+    ++sync_pending_;
 }
 
 constexpr std::uint8_t kClassWeight[] = {5, 1, 10, 25, 25, 10};
@@ -1157,7 +1180,7 @@ void Game::movement_exertion() {
 
 std::function<TaskResult()> Game::task_body(const std::string& name) {
     if (name == "PLAYER") return [this] { return task_player(); };
-    if (name == "LUKNEW") return [] { return TaskResult{Queue::Tenth, 3}; };
+    if (name == "LUKNEW") return [this] { return task_luknew(); };
     if (name == "HSLOW") return [this] { return task_hslow(); };
     if (name == "BURNER") return [this] { return task_burner(); };
     if (name == "CREGEN") return [this] { return task_cregen(); };
@@ -1175,7 +1198,7 @@ void Game::save_ram(std::ostream& out) const {
         << p.fainted << ' ' << p.dead << ' ' << p.won << ' ' << p.left_hand << ' '
         << p.right_hand << ' ' << p.torch << ' ' << p.bag_head << ' ' << p.map_features << ' '
         << static_cast<int>(p.regular_light) << ' ' << static_cast<int>(p.magic_light) << '\n';
-    out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' '
+    out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' ' << newluk_ << ' '
         << level_index_ << ' ' << line_.size() << ' ' << line_ << "|\n";
     out << static_cast<int>(heart_.heartf) << ' ' << static_cast<int>(heart_.heartc) << ' '
         << static_cast<int>(heart_.hearts) << ' ' << static_cast<int>(heart_.hbeatf) << ' '
@@ -1228,12 +1251,13 @@ void Game::load_ram(std::istream& in) {
     p.map_features = features != 0;
     p.regular_light = static_cast<std::uint8_t>(rl);
     p.magic_light = static_cast<std::uint8_t>(ml);
-    int mode = 0, frozen = 0, sync = 0;
+    int mode = 0, frozen = 0, sync = 0, newluk = 0;
     std::size_t line_size = 0;
-    in >> mode >> frozen >> sync >> level_index_ >> line_size;
+    in >> mode >> frozen >> sync >> newluk >> level_index_ >> line_size;
     mode_ = static_cast<DisplayMode>(mode);
     frozen_ = frozen != 0;
-    sync_pending_ = sync != 0;
+    sync_pending_ = sync;
+    newluk_ = newluk != 0;
     in.get();
     line_.assign(line_size, ' ');
     in.read(line_.data(), static_cast<std::streamsize>(line_size));
