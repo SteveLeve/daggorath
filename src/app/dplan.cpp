@@ -1370,10 +1370,9 @@ struct Runner {
                     ensure_sword();
                     continue;
                 }
-                if (!torch_live()) {
-                    relight();
-                    continue;
-                }
+                // After ENDGAM the surviving torch can be dead.  Search and
+                // fight in darkness instead of stowing the right-hand sword
+                // for a torch that cannot be lit.
                 survival_search_tick();
                 continue;
             }
