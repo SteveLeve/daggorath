@@ -137,8 +137,11 @@ std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int b
     return pixels;
 }
 
+// Screen polarity follows VDGINV; see dag::apply_vdginv (NEWLVL.ASM NLVL50).
 void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
-                   const std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight>& pixels) {
+                   std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels,
+                   int level) {
+    dag::apply_vdginv(pixels, level);
     constexpr int kScale = 3;
     const auto scaled = dag::scale_frame(pixels, kScale);
     std::vector<std::uint8_t> rgb(scaled.size() * 3);
@@ -412,7 +415,7 @@ int main(int argc, char** argv) {
                 --fading.magic_light;
                 auto step = dag::rasterize(fading);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step);
+                present_frame(renderer, texture, step, game.level_index());
                 SDL_Delay(83);
                 --fading.regular_light;
             } while (fading.regular_light > -8);
@@ -430,7 +433,7 @@ int main(int argc, char** argv) {
                 for (int fade = 32; fade >= 0; fade -= 2) {
                     auto step = dag::rasterize_wizard(static_cast<std::uint8_t>(fade));
                     dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                    present_frame(renderer, texture, step);
+                    present_frame(renderer, texture, step, game.level_index());
                     SDL_Delay(300);
                 }
                 std::uint16_t noise = 1;
@@ -456,7 +459,7 @@ int main(int argc, char** argv) {
             do {
                 auto step = dag::rasterize(rising);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step);
+                present_frame(renderer, texture, step, game.level_index());
                 SDL_Delay(83);
                 ++rising.magic_light;
                 ++rising.regular_light;
@@ -481,7 +484,7 @@ int main(int argc, char** argv) {
             leaving.scale = half_scale;
             auto midway = dag::rasterize(leaving);
             dag::paint_text_bands(midway.data(), dag::kScreenWidth, chrome, message, command_override);
-            present_frame(renderer, texture, midway);
+            present_frame(renderer, texture, midway, game.level_index());
             SDL_Delay(12);
         } else if (sidestep_bar >= 0 ||
                    (turned && have_shown && snap.mode == 0 &&
@@ -498,11 +501,11 @@ int main(int argc, char** argv) {
                 auto wipe = turn_wipe(bar);
                 dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
                                       command_override);
-                present_frame(renderer, texture, wipe);
+                present_frame(renderer, texture, wipe, game.level_index());
                 SDL_Delay(12);
             }
         }
-        present_frame(renderer, texture, frame);
+        present_frame(renderer, texture, frame, game.level_index());
         shown_row = game.player().row;
         shown_col = game.player().col;
         shown_dir = static_cast<int>(game.player().dir);

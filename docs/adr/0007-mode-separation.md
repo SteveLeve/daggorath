@@ -28,7 +28,16 @@ or expensive.
 4. The Original Mode conformance suite must pass unchanged in any build that
    also contains an enhanced mode.
 5. Accessibility aids that change timing (slower clock, pause on overlay) are
-   enhanced-mode features, not Original Mode settings.
+   enhanced-mode features, not Original Mode settings. **Narrowed
+   2026-09-27 (ADR-0009 accepted, Phase 8.2):** the shell's system-menu
+   pause and OS backgrounding (ADR-0009 §3, deviation D-16) withhold jiffy
+   delivery outside the core and are available in Original Mode too, because
+   they change no core state or behaviour (ADR-0009 §4, pause invariance).
+   In-play overlays (pickers, the INCANT keyboard) stay enhanced-mode-only:
+   this rule still bars them from pausing. That bar is design intent for the
+   workstreams that build those overlays (8.4), not a runtime-enforced
+   invariant today: no code path yet connects any overlay to
+   `Shell::tick()`.
 
 ## Consequences
 

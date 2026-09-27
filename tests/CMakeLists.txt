@@ -40,6 +40,16 @@ add_test(NAME event_regressions COMMAND event_regressions)
 add_test(NAME port_creature_stats
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/compare_port_creatures.py)
 
+add_executable(gesture_tests input/gesture_tests.cpp)
+target_link_libraries(gesture_tests PRIVATE daggorath::input)
+target_compile_definitions(gesture_tests
+  PRIVATE DAG_PHASE8_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/docs/archaeology/phase-8/fixtures")
+add_test(NAME gesture_tests COMMAND gesture_tests)
+
+add_executable(shell_tests shell/shell_tests.cpp)
+target_link_libraries(shell_tests PRIVATE daggorath::shell)
+add_test(NAME shell_tests COMMAND shell_tests)
+
 # Phase 8.3: the `crisp` draw list, regenerated from the same golden states
 # Phase 6's viewer fixtures fix, must match the committed fixture byte for
 # byte — proof `crisp` and `pixel` project the same logical draw list
