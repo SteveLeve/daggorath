@@ -87,7 +87,9 @@ int slot_of_type(const dag::Game& game, int type) {
 }
 
 // Kill the creature of `type` on the current level with an incanted FIRE ring.
-// PPOW 8000 is a test value: it makes each hit large and each swing survivable.
+// PPOW 30000 is a test value: the ring has three charges (VULCAN's P.OCXXX
+// survives OCBFIL, OBIRTH.ASM OFIL10), and 30000 makes three hits reach the
+// 8000-power wizard. Each swing's damage is reset so the player survives.
 bool kill_type(dag::Game& game, int type, int& ring) {
     const int slot = slot_of_type(game, type);
     if (slot < 0) return false;
@@ -96,12 +98,30 @@ bool kill_type(dag::Game& game, int type, int& ring) {
     run(game, {"INCANT FIRE"});
     const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(slot)];
     game.place_player(c.row, c.col);
-    game.set_player_power(8000);
+    game.set_player_power(30000);
     for (int n = 0; n < 20 && !has(game, "KILL"); ++n) {
         game.set_player_damage(0);
         run(game, {"ATTACK LEFT"});
     }
     return has(game, "KILL");
+}
+
+void test_spent_ring_becomes_a_plain_gold_ring() {
+    // PATTK.ASM PATT10: the last charge turns the ring into T.RN20 through
+    // PREV00 (PREVEA.ASM), so OCBFIL gives it the gold ring's own ODBTAB entry.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    const int ring = find_object(game, kVulcan);
+    game.hold(false, ring);
+    run(game, {"INCANT FIRE"});
+    const dag::Ocb& o = game.objects()[static_cast<std::size_t>(ring)];
+    check(o.type == 21 && o.magic_offense == 255, "INCANT FIRE gives the fire ring 255 offense");
+    for (int n = 0; n < 3; ++n) run(game, {"ATTACK LEFT"});
+    check(has(game, "RING", "spent"), "the fire ring's charges run out");
+    check(o.type == 22 && o.cls == 1, "the spent ring is a gold ring (T.RN20), still class ring");
+    check(o.magic_offense == 0 && o.physical_offense == 5,
+          "OCBFIL gives the gold ring its own offense 0/5, not 255/255");
+    check(o.reveal == 0, "PREV00 clears P.OCREV");
 }
 
 void test_image_ending() {
@@ -351,6 +371,7 @@ void test_fudge_harness_is_not_source_behaviour() {
 }  // namespace
 
 int main() {
+    test_spent_ring_becomes_a_plain_gold_ring();
     test_image_ending();
     test_wizard_ending();
     test_winner();
