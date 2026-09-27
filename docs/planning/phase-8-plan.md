@@ -59,9 +59,12 @@ independent of 8.1 and can run in parallel with it.
    from dungeon level and time played; choosing an occupied slot asks to
    overwrite, and on confirm it is saved and renamed.
 6. **8.2** Restart and Quit ask for confirmation.
+7. **8.3** The map is drawn with sharp squares in `crisp` (ADR-0010 §7).
+8. **8.2** Shell pauses are marked in the trace as `PAUSE`/`RESUME` shell
+   lines, not core events (ADR-0009).
+9. **Phase 9 hook** Backgrounding = shell pause + snapshot to a hidden
+   sixth slot, restored paused at next launch.
 
 ## Still open
 
-- **8.3** Map (`MAPPER`) style in `crisp`: crisp squares or pixel.
-- **8.2** Whether a shell pause leaves a trace line.
-- **Phase 9 hook** Backgrounding = shell pause + automatic snapshot (which slot).
+No architectural questions. Tuning left to the workstreams: line thickness and smoothing (8.3), picker rules checked against the listing (8.0).

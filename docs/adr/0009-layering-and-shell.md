@@ -45,7 +45,7 @@ these layers are built, so the two must not fork.
    confirmation — never pause (charter, Mobile UX).
 
 4. **Pause invariance.** Because pause only withholds jiffies, a run paused at
-   any points yields the same jiffy-stamped core trace as the same keystrokes
+   any points yields the same jiffy-stamped core trace (shell `PAUSE`/`RESUME` lines excluded) as the same keystrokes
    delivered on the same jiffies without pause. Phase 8 adds this as a test.
 
 5. **Two kinds of save, kept apart.** The menu's Save/Load use suspend
@@ -65,7 +65,10 @@ these layers are built, so the two must not fork.
    show five slots, each auto-named from the dungeon level and time played,
    read from the core without changing it. Saving over an occupied slot asks
    for confirmation, then saves and renames it. Restart and Quit ask for
-   confirmation.
+   confirmation. A sixth, **hidden slot** (also a `DAGSNAP 1` suspend snapshot) is not listed in Save or Load. The
+   shell writes it when the OS backgrounds the app and reads it at the next
+   launch. The resumed game opens paused, and the hidden slot is cleared once
+   play continues.
 
 7. **Settings live in the shell** (`SDL_GetPrefPath` on desktop), never in the
    RAM image or snapshot.
@@ -85,7 +88,11 @@ these layers are built, so the two must not fork.
   edited while this ADR is Proposed; acceptance records the narrowing there.
 - The Phase 8 prompt is rewritten around three workstreams: touch adapters,
   the shell, and render styles.
-- Phase 9's backgrounding handler is a shell pause plus an automatic snapshot,
-  not new machinery.
-- **Open:** whether the trace records shell pauses (they add no jiffy, so a
-  trace line would be informational only).
+- Phase 9's backgrounding handler is a shell pause plus a snapshot to the
+  hidden slot, not new machinery.
+- **Trace markers** (decided 2026-09-27): for debugging, the shell writes
+  `PAUSE` and `RESUME` lines. Both carry the same jiffy, the one at which
+  delivery stopped. They are shell lines, not `CoreEvent`s: ADR-0004 rule 1 admits
+  only events the simulation produces. That keeps the core trace diffable
+  with ROM traces. The pause-invariance test compares traces with these
+  lines removed.

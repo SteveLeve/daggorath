@@ -40,10 +40,12 @@ in every mode.
    original never had. That would be a new
    design with its own provenance, so it is left as a later option.
 
+7. **Map in `crisp`** (decided 2026-09-27): `MAPPER` cells are drawn as
+   sharp squares at device resolution, from the same cell projection
+   (`mapper.hpp`) that `pixel` rasterises.
+
 ## Open for Phase 8
 
 - All-vector text (see §6): later option, not Phase 8.
-- The map (`MAPPER`) is cell-based: crisp squares at device resolution, or
-  pixel style.
 - Line thickness default relative to screen size; whether `pixel` offers
   smoothing filters.

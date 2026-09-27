@@ -39,10 +39,6 @@ These are hypotheses to implement and evaluate, not evidence about the original.
   be more disruptive. `✕` cancels. The same keyboard backs `⌨`.
 - **RESTART** is not a command in `CMDTAB`; not provided.
 
-## Open for Phase 8
-
-- Map style in crisp mode (ADR-0010).
-
 ## Decided 2026-09-27
 
 - **System menu button** at bottom right, with `C E L ⌨` (ADR-0009 §6). It is
