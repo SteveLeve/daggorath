@@ -48,7 +48,7 @@ then the rest.
 | PATTK.ASM:PATTK | game.cpp cmd_attack | gap-fixed | 6 | Exertion (9-bit sum /8), SNDOBJ, ring auto-hit, darkness 25% gate, KLK2, !!! match. Spent ring was missing PREV00/OCBFIL, fixed on refinement/ring-charges (Q3). Kill path lacks the PUPDAT SYNC (Q2 class). |
 | PATTK.ASM:ATTACK | combat attack_hits | matches | 6 | Fixture-backed (combat fixtures). |
 | PATTK.ASM:DAMAGE | combat apply_damage | matches | 6 | SCAL16 magic then physical; fixture-backed. |
-| PATTK.ASM:ENDGAM | game.cpp endgame_image, endgame_resume | gap-fixed | 11, 21 | WIZIN (CLR HBEATF) and the closing INIVU added in run 11; messages, torch-only bag, weight 200, level 3, FNDCEL. |
+| PATTK.ASM:ENDGAM | game.cpp endgame_image, endgame_resume | gap-fixed | 11, 21, 23 | WIZIN (CLR HBEATF) and the closing INIVU added in run 11; messages, torch-only bag, weight 200, level 3, FNDCEL. |
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
 | HUPDAT.ASM:HUPD40 |  | gap-fixed | 3 | Wake-up fade-in climbs to the saved OLIGHT [SRC], 5 jiffies per step [ROM] C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
@@ -144,3 +144,4 @@ then the rest.
 | 2026-09-27 | 20 | COMPLR BURNER, LUKNEW | BURNER never set NEWLUK | NEWLUK at BURN99 + test; t1-t5 and phase-3 fight traces regenerated under Q2 | f53cf22 was pushed with a failing test: the gate chain used `grep`, which succeeded on the FAIL line. Fixed in the next commit. Gate on `make all`'s exit code, never on grep. |
 | 2026-09-27 | 21 | MISC wizard/WAIT routines, ENDGAM timing; audit of 66e2b6f | ENDGAM ran instantly: no WIZIN/WAIT/WIZOUT SYNCs, no A$EXP1, level 3 built ~1.4 s early (different SECOND) | Staged ENDGAM + timing test; no baseline moved | — |
 | 2026-09-27 | 22 | PREPAR/PCLIMB build time; ENDGAM text | [ROM] CLIMB builds ~330 interrupts after the command, so level SECOND and creature placement differ (Q6, C-22). A test for WIZIN's CLRPRI showed DEATH's is unobservable (the faint's CLRPRI always runs first), and ENDGAM's staged text shows an unexplained extra dot row before its messages: likely the staged ENDGAM lets HMAN70's line handling run early (gap-open, next run). | none; edits reverted | ENDGAM text — not run: time |
+| 2026-09-27 | 23 | ENDGAM extra prompt line (from run 22) | Staged ENDGAM let HMAN70 prompt before its stages; INIVU then wiped it, leaving no prompt | HMAN70 deferred to ENDGAM's last stage + tests; audited | — |
