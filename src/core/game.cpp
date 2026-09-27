@@ -412,6 +412,12 @@ void Game::update_heart_rate() {
     // HUPD90: BLO, so equal power and damage is not death.
     if (!player_.dead && player_.power < player_.damage) {
         player_.dead = true;
+        // DEATH tail, HUPDAT.ASM:168: CLR FAINT (source-proven), so a player who
+        // dies while unconscious is no longer fainted. The listing then does
+        // DEC AUTFLG (:169) so a keypress restarts GAME; the core halts instead
+        // (the restart is Phase 5b work).
+        player_.fainted = false;
+        sched_.set_faint(false);
         sched_.halt();
         emit("DEATH", "power=" + std::to_string(player_.power) +
                           " damage=" + std::to_string(player_.damage));
