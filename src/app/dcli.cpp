@@ -160,46 +160,11 @@ int main(int argc, char** argv) {
         image << dag::bitmap_pbm(dag::rasterize(dag::snapshot_from(game)));
     }
     if (present_map) {
-        dag::MapSnapshot snap;
-        snap.cells = game.maze().bytes().data();
-        snap.player_row = game.player().row;
-        snap.player_col = game.player().col;
-        snap.features = game.player().map_features;
-        for (const auto& o : game.objects()) {
-            if (o.owner == 0 && o.level == game.level_index())
-                snap.objects.push_back({o.row, o.col});
-        }
-        for (const auto& c : game.creatures()) {
-            if (c.in_use) snap.creatures.push_back({c.row, c.col});
-        }
-        for (int r = 0; r < 32; ++r) {
-            for (int col = 0; col < 32; ++col) {
-                if (dag::vfind(game.level_index(), r, col) >= 0)
-                    snap.verticals.push_back({r, col});
-            }
-        }
+        const dag::MapSnapshot snap = dag::map_snapshot_from(game);
         std::cout << dag::project_map(snap).text;
     }
     if (present_text) {
-        dag::ExamineSnapshot exam;
-        exam.creature = false;
-        for (const auto& c : game.creatures()) {
-            if (c.in_use && c.row == game.player().row && c.col == game.player().col)
-                exam.creature = true;
-        }
-        for (const auto& o : game.objects()) {
-            if (o.owner == 0 && o.level == game.level_index() &&
-                o.row == game.player().row && o.col == game.player().col)
-                exam.floor.push_back(dag::object_name(o));
-        }
-        int bag_i = 0;
-        for (int i = game.player().bag_head; i >= 0;
-             i = game.objects()[static_cast<std::size_t>(i)].next) {
-            exam.bag.push_back(
-                dag::object_name(game.objects()[static_cast<std::size_t>(i)]));
-            if (i == game.player().torch) exam.torch_index = bag_i;
-            ++bag_i;
-        }
+        const dag::ExamineSnapshot exam = dag::examine_snapshot_from(game);
         dag::TextSnapshot text;
         const auto& p = game.player();
         if (p.left_hand >= 0)

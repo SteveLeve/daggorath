@@ -236,6 +236,16 @@ local CLOCK, CLK50, GAME50 = sym("CLOCK"), sym("CLK50"), sym("GAME50")
 -- interrupt is jiffy 0: the reference slice emits INIT at scheduler entry.
 -- The alignment is inferred, not source-proven. The build interrupts are
 -- counted in build_isrs and reported, not hidden.
+-- DOD_POKE="isr:SYMBOL:value[:width],...": harness-modified writes at the
+-- start of a game interrupt, e.g. to push PDAM past PPOW for a death (C-17).
+-- A value of the form "SYMBOL+n" or "SYMBOL-n" is read from memory at that time.
+local pokes = {}
+for spec in (os.getenv("DOD_POKE") or ""):gmatch("[^,]+") do
+    local at, name, value, width = spec:match("^(%d+):(%w+):([%w%+%-]+):?(%d*)$")
+    if not at then die("bad DOD_POKE entry " .. spec) end
+    pokes[#pokes + 1] = {isr = tonumber(at), name = name, raw = value,
+        width = tonumber(width) or 2}
+end
 local phase = "boot"
 local isr = -1          -- game interrupt counter; the first CLOCK after GAME50 is isr 0
 local build_isrs = 0    -- interrupts between GAME10's IRQSYN and GAME50
@@ -273,6 +283,21 @@ local function on_clock()
         return
     end
     isr = isr + 1
+    for _, pk in ipairs(pokes) do
+        if pk.isr == isr then
+            local a = sym(pk.name)
+            local base, sign, n = pk.raw:match("^(%a%w*)([%+%-])(%d+)$")
+            if base then
+                local b = pk.width == 2 and mem:read_u16(sym(base)) or mem:read_u8(sym(base))
+                pk.value = (sign == "+") and (b + tonumber(n)) or (b - tonumber(n))
+            else
+                pk.value = tonumber(pk.raw)
+            end
+            pk.value = pk.value & (pk.width == 2 and 0xFFFF or 0xFF)
+            if pk.width == 2 then mem:write_u16(a, pk.value) else mem:write_u8(a, pk.value) end
+            trace:write(string.format("# harness-modified %s=%d written at isr %d\n", pk.name, pk.value, isr))
+        end
+    end
     sample(mem, isr)
     if jiffy_limit and isr - 1 >= jiffy_limit then
         raw:flush()

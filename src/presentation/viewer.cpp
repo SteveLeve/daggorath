@@ -4,6 +4,7 @@
 #include "daggorath/vctlst.hpp"
 #include "daggorath/vector_tables.hpp"
 
+#include <array>
 #include <cstdint>
 #include <utility>
 
@@ -25,9 +26,9 @@ const SeenCreature* cfind(const ViewSnapshot& view, int row, int col) {
 }
 
 void append_list(RenderState& state, std::size_t offset, int range, int fade,
-                 const std::string& kind) {
+                 const std::string& kind, const std::array<int, 10>& scales) {
     if (fade == 0xFF) return;
-    const int scale = kNorscl[static_cast<std::size_t>(range)];
+    const int scale = scales[static_cast<std::size_t>(range)];
     auto lines = decode_vectors(kVectorBlob, static_cast<std::uint8_t>(scale),
                                 static_cast<std::uint8_t>(scale), kCentroidX, kCentroidY,
                                 static_cast<std::uint8_t>(fade), offset);
@@ -42,7 +43,9 @@ void append_list(RenderState& state, std::size_t offset, int range, int fade,
 void drawit(RenderState& state, const ViewSnapshot& view, std::size_t offset, int range,
             bool magic, const std::string& kind) {
     const int light = magic ? view.magic_light : view.regular_light;
-    append_list(state, offset, range, set_fade(light, range), kind);
+    const std::array<int, 10>& scales =
+        view.scale == 1 ? kHlfscl : view.scale == 2 ? kBakscl : kNorscl;
+    append_list(state, offset, range, set_fade(light, range), kind, scales);
 }
 
 }  // namespace

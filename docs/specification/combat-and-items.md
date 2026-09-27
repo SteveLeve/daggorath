@@ -18,7 +18,7 @@ A ring (`K.RING`) skips `ATTACK` and the darkness gate. Otherwise `ATTACK` runs;
 
 Darkness: if `PTORCH` is zero or the torch type is `T.TOR5` (24), one `RANDOM` byte must have both low bits clear (1 in 4). Otherwise the swing misses.
 
-A hit calls `DAMAGE`. `BHI` means the creature is still alive (`power > damage`, unsigned). Otherwise `PATT30`.
+A connecting swing is `ISOUND A$KLK2` (`KLINK`) and `OUTSTI` `!!!`, then `DAMAGE`. `BHI` means the creature is still alive (`power > damage`, unsigned). Otherwise `PATT30`.
 
 ## `ATTACK` — [SRC]
 
@@ -32,7 +32,7 @@ Magical damage, then physical. Each channel is `SCAL16(SCAL16(attacker power, of
 
 ## Kill (`PATT30`, `PATT40`) — [SRC]
 
-Objects on the creature are unowned and placed on its cell. `CMXLND[type]` is decremented with byte wrap. The block's in-use flag is cleared. Player power gains an arithmetic `>> 3` of the creature's power. If that sum is negative, the high byte is forced to `0x7F` and the low byte is kept.
+Objects on the creature are unowned and placed on its cell. `CMXLND[type]` is decremented with byte wrap. The block's in-use flag is cleared. `ISOUND A$EXP0` (`BANG`, `BANGD` pitch `$0050` repeated 5 times) follows that screen update. Player power gains an arithmetic `>> 3` of the creature's power. If that sum is negative, the high byte is forced to `0x7F` and the low byte is kept.
 
 Creature type 10 emits `DEFER endgame 10` and does not run `ENDGAM` (Phase 5). Type 11 sets the freeze flag and emits `DEFER endgame 11`.
 

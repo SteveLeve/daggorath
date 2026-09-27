@@ -22,3 +22,8 @@ a link to the reconciliation entry. Procedure: `archaeology/phase-0b/traces/READ
 | C-14 | Torch burn-out across minute boundaries | `BURNER` | Phase 4 (planned) | not captured |
 | C-15 | Bare `CLIMB` | manual/source discrepancy | Phase 0 | not captured |
 | C-16 | Screenshots at fixed states per level; map modes | viewer and mapper | Phase 6 (planned) | not captured |
+| C-17 | Death wizard fade-in and faint fade-out, jiffies per step | `WIZIX`/`WIZZES`, `HUPD30`, `HUPD42`; D-14 | Refinement loop 1 | captured, harness-modified (`PDAM` poke) — phase-7 reconciliation §C-17 |
+| C-18 | Faint followed by revival, jiffies per `HUPD42` step | `HUPD42`, D-14 | Refinement loop 2 (captured in loop 3) | captured, harness-modified (`PDAM` poke) — phase-7 reconciliation §C-18 |
+| C-19 | Creature picks up an object in view and out of view; creature steps onto the player's cell | `CMOVE` `PUPDAT`/`SYNC` foreground cost, next-task timing | Refinement loop 4 | not captured |
+| C-20 | Screen dump with the map up (seer and vision scrolls) | whether the status and text bands show over `MAPPER`; phase-7 reconciliation | Refinement loop 15 | not captured |
+| C-21 | Start-up alignment: power-on to the first `PLAYER` dispatch, the first `CMOVE`, `HSLOW` | why the ROM's first `PLAYER` run comes at isr 13–14 against jiffy 1 in the core; the `GAME50` `INIVU` `SYNC` (Q4, D-15); C-09 | Refinement loop (Q4) | not captured |

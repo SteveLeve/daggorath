@@ -16,6 +16,7 @@ namespace {
 
 // Internal character codes (CD.ASM).
 constexpr std::uint8_t kISp = 0x00, kICr = 0x1F, kIBs = 0x24;
+constexpr std::uint8_t kIBar = 0x1C, kIDot = 0x1E, kIBang = 0x1B;
 // ASCII codes as delivered by POLCAT (CD.ASM).
 constexpr std::uint8_t kCBs = 0x08, kCCr = 0x0D, kCSp = 0x20;
 
@@ -93,7 +94,8 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
         emit(msg.substr(0, sp), msg.substr(sp + 1));
     });
     sched_.set_irq_hook([this] { heartbeat_interrupt(); });
-    inivu();   // ONCE.ASM GAME50: SWI INIVU
+    inivu(false);   // ONCE.ASM GAME50: SWI INIVU; its SYNC precedes jiffy 0 [INF]
+    prompt();  // GAME50: SWI PROMPT
     emit("INIT", "level=" + std::to_string(level) + " row=" +
                      std::to_string(player_.row) + " col=" +
                      std::to_string(player_.col) + " dir=" + dir_name(player_.dir) +
@@ -101,14 +103,15 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
 }
 
 // ONCE.ASM SYSTCB: every queue and TCB is cleared, then the TCBDAT tasks go
-// onto SCDQUE in this order. LUKNEW stays inert. CREGEN performs the matrix
+// onto SCDQUE in this order. CREGEN performs the matrix
 // increment. CBIRTH later queues CMOVE on Q.TEN, ahead of LUKNEW's QUEADD.
 void Game::systcb() {
     sched_.reset_tasks();
     creature_tasks_.clear();
     player_task_ = sched_.add({"PLAYER", [this] { return task_player(); },
                               Queue::Sched, 0, true});
-    sched_.add({"LUKNEW", [] { return TaskResult{Queue::Tenth, 3}; },
+    newluk_ = false;
+    sched_.add({"LUKNEW", [this] { return task_luknew(); },
                 Queue::Sched, 0, true});
     hslow_task_ = sched_.add({"HSLOW", [this] { return task_hslow(); },
                               Queue::Sched, 0, true});
@@ -204,6 +207,11 @@ TaskResult Game::task_cmove(int slot) {
         events_.back().entry = s.entry;
     }
     for (const std::string& e : events) {
+        if (e.rfind("LOOK", 0) == 0) newluk_ = true;           // CWLK90 DEC NEWLUK
+        if (e.rfind("PUPDAT", 0) == 0) {
+            pupdat();
+            if (e.find("cmov90") != std::string::npos) newluk_ = false;   // CLR NEWLUK
+        }
         const auto sp = e.find(' ');
         if (sp == std::string::npos) emit(e, "");
         else emit(e.substr(0, sp), e.substr(sp + 1));
@@ -263,6 +271,18 @@ void Game::sound(std::uint8_t cue, std::uint8_t volume, int range, int source) {
 void Game::text(const std::string& s) {
     auto& e = push_event(CoreEventKind::Text);
     e.text = s;
+    // OUTSTI deposits at the primary-text cursor. '^' is I.CR.
+    for (const char ch : s) {
+        std::uint8_t code = kISp;
+        if (ch == '^') code = kICr;
+        else if (ch == '!') code = kIBang;
+        else if (ch == '?') code = 0x1D;
+        else if (ch == '.') code = kIDot;
+        else if (ch == '_') code = kIBar;
+        else if (ch >= 'A' && ch <= 'Z') code = static_cast<std::uint8_t>(ch - 'A' + 1);
+        else if (ch >= 'a' && ch <= 'z') code = static_cast<std::uint8_t>(ch - 'a' + 1);
+        out_char(code);
+    }
 }
 
 void Game::set_mode(DisplayMode mode) {
@@ -280,12 +300,18 @@ void Game::block(BlockKind kind, std::uint32_t loops, std::uint32_t jiffies, boo
     e.duration_known = known;
 }
 
-void Game::inivu() {
-    // PLOOK.ASM INIVUX: HUPDAT, INC HEARTC, DEC HEARTF, DEC HBEATF.
+void Game::inivu(bool charge) {
+    // PLOOK.ASM:7-23 INIVUX (source-proven): CLRSTS, CLRPRI, HUPDAT, INC HEARTC,
+    // DEC HEARTF, DEC HBEATF, STATUS, then falls into PLOOK: DSPMOD = VIEWER
+    // and PUPDAT. CLRSTS and STATUS only redraw the status line, which the
+    // core does not model.
+    clear_primary_text();
     update_heart_rate();
     heart_.heartc = static_cast<std::uint8_t>(heart_.heartc + 1);
     heart_.heartf = static_cast<std::uint8_t>(heart_.heartf - 1);
     heart_.hbeatf = static_cast<std::uint8_t>(heart_.hbeatf - 1);
+    if (mode_ != DisplayMode::Viewer) set_mode(DisplayMode::Viewer);
+    if (charge) pupdat("inivu");
 }
 
 void Game::wizard_fade_in() {
@@ -342,8 +368,8 @@ void Game::advance_jiffies(std::uint64_t n) {
         }
         sched_.interrupt(keys);
 
-        if (sync_pending_) {       // a command ended in SYNC: it owns this jiffy
-            sync_pending_ = false;
+        if (sync_pending_ > 0) {   // a SYNC in the last pass owns this jiffy
+            --sync_pending_;
             block(BlockKind::Sync, 1, 1, true);
             emit("SYNC", "display swap");
             continue;
@@ -375,10 +401,12 @@ void Game::update_heart_rate() {
     if (!player_.fainted && signed_rate <= 3) {
         player_.fainted = true;
         sched_.set_faint(true);
+        clear_primary_text();   // HUPDAT.ASM HUPD30 CLRPRI
         emit("FAINT", "heart_rate=" + std::to_string(signed_rate));
     } else     if (player_.fainted && signed_rate > 4) {
         player_.fainted = false;
         sched_.set_faint(false);
+        prompt();   // HUPD42 PROMPT
         emit("REVIVE", "heart_rate=" + std::to_string(signed_rate));
     }
     // HUPD90: BLO, so equal power and damage is not death.
@@ -412,8 +440,9 @@ TaskResult Game::task_player() {
         } else {
             internal = kISp;                            // non-alpha becomes space
         }
+        const int syncs_before = sync_pending_;
         feed_char(internal);
-        if (sync_pending_) break;   // the command blocked on SYNC
+        if (sync_pending_ > syncs_before) break;   // the command blocked on SYNC
         if (sched_.halted()) break; // DEATH ends in BRA * (HUPDAT.ASM)
     }
     if (zflag_ != 0) sched_.end_lap([this] { tape_operation(); });
@@ -421,32 +450,111 @@ TaskResult Game::task_player() {
 }
 
 TaskResult Game::task_hslow() {
-    // HSLOW: recover 1/64th of accumulated damage, then reschedule at HEARTR.
+    // HSLOW: D = (-PDAM) >>arith 6, PDAM += D, BGT else 0. The arithmetic shift
+    // rounds toward minus infinity, so each run recovers ceil(PDAM/64) >= 1.
     const std::uint16_t d = player_.damage;
-    const std::int32_t recovered = static_cast<std::int32_t>(d) -
-                                   static_cast<std::int32_t>(d >> 6);
-    player_.damage = static_cast<std::uint16_t>(recovered > 0 ? recovered : 0);
+    const auto negated = static_cast<std::int16_t>(static_cast<std::uint16_t>(0u - d));
+    const auto sum = static_cast<std::int16_t>(
+        static_cast<std::uint16_t>((negated >> 6) + d));
+    player_.damage = sum > 0 ? static_cast<std::uint16_t>(sum) : 0;
     update_heart_rate();
     std::uint8_t delay = player_.heart_rate;
     if (delay == 0) delay = 1;    // a zero countdown would never expire
     return {Queue::Jiffy, delay};
 }
 
+// PUPDAT.ASM PUPDAX: nothing while fainted; otherwise redraw, DEC UPDATE, SYNC
+// (source-proven). One jiffy per SYNC is inferred (D-15).
+void Game::pupdat() {
+    if (player_.fainted) return;
+    ++sync_pending_;
+}
+
+void Game::pupdat(const std::string& why) {
+    emit("PUPDAT", why);
+    pupdat();
+}
+
+// COMPLR.ASM LUKNEW: redraw when a creature asked for it or the map is up
+// (source-proven).
+TaskResult Game::task_luknew() {
+    if (newluk_ || mode_ == DisplayMode::Mapper) {
+        newluk_ = false;
+        emit("PUPDAT", "luknew");
+        pupdat();
+    }
+    return {Queue::Tenth, 3};                           // SCHED$ 3,Q.TEN
+}
+
+void Game::clear_primary_text() {
+    text_.fill(0);
+    text_cursor_ = 0;
+}
+
+void Game::out_char(std::uint8_t code) {
+    // COMTXT.ASM TXTXXX, then TXTCHR's scroll test against P.TXCNT (128).
+    if (code == kIBs) {
+        if (--text_cursor_ < 0) text_cursor_ = 127;
+        return;
+    }
+    if (code == kICr) {
+        text_cursor_ = (text_cursor_ + 32) & ~0x1F;
+    } else {
+        if (text_cursor_ >= 128) {
+            std::copy(text_.begin() + 32, text_.end(), text_.begin());
+            std::fill(text_.begin() + 96, text_.end(), 0);
+            text_cursor_ = 96;
+        }
+        text_[static_cast<std::size_t>(text_cursor_)] = code;
+        ++text_cursor_;
+    }
+    if (text_cursor_ >= 128) {
+        std::copy(text_.begin() + 32, text_.end(), text_.begin());
+        std::fill(text_.begin() + 96, text_.end(), 0);
+        text_cursor_ = 96;
+    }
+}
+
+void Game::prompt() {
+    out_char(kICr);    // M$PROM1
+    out_char(kIDot);
+}
+
+void Game::finish_line() {
+    out_char(kISp);   // HMAN30 erases the underline cursor
+    dispatch_line();
+    // HMAN70: no prompt in map mode (HEARTF == 0) or while fainted.
+    if (heart_.heartf != 0 && !player_.fainted) prompt();
+}
+
 void Game::feed_char(std::uint8_t ch) {
-    if (heart_.heartf == 0) inivu();   // HUMAN.ASM HMAN10
+    if (heart_.heartf == 0) {   // HUMAN.ASM HMAN10, leaving the map
+        inivu();
+        prompt();
+    }
     if (ch == kICr) {
-        dispatch_line();
+        finish_line();
         return;
     }
     if (ch == kIBs) {
-        if (!line_.empty()) line_.pop_back();
+        if (line_.empty()) return;
+        line_.pop_back();
+        // M$ERAS: space, back, back, bar, back.
+        out_char(kISp);
+        out_char(kIBs);
+        out_char(kIBs);
+        out_char(kIBar);
+        out_char(kIBs);
         return;
     }
+    out_char(ch);   // echo, then the underline sitting on the next cell
     line_.push_back(ch == kISp ? ' ' : static_cast<char>('A' + ch - 1));
+    out_char(kIBar);
+    out_char(kIBs);
     // HMAN20 falls through the buffer-full test into the carriage-return path.
     if (line_.size() == kLineBufSize) {
         emit("LINE", "buffer full, dispatching");
-        dispatch_line();
+        finish_line();
     }
 }
 
@@ -501,9 +609,11 @@ void Game::cmd_turn(const std::string& line, std::size_t& pos) {
         return;
     }
     player_.dir = static_cast<Dir>(b & 3);   // PREVU: ANDB #3 / STB PDIR
-    block(BlockKind::TurnAnimation, 8, 0, false);  // PTURN.ASM LRTURN, D-4a
+    // PTURN.ASM LRTURN/RLTURN, D-4a: TURN AROUND runs RLTURN twice (PTUR20
+    // falls into PTUR22), so its sweep count doubles (source-proven).
+    block(BlockKind::TurnAnimation, d.type == kDirAround ? 16 : 8, 0, false);
     emit("TURN", "dir=" + dir_name(player_.dir));
-    sync_pending_ = true;
+    ++sync_pending_;
 }
 
 // PMOVE: no direction means forward. Every path, including a blocked step,
@@ -524,7 +634,8 @@ void Game::cmd_move(const std::string& line, std::size_t& pos) {
     step_player(relative);
     movement_exertion();
     block(BlockKind::MoveAnimation, 8, 0, false);  // PTURN.ASM PMOVE, D-4a
-    sync_pending_ = true;
+    events_.back().step_relative = relative;
+    ++sync_pending_;
 }
 
 constexpr std::uint8_t kClassWeight[] = {5, 1, 10, 25, 25, 10};
@@ -589,6 +700,7 @@ void Game::stow_index(bool right, int index) {
     if (right) player_.right_hand = -1;
     else player_.left_hand = -1;
     emit("STOW", "object=" + std::to_string(index));
+    pupdat("comupd");   // PGET.ASM PSTOW0 -> COMUPD: STATUS, PUPDAT
 }
 
 void Game::refresh_light() {
@@ -654,6 +766,7 @@ void Game::cmd_get(const std::string& line, std::size_t& pos) {
     else player_.left_hand = found;
     add_weight(kClassWeight[object.cls]);
     emit("GET", "object=" + std::to_string(found));
+    pupdat("comupd");   // PGET.ASM WUPDAT -> COMUPD: STATUS, PUPDAT
 }
 
 void Game::cmd_drop(const std::string& line, std::size_t& pos) {
@@ -674,6 +787,7 @@ void Game::cmd_drop(const std::string& line, std::size_t& pos) {
     const int weight = kClassWeight[object.cls];
     add_weight(-weight);
     emit("DROP", "object=" + std::to_string(held));
+    pupdat("comupd");   // PGET.ASM PDROP -> WUPDAT -> COMUPD
 }
 
 void Game::cmd_stow(const std::string& line, std::size_t& pos) {
@@ -714,6 +828,7 @@ void Game::cmd_pull(const std::string& line, std::size_t& pos) {
                 refresh_light();
             }
             emit("PULL", "object=" + std::to_string(current));
+            pupdat("comupd");   // PGET.ASM PPULL -> COMUPD
             return;
         }
         previous = current;
@@ -734,6 +849,7 @@ void Game::cmd_use(const std::string& line, std::size_t& pos) {
         stow_index(right, held);
         emit("SOUND", "A$TORC");
         sound(SoundCue::TORC);
+        pupdat("puse");     // PUSE.ASM PUSE12: a second PUPDAT after A$TORC
         return;
     }
     if (object.type == kTypeFlaskThews) {
@@ -749,6 +865,7 @@ void Game::cmd_use(const std::string& line, std::size_t& pos) {
         sound(SoundCue::SCRO);   // PUSE.ASM USC210 ISOUND A$SCRO; no extra trace line
         set_mode(DisplayMode::Mapper);
         emit("MAP", player_.map_features ? "features=1" : "features=0");
+        pupdat("puse");     // PUSE.ASM USC210 PUPDAT
         return;
     } else {
         return;
@@ -808,6 +925,7 @@ void Game::cmd_examine() {
     set_mode(DisplayMode::Examine);
     const int creature = find_creature(player_.row, player_.col);
     emit("EXAMINE", "creature=" + std::to_string(creature));
+    pupdat("pexam");   // PEXAM.ASM PEXAM: DSPMOD = EXAMIN, PUPDAT (source-proven)
 }
 
 void Game::cmd_climb(const std::string& line, std::size_t& pos) {
@@ -841,6 +959,7 @@ void Game::cmd_climb(const std::string& line, std::size_t& pos) {
     }
     emit("CLIMB", "level=" + std::to_string(next));
     enter_level(next);
+    inivu();   // PCLIMB.ASM PCLI20: NEWLVL then SWI INIVU
 }
 
 int Game::find_creature(int row, int col) const {
@@ -871,6 +990,9 @@ void Game::kill_creature(int slot) {
     creature.in_use = 0;
     emit("KILL", "slot=" + std::to_string(slot) + " type=" + std::to_string(type) +
                      " matrix=" + std::to_string(row[type]));
+    pupdat("pattk");    // PATTK.ASM PATT40 PUPDAT, before A$EXP0
+    emit("SOUND", "A$EXP0");   // PATTK.ASM PATT40 ISOUND A$EXP0
+    sound(SoundCue::EXP0);
     const std::int16_t eighth = static_cast<std::int16_t>(creature.power) >> 3;
     const std::int16_t sum =
         static_cast<std::int16_t>(static_cast<std::int16_t>(player_.power) + eighth);
@@ -889,6 +1011,7 @@ void Game::endgame_image() {
     // torch's link cleared. PLHAND, PRHAND, and PTORCH are kept. Weight becomes
     // 200, level 3 is rebuilt, and FNDCEL relocates.
     emit("ENDGAM", "image");
+    wizard_fade_in();   // PATTK.ASM:193-195 ENDGAM: WIZIN, whose WIZIX clears HBEATF
     emit("DIALOGUE", "^ ENOUGH! I TIRE OF THIS PLAY...");   // PATTK.ASM:198
     emit("DIALOGUE", "   PREPARE TO MEET THY DOOM!!!");     // PATTK.ASM:222
     player_.bag_head = -1;
@@ -907,6 +1030,7 @@ void Game::endgame_image() {
         break;
     }
     emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
+    inivu();   // PATTK.ASM ENDGAM: WIZOUT, then SWI INIVU
 }
 
 void Game::endgame_wizard() {
@@ -918,7 +1042,7 @@ void Game::endgame_wizard() {
     player_.left_hand = -1;
     player_.right_hand = -1;
     emit("ENDGAM", "wizard");
-    wizard_fade_in();
+    inivu();   // PATTK.ASM ring riddle: SWI INIVU, then PATT99 HUPDAT. No WIZIN here.
 }
 
 std::string Game::filename_token(const std::string& line, std::size_t& pos) const {
@@ -996,7 +1120,12 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
     if (held != nullptr && type >= kTypeRingEnergy && type <= kTypeRingFire) {
         held->spec[0] = static_cast<std::uint8_t>(held->spec[0] - 1);
         if (held->spec[0] == 0) {
+            // PATT10: STA P.OCTYP then JSR PREV00, which is OCBFIL for T.RN20,
+            // CLR P.OCREV and a status update. The gold ring takes its own
+            // offense (0/5), not the spent ring's 255/255. Source-proven: PATTK.ASM:44-54, PREVEA.ASM:34-38.
             held->type = kTypeRingGold;
+            fill_ocb_specific(*held);
+            held->reveal = 0;
             emit("RING", "spent");
         }
     }
@@ -1028,7 +1157,9 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
         }
     }
     emit("HIT", "slot=" + std::to_string(slot));
-    sound(SoundCue::KLK2);   // PATTK.ASM ISOUND A$KLK2
+    emit("SOUND", "A$KLK2");   // PATTK.ASM ISOUND A$KLK2
+    sound(SoundCue::KLK2);
+    emit("DIALOGUE", "!!!");   // PATTK.ASM OUTSTI
     Fighter attacker;
     attacker.power = player_.power;
     attacker.magic_offense = magic;
@@ -1081,7 +1212,7 @@ void Game::movement_exertion() {
 
 std::function<TaskResult()> Game::task_body(const std::string& name) {
     if (name == "PLAYER") return [this] { return task_player(); };
-    if (name == "LUKNEW") return [] { return TaskResult{Queue::Tenth, 3}; };
+    if (name == "LUKNEW") return [this] { return task_luknew(); };
     if (name == "HSLOW") return [this] { return task_hslow(); };
     if (name == "BURNER") return [this] { return task_burner(); };
     if (name == "CREGEN") return [this] { return task_cregen(); };
@@ -1099,7 +1230,7 @@ void Game::save_ram(std::ostream& out) const {
         << p.fainted << ' ' << p.dead << ' ' << p.won << ' ' << p.left_hand << ' '
         << p.right_hand << ' ' << p.torch << ' ' << p.bag_head << ' ' << p.map_features << ' '
         << static_cast<int>(p.regular_light) << ' ' << static_cast<int>(p.magic_light) << '\n';
-    out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' '
+    out << static_cast<int>(mode_) << ' ' << frozen_ << ' ' << sync_pending_ << ' ' << newluk_ << ' '
         << level_index_ << ' ' << line_.size() << ' ' << line_ << "|\n";
     out << static_cast<int>(heart_.heartf) << ' ' << static_cast<int>(heart_.heartc) << ' '
         << static_cast<int>(heart_.hearts) << ' ' << static_cast<int>(heart_.hbeatf) << ' '
@@ -1152,12 +1283,13 @@ void Game::load_ram(std::istream& in) {
     p.map_features = features != 0;
     p.regular_light = static_cast<std::uint8_t>(rl);
     p.magic_light = static_cast<std::uint8_t>(ml);
-    int mode = 0, frozen = 0, sync = 0;
+    int mode = 0, frozen = 0, sync = 0, newluk = 0;
     std::size_t line_size = 0;
-    in >> mode >> frozen >> sync >> level_index_ >> line_size;
+    in >> mode >> frozen >> sync >> newluk >> level_index_ >> line_size;
     mode_ = static_cast<DisplayMode>(mode);
     frozen_ = frozen != 0;
-    sync_pending_ = sync != 0;
+    sync_pending_ = sync;
+    newluk_ = newluk != 0;
     in.get();
     line_.assign(line_size, ' ');
     in.read(line_.data(), static_cast<std::streamsize>(line_size));
@@ -1235,6 +1367,12 @@ std::string Game::ram_image() const {
     return os.str();
 }
 
+const std::string* Game::cassette_image(const std::string& name) const {
+    for (auto it = tapes_.rbegin(); it != tapes_.rend(); ++it)
+        if (it->first == name) return &it->second;
+    return nullptr;
+}
+
 void Game::restore_ram_image(const std::string& image) {
     std::istringstream in(image);
     std::string magic;
@@ -1242,6 +1380,10 @@ void Game::restore_ram_image(const std::string& image) {
     in >> magic >> version;
     if (magic != "DAGRAM" || version != 1) std::abort();
     load_ram(in);
+    // Halt is BRA *, the program counter, and is outside the RAM image.
+    // LOAD90 returns to SCHED. A restored game that is already dead or has
+    // already won stays in that halt.
+    sched_.set_halted(player_.dead || player_.won);
 }
 
 std::string Game::snapshot() const {
@@ -1254,6 +1396,9 @@ std::string Game::snapshot() const {
     for (const auto& [name, image] : tapes_)
         os << name.size() << ' ' << name << '|' << image.size() << ' ' << image << '\n';
     os << incoming_damage_percent_ << '\n';
+    os << text_cursor_;
+    for (const std::uint8_t cell : text_) os << ' ' << static_cast<int>(cell);
+    os << '\n';
     return os.str();
 }
 
@@ -1292,6 +1437,15 @@ void Game::restore_snapshot(const std::string& bytes) {
     }
     int percent = 100;
     if (in >> percent) incoming_damage_percent_ = percent;
+    int cursor = 0;
+    if (in >> cursor) {
+        text_cursor_ = cursor;
+        for (std::uint8_t& cell : text_) {
+            int value = 0;
+            in >> value;
+            cell = static_cast<std::uint8_t>(value);
+        }
+    }
 }
 
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) {

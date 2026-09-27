@@ -38,3 +38,6 @@ DSPMOD	2	presentation	active display mode: VIEWER, EXAMIN or MAPPER
 NEWLUK	1	presentation	pending redraw request
 RLIGHT	1	presentation	regular light level
 MLIGHT	1	presentation	magical light level
+OLIGHT	1	presentation	lighting saved at faint; compared by HUPD42 on waking [SRC]
+VCTFAD	1	presentation	wizard fade, 32 down to 0 in WIZIX (C-17)
+NOISEF	1	presentation	30 Hz buzz gate during the wizard fade (C-17)

@@ -5,6 +5,7 @@
 // Deliberately out of scope: combat damage, magic, rendering. CMOVE runs;
 // the attack branch is D-7. CREGEN updates the matrix only.
 #pragma once
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <iosfwd>
@@ -108,6 +109,10 @@ public:
     DisplayMode display_mode() const { return mode_; }
     // LINBUF as collected by HUMAN. Empty after a line is dispatched.
     const std::string& line_buffer() const { return line_; }
+    // TXTPRI: four 32-column lines. Codes are the internal character set
+    // (space 0, A–Z 1–26, '!' $1B, underline $1C). HUMAN echoes here, and
+    // OUTSTI writes at the cursor, so a hit's "!!!" follows the typed line.
+    const std::array<std::uint8_t, 128>& primary_text() const { return text_; }
 
     const std::array<Ccb, kCcbSlots>& creatures() const { return ccbs_; }
     const std::vector<Ocb>& objects() const { return objects_; }
@@ -167,6 +172,11 @@ public:
     std::string ram_image() const;
     void restore_ram_image(const std::string& image);
 
+    // Most recent in-memory cassette image `ZSAVE` wrote for `name`.
+    // Null when that name was never saved. The platform copies this out;
+    // the core does not touch the filesystem.
+    const std::string* cassette_image(const std::string& name) const;
+
     // Suspend snapshot: the RAM image plus what lies outside it (the trace
     // clock, the halt state, and the cassette), enough to continue
     // bit-identically. Not a game command.
@@ -181,7 +191,14 @@ private:
     TaskResult task_player();
     TaskResult task_hslow();
     void feed_char(std::uint8_t ch);       // HUMAN
+    void finish_line();                    // HMAN30
     void dispatch_line();                  // HMAN50
+    void out_char(std::uint8_t code);      // TXTCHR / TXTXXX
+    void prompt();                         // MISC.ASM PROMPT
+    void clear_primary_text();             // CLRPRI
+    void pupdat();                         // PUPDAX: redraw + SYNC unless fainted
+    void pupdat(const std::string& why);   // the same, traced as PUPDAT <why>
+    TaskResult task_luknew();
     void cmd_move(const std::string& line, std::size_t& pos);
     void cmd_turn(const std::string& line, std::size_t& pos);
     void cmd_look();
@@ -224,7 +241,8 @@ private:
     void text(const std::string& s);                        // OUTSTI
     void set_mode(DisplayMode mode);                        // STX DSPMOD
     void block(BlockKind kind, std::uint32_t loops, std::uint32_t jiffies, bool known);
-    void inivu();                                           // PLOOK.ASM INIVUX
+    // PLOOK.ASM INIVUX. `charge` is false only for GAME50 (see D-15).
+    void inivu(bool charge = true);
     void wizard_fade_in();                                  // MISC.ASM WIZIX
     void heartbeat_interrupt();                             // COMMON.ASM CLK30
     TaskResult task_cregen();
@@ -244,6 +262,8 @@ private:
     PlayerState player_;
     DisplayMode mode_ = DisplayMode::Viewer;
     std::string line_;                     // LINBUF (32 bytes)
+    std::array<std::uint8_t, 128> text_{};  // TXTPRI, 4×32, internal codes
+    int text_cursor_ = 0;                  // P.TXCUR offset; P.TXCNT is 128
     std::vector<KeyEvent> script_;
     std::size_t script_pos_ = 0;
     std::uint64_t next_input_jiffy_ = 0;
@@ -258,8 +278,11 @@ private:
     // ZFLAG: +1 save, -1 load, with the TOKEN filename.
     int zflag_ = 0;
     std::string tape_name_;
-    // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
-    bool sync_pending_ = false;
+    // DEC UPDATE / SYNC blocks the foreground until the next interrupt; each
+    // pending SYNC gives up one jiffy's scheduler pass (inferred, D-4a/D-15).
+    int sync_pending_ = 0;
+    // NEWLUK: a creature moved within view range (CWALK CWLK90); LUKNEW redraws.
+    bool newluk_ = false;
     int incoming_damage_percent_ = 100;
     std::vector<HarnessEvent> harness_;
     std::size_t harness_pos_ = 0;

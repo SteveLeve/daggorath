@@ -28,7 +28,7 @@ Labels: **[SRC]** read from the pinned listing; **[INF]** inferred; **[OPEN]** u
 | Id | Owner |
 |---|---|
 | D-11 `ZLOAD` of an absent name reports `???` | Permanent, Original Mode cassette substitute (ADR-0005) |
-| D-12 `FUDGE incoming` / `FUDGE rest` | **Not source behaviour.** Harness API only (ADR-0007). Default `Game()` stays at 100% incoming damage. `FUDGE incoming 25` multiplies creature-to-player damage by 1/4. `FUDGE rest` writes `PDAM = 63` (the HSLOW floor) instead of simulating hours of recovery. Player hits are not scaled. Checkpoints under `.cache/playthrough/` restore `snapshot()` and are not a game command. |
+| D-12 `FUDGE incoming` / `FUDGE rest` | **Not source behaviour.** Harness API only (ADR-0007). Default `Game()` stays at 100% incoming damage. `FUDGE incoming 25` multiplies creature-to-player damage by 1/4. `FUDGE rest` writes `PDAM = 63`, a harness value that skips waiting out recovery (the HSLOW stall at 63 was a core bug, corrected 2026-09-26; see phase-3 reconciliation). Player hits are not scaled. Checkpoints under `.cache/playthrough/` restore `snapshot()` and are not a game command. |
 | D-1, D-2 lap model | ADR-0002, Track R |
 | D-3 `HSLOW` zero-countdown clamp | Track R |
 | D-4 animation and sound durations | Phase 6 (listing-derived part), Track R (measured part) |
@@ -70,12 +70,12 @@ Authored by `src/app/dplan.cpp`. Committed script:
 
 | | |
 |---|---|
-| Jiffies at `WINNER` | 222514 (clock `1:1:54.8.3`) |
-| Final power / damage | 8660 / 3901 |
-| Final cell | level 4, row 31, col 7 |
+| Jiffies at `WINNER` | 190875 (clock `0:53:7.5.2`), re-planned 2026-09-26 after the HSLOW correction |
+| Final damage | 63 (trace `# final` line; the last `FUDGE rest` set it) |
+| Final cell | row 14, col 6, dir 1 (trace `# final` line) |
 | `FUDGE incoming 25` | one line, jiffy 90400 (D-12, not source behaviour) |
-| `FUDGE rest` | 2589 lines (D-12, HSLOW floor) |
-| Two-replay sha256 | `d4952406e8c3c330e5ccb39ad8322e2af2637cf2a6e44a217eb8df2f2e426b3f` |
+| `FUDGE rest` | 2290 lines (D-12, harness). Without `--fudge` the planner clears levels 0-2, then dies on level 3 |
+| Two-replay sha256 | `be5409e516d2d77cb38cba2bb83ee5086fffbdbfada438c9ccec8c2235be0ead` |
 
 | Stage | Fudge | Notes |
 |---|---|---|
@@ -85,3 +85,10 @@ Authored by `src/app/dplan.cpp`. Committed script:
 | Type 10 / ENDGAM | 25 | Original incoming one-shots the landing. `FUDGE incoming 25` plus `FUDGE rest`. Checkpoint `endgam`. |
 | Cleared level 3 | 25 | JOULE → ENERGY, ELVISH. Checkpoint `cleared-3`. |
 | Level 4 | 25 | Revealed ELVISH kite; never climb an occupied hole; ENERGY hit-and-run on type 11 only (wizard `pdef` 0 zeros a sword). `GET` SUPREME, `INCANT FINAL`. |
+
+## Correction 2026-09-27: rings have three charges; playthrough disabled
+
+**[SRC]** `OCBFIX` writes `P.OCXXX` only when the type has an `XXXTAB` entry (`OBIRTH.ASM:73-85`). `INCANT` therefore keeps VULCAN's charge count of 3 on the fire ring. The core zeroed it, so the count wrapped and the ring lasted 256 swings. When the last charge is spent, `PATTK` stores `T.RN20` and calls `PREV00` (`PATTK.ASM:44-54`, `PREVEA.ASM:34-38`). That runs `OCBFIL`, so the gold ring gets its own 0/5 offense, and it clears `P.OCREV`. The core kept 255/255, so a spent ring still hit every time at full force. Both are fixed.
+
+The committed `traces/power-on-to-winner.script` and its two-replay sha256 `be5409e5…0ead` in the table above are **superseded, not regenerated**. That route won by swinging the fire ring hundreds of times, which the listing does not allow. The conformance route test's "572 rested fire-ring swings kill the wizard" figure came from the core, never from a ROM run, and has been replaced by a 3-charge, gold-ring check. Re-running `dplan --fudge` stops with "rings not ready" at the level-2 image, because its strategy assumes a lasting fire ring. `ctest` `playthrough_power_on_to_winner` is **disabled** (`tests/CMakeLists.txt`) until the planner is reworked and the script re-authored, as the project owner decided on 2026-09-27 (refinement log Q3).
+

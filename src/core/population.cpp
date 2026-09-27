@@ -224,6 +224,10 @@ void fill_ocb_specific(Ocb& object) {
     object.reveal = f.reveal;
     object.magic_offense = f.mgo;
     object.physical_offense = f.pho;
+    // OFIL10 copies P.OCXXX only when the type has an XXXTAB entry; otherwise
+    // the OCB keeps its old special bytes (a VULCAN ring's charge count
+    // survives INCANT FIRE). Source-proven: OBIRTH.ASM:73-85.
+    if (!f.spec_written) return;
     object.spec[0] = f.spec[0];
     object.spec[1] = f.spec[1];
     object.spec[2] = f.spec[2];

@@ -12,4 +12,13 @@ void SoundMix::consume(const std::vector<TraceEvent>& trace) {
     }
 }
 
+void SoundMix::consume_events(const std::vector<CoreEvent>& events) {
+    while (next_ < events.size()) {
+        const CoreEvent& event = events[next_++];
+        if (event.kind != CoreEventKind::Sound) continue;
+        const auto samples = samples_for_cue(event.cue, event.volume, state_);
+        pending_.insert(pending_.end(), samples.begin(), samples.end());
+    }
+}
+
 }  // namespace dag

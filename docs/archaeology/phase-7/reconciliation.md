@@ -1,7 +1,15 @@
-# Phase 7 reconciliation
 
-The offscreen rasterizer follows `VECTOR.ASM`: length is the larger absolute delta, the walk starts half a pixel in, and each step adds the 8.8 increment from `DIVIDE`. The fade counter skips steps, and set pixels pack with `BITMSK`. Absolute and relative vector lists are decoded. `$FB` and `$FD` follow a big-endian index when it falls inside the same buffer; `$FA` returns. An index past the buffer is a 6809 address and decoding stops. `$FF` starts a new pen. `SNOISE`, `SNOUT`, and the noise-pulse loop (`PSSHT`, `PSSST`, `RATTLE`) produce DAC bytes. `jiffies_due` turns host time into a jiffy count and keeps the remainder, so a stall runs the missed jiffies.
 
-SDL3 3.2.16 was built from source on this machine and `dod` linked. The window copies the 3× scaled frame into an RGB texture. It was not opened, because this session has no display.
+## Map display on the desktop (2026-09-27, refinement run 15)
 
-`kObjects` rows 18–24 are the `SPCXXX` special objects from `docs/archaeology/phase-0b/fixtures/objects.json` (`special_objects`). `INCANT`, `BURNER`, and `USE` store those type indices, and `OCBFIL` indexes the table by type. The placed `OBJXXX` rows stop at 17, so the special rows are what keep those transforms inside the table. `Game::press` stamps each key on its own jiffy so one interrupt still receives at most one new character. `set_fade` returns `0xFF` for a signed level of -7 or below, so `kBitMask[0]` and `kBitMask[1]` are not reached. The tested boundary is light 1 at range 0, which is signed level -6 and mask `0x20`.
+Until now the window never drew the map. `project_viewer` returns no segments in mapper mode, so after a scroll `USE` the viewport was blank; the map projection was only printed by `dcli --present-map`. `rasterize_map` (`src/presentation/mapper.cpp`) now follows `MAPPER.ASM`, **[SRC]**:
+- `DSP32` makes each maze cell one byte (8 pixels) by 6 scanlines, 32 × 32 cells over all 192 lines.
+- A `$FF` cell is white on every line (MAPP20-22).
+- With `MAPFLG` set, unowned objects on the level get `MARK4 $00/$08` and live creatures `$10/$54`.
+- The player always gets `$24/$18`, and the vertical features always get `$3C/$24` (MAPP50, MAPP60).
+
+**[INF]** the window leaves out the status line and text bands while the map is up. The map covers every scanline, and `HEARTF` and the prompt are both off in map mode (`PUSE.ASM` USC210, `HUMAN.ASM` HMAN70); whether the ROM's text routines redraw over it has not been captured. The **examine screen** is still not drawn by the window (open; `project_examine` only reaches `dcli`).
+
+## Examine screen on the desktop (2026-09-27, refinement run 16)
+
+The window drew nothing in examine mode, a blank viewport under the text bands. `paint_examine` (`src/presentation/examine.cpp`) now prints the `project_examine` page into the viewport. **[SRC]** `EXAMIO` runs `ZFLOP` on the alternate screen, then points `TXTEXA.TXBAS` at the current video base (`PEXAM.ASM:23-25`). `TXTEXA` is 32 × 19 characters (`COMDAT.ASM:94`), so the page covers scanlines 0–151 at 8 scanlines per row. **[INF]** the window clears only those scanlines, to 0 rather than a value derived from `VDGINV`, and leaves the status and command bands as they were; whether the ROM redraws the bands over the cleared screen has not been captured. The lit torch's whole name is printed inverse (`COM P.TXINV` before the name, `PRTOBJ` restores `VDGINV` after it). The text dump (`--present-text`, phase-6 fixtures) is unchanged. **[INF]** an inverse cell fills all 8 scanlines of the character cell.

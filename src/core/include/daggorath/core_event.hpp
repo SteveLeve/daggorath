@@ -72,6 +72,9 @@ struct CoreEvent {
     std::uint32_t duration_jiffies = 0;
     bool duration_known = false;
     std::uint32_t loop_count = 0;
+    // MoveAnimation: PMOVE's relative direction (0 forward, 1 right, 2 back,
+    // 3 left), known before PSTEP decides whether the step is blocked.
+    int step_relative = -1;
 
     // Heartbeat: PIA single-bit sound output after EORB #BIT1, and whether
     // the status-line heart was drawn (HEARTF) and at which size (HEARTS).

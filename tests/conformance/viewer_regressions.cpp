@@ -59,6 +59,21 @@ void test_draw_lists() {
     }
 }
 
+void test_half_step_scale() {
+    dag::ViewSnapshot standing;
+    standing.regular_light = 7;
+    dag::ViewSnapshot halfway = standing;
+    halfway.scale = 1;
+    const auto near = dag::project(standing);
+    const auto mid = dag::project(halfway);
+    check(!near.segments.empty() && near.segments.size() == mid.segments.size(),
+          "a half-step keeps the same walls");
+    if (!near.segments.empty() && near.segments.size() == mid.segments.size()) {
+        check(near.segments[0].x0 != mid.segments[0].x0 || near.segments[0].y0 != mid.segments[0].y0,
+              "HLFSCL draws the cell being left larger than the standing view");
+    }
+}
+
 void test_decode_still_independent() {
     const std::uint8_t torch[] = {118, 60, 0xFC, 0xF7, 0xFF, 0x2A, 0x00, 0xFE};
     const auto torch_lines = dag::decode_vectors(torch, 128, 128, 128, 76, 0);
@@ -70,6 +85,7 @@ void test_decode_still_independent() {
 
 int main() {
     test_draw_lists();
+    test_half_step_scale();
     test_decode_still_independent();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks
               << " checks, " << g_failures << " failures, " << g_matches

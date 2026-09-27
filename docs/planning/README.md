@@ -5,6 +5,7 @@ Forward-looking material. Not specification and not evidence.
 | File | Purpose |
 |---|---|
 | [`roadmap.md`](roadmap.md) | Phase sequence after Phase 1, scope per phase, dependencies |
+| [`port-comparison.md`](port-comparison.md) | Lessons from the Hunerlach Linux, SDL2, and web ports, and what they mean for Phases 8–9 |
 | [`capture-backlog.md`](capture-backlog.md) | ROM captures each phase wants, for Track R |
 | [`review-checklist.md`](review-checklist.md) | What a review agent checks on any phase PR |
 | [`issue-template.md`](issue-template.md) | Shape of a phase or work-item GitHub issue, usable as an agent prompt |

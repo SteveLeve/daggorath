@@ -87,7 +87,9 @@ int slot_of_type(const dag::Game& game, int type) {
 }
 
 // Kill the creature of `type` on the current level with an incanted FIRE ring.
-// PPOW 8000 is a test value: it makes each hit large and each swing survivable.
+// PPOW 30000 is a test value: the ring has three charges (VULCAN's P.OCXXX
+// survives OCBFIL, OBIRTH.ASM OFIL10), and 30000 makes three hits reach the
+// 8000-power wizard. Each swing's damage is reset so the player survives.
 bool kill_type(dag::Game& game, int type, int& ring) {
     const int slot = slot_of_type(game, type);
     if (slot < 0) return false;
@@ -96,12 +98,195 @@ bool kill_type(dag::Game& game, int type, int& ring) {
     run(game, {"INCANT FIRE"});
     const dag::Ccb& c = game.creatures()[static_cast<std::size_t>(slot)];
     game.place_player(c.row, c.col);
-    game.set_player_power(8000);
+    game.set_player_power(30000);
     for (int n = 0; n < 20 && !has(game, "KILL"); ++n) {
         game.set_player_damage(0);
         run(game, {"ATTACK LEFT"});
     }
     return has(game, "KILL");
+}
+
+void test_spent_ring_becomes_a_plain_gold_ring() {
+    // PATTK.ASM PATT10: the last charge turns the ring into T.RN20 through
+    // PREV00 (PREVEA.ASM), so OCBFIL gives it the gold ring's own ODBTAB entry.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    const int ring = find_object(game, kVulcan);
+    game.hold(false, ring);
+    run(game, {"INCANT FIRE"});
+    const dag::Ocb& o = game.objects()[static_cast<std::size_t>(ring)];
+    check(o.type == 21 && o.magic_offense == 255, "INCANT FIRE gives the fire ring 255 offense");
+    for (int n = 0; n < 3; ++n) run(game, {"ATTACK LEFT"});
+    check(has(game, "RING", "spent"), "the fire ring's charges run out");
+    check(o.type == 22 && o.cls == 1, "the spent ring is a gold ring (T.RN20), still class ring");
+    check(o.magic_offense == 0 && o.physical_offense == 5,
+          "OCBFIL gives the gold ring its own offense 0/5, not 255/255");
+    check(o.reveal == 0, "PREV00 clears P.OCREV");
+}
+
+void test_luknew_pupdat_costs_a_sync() {
+    // COMPLR.ASM LUKNEW calls PUPDAT once CWALK has set NEWLUK. PUPDAX's SYNC
+    // costs the next jiffy's pass (D-15, inferred). Level 0 unfrozen: vipers
+    // walk near the start cell within 200 jiffies (phase-0b t1 at jiffy 91).
+    dag::Game game(1, 0);
+    game.advance_jiffies(200);
+    const auto& tr = game.trace();
+    int charged = 0;
+    bool each_followed = true;
+    for (std::size_t i = 0; i < tr.size(); ++i) {
+        if (tr[i].kind != "PUPDAT" || tr[i].detail != "luknew") continue;
+        ++charged;
+        bool sync = false;
+        for (std::size_t k = i + 1; k < tr.size() && tr[k].jiffy <= tr[i].jiffy + 1; ++k)
+            if (tr[k].kind == "SYNC" && tr[k].jiffy == tr[i].jiffy + 1) sync = true;
+        if (!sync) each_followed = false;
+    }
+    check(charged > 0 && has(game, "LOOK"), "a nearby creature step makes LUKNEW call PUPDAT");
+    check(each_followed, "each LUKNEW PUPDAT gives up the next jiffy to SYNC");
+}
+
+void test_no_pupdat_while_fainted() {
+    // PUPDAT.ASM PUPDAX: TST FAINT / BNE PUPD99 - no redraw and no SYNC.
+    dag::Game game(1, 0);
+    game.set_player_damage(156);   // PPOW 160: heart rate 3, a faint and not a death
+    game.advance_jiffies(400);
+    bool fainted = false, revived = false;
+    std::uint64_t faint = 0, revive = 0;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "FAINT" && !fainted) { fainted = true; faint = e.jiffy; }
+        if (e.kind == "REVIVE" && fainted && !revived) { revived = true; revive = e.jiffy; }
+    }
+    check(fainted && revived && revive > faint, "damage 156 of 160 faints, then HSLOW revives");
+    bool charged = false;
+    for (const auto& e : game.trace())
+        if (e.jiffy > faint && e.jiffy < revive && (e.kind == "SYNC" || e.kind == "PUPDAT"))
+            charged = true;
+    check(!charged, "no PUPDAT or SYNC is charged while fainted");
+}
+
+void test_blocked_move_still_reports_its_half_step() {
+    // PTURN.ASM PMOVE: HLFSTP/BAKSTP PUPDAT runs before PSTEP, so a step into
+    // a wall still has a forward (or back) half-step to draw, then THUD.
+    bool found = false;
+    for (int turns = 0; turns < 4 && !found; ++turns) {
+        dag::Game game(1, 0);
+        game.set_frozen(true);
+        std::vector<std::string> cmds(static_cast<std::size_t>(turns), "TURN RIGHT");
+        cmds.push_back("MOVE");
+        run(game, cmds);
+        if (!has(game, "SOUND", "A$THUD")) continue;
+        found = true;
+        int step = -99;
+        for (const auto& e : game.events())
+            if (e.kind == dag::CoreEventKind::Block && e.block == dag::BlockKind::MoveAnimation)
+                step = e.step_relative;
+        check(step == 0, "a blocked forward MOVE carries step=0 on its MoveAnimation block");
+    }
+    check(found, "some facing at the level-0 start has a wall ahead");
+}
+
+void test_pull_costs_a_sync() {
+    // PGET.ASM PPULL ends in COMUPD: STATUS then PUPDAT, whose SYNC costs the
+    // next jiffy's pass (D-15).
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    run(game, {"PULL RIGHT TORCH"});
+    bool pupdat = false, sync_next = false;
+    std::uint64_t at = 0;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "PUPDAT" && e.detail == "comupd" && !pupdat) { pupdat = true; at = e.jiffy; }
+        if (pupdat && e.kind == "SYNC" && e.jiffy == at + 1) sync_next = true;
+    }
+    check(has(game, "PULL") && pupdat && sync_next, "PULL's COMUPD redraw costs a SYNC jiffy");
+}
+
+int count_pupdat(const dag::Game& game, std::size_t from, const std::string& why) {
+    int n = 0;
+    for (std::size_t i = from; i < game.trace().size(); ++i)
+        if (game.trace()[i].kind == "PUPDAT" && game.trace()[i].detail == why) ++n;
+    return n;
+}
+
+void test_torch_use_redraws_twice_and_flask_not_at_all() {
+    // PUSE.ASM PUSE12: PSTOW0 ends in COMUPD's PUPDAT, then A$TORC, then a
+    // second PUPDAT. UFL900 (flasks) has ISOUND, STATUS and HUPDAT only.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    run(game, {"PULL RIGHT TORCH"});
+    std::size_t from = game.trace().size();
+    run(game, {"USE RIGHT"});
+    check(count_pupdat(game, from, "comupd") == 1 && count_pupdat(game, from, "puse") == 1,
+          "USE of a torch redraws twice: PSTOW0's COMUPD, then PUSE12");
+    dag::Game flask(1, 0);
+    flask.set_frozen(true);
+    int index = -1;
+    for (int i = 0; i < static_cast<int>(flask.objects().size()); ++i)
+        if (flask.objects()[static_cast<std::size_t>(i)].cls == 0) { index = i; break; }
+    check(index >= 0, "a flask object exists");
+    if (index < 0) return;
+    flask.hold(false, index);
+    from = flask.trace().size();
+    run(flask, {"USE LEFT"});
+    check(has(flask, "USE") && count_pupdat(flask, from, "puse") == 0 &&
+              count_pupdat(flask, from, "comupd") == 0,
+          "USE of a flask does not redraw (UFL900)");
+}
+
+void test_inivu_returns_to_the_viewer() {
+    // PLOOK.ASM INIVUX falls into PLOOK: DSPMOD = VIEWER, PUPDAT. HUMAN.ASM
+    // HMAN10 runs INIVU on the first key after a map; PCLIMB.ASM PCLI20 runs it
+    // after NEWLVL.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    int scroll = -1;
+    for (int i = 0; i < static_cast<int>(game.objects().size()); ++i)
+        if (game.objects()[static_cast<std::size_t>(i)].cls == 2) { scroll = i; break; }
+    check(scroll >= 0, "a scroll object exists");
+    if (scroll < 0) return;
+    game.hold(false, scroll);
+    game.set_player_power(10000);
+    run(game, {"REVEAL LEFT", "USE LEFT"});
+    check(game.display_mode() == dag::DisplayMode::Mapper, "USE of a revealed scroll shows the map");
+    run(game, {"LOOK"});
+    run(game, {"USE LEFT", "T"});
+    check(game.display_mode() == dag::DisplayMode::Viewer,
+          "the first key after the map runs INIVU and returns to the viewer");
+
+    dag::Game climb(1, 0);
+    climb.set_frozen(true);
+    climb.place_player(0, 23);   // level 0 ladder down (VFTTAB)
+    const std::size_t from = climb.trace().size();
+    run(climb, {"CLIMB DOWN"});
+    bool inivu = false;
+    for (std::size_t i = from; i < climb.trace().size(); ++i)
+        if (climb.trace()[i].kind == "PUPDAT" && climb.trace()[i].detail == "inivu") inivu = true;
+    check(climb.level_index() == 1 && inivu, "CLIMB runs INIVU after NEWLVL");
+}
+
+void test_examine_costs_a_sync() {
+    // PEXAM.ASM PEXAM: STX DSPMOD (EXAMIN), then PUPDAT.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    const std::size_t from = game.trace().size();
+    run(game, {"EXAMINE"});
+    check(game.display_mode() == dag::DisplayMode::Examine && count_pupdat(game, from, "pexam") == 1,
+          "EXAMINE switches to the examine display and redraws once");
+}
+
+void test_turn_around_sweeps_twice() {
+    // PTURN.ASM: TURN AROUND runs RLTURN twice, a single turn once.
+    auto loops_for = [](const std::string& cmd) {
+        dag::Game game(1, 0);
+        game.set_frozen(true);
+        run(game, {cmd});
+        std::uint32_t loops = 0;
+        for (const auto& e : game.events())
+            if (e.kind == dag::CoreEventKind::Block && e.block == dag::BlockKind::TurnAnimation)
+                loops = e.loop_count;
+        return loops;
+    };
+    check(loops_for("TURN AROUND") == 16 && loops_for("TURN LEFT") == 8,
+          "TURN AROUND reports two RLTURN sweeps (16 loops), a single turn one (8)");
 }
 
 void test_image_ending() {
@@ -115,10 +300,16 @@ void test_image_ending() {
     check(kill_type(game, 10, ring), "the wizard's image (type 10) dies");
     check(has(game, "ENDGAM", "image"), "killing type 10 runs ENDGAM");
     const auto lines = dialogue(game);
-    check(lines.size() == 2 && lines[0] == "^ ENOUGH! I TIRE OF THIS PLAY..." &&
-              lines[1] == "   PREPARE TO MEET THY DOOM!!!",
+    check(lines.size() >= 2 && lines[lines.size() - 2] == "^ ENOUGH! I TIRE OF THIS PLAY..." &&
+              lines.back() == "   PREPARE TO MEET THY DOOM!!!",
           "ENDGAM prints PATTK.ASM's two OUTSTI strings");
+    bool hits_marked = !lines.empty();
+    for (std::size_t i = 0; i + 2 < lines.size(); ++i)
+        if (lines[i] != "!!!") hits_marked = false;
+    check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
+    check(game.display_mode() == dag::DisplayMode::Viewer && game.heart().hbeatf == 0xFF,
+          "ENDGAM's WIZIN clears HBEATF and its closing INIVU sets it to $FF, in the viewer");
     check(game.player().carried_weight == 200, "ENDGAM sets POBJWT to 200");
     check(game.player().bag_head == torch &&
               game.objects()[static_cast<std::size_t>(torch)].next == -1,
@@ -143,6 +334,7 @@ void test_wizard_ending() {
               game.player().left_hand < 0 && game.player().right_hand < 0,
           "bag, torch, and both hands are cleared");
     check(!game.player().dead && !game.player().won, "the riddle does not end the game");
+    check(game.heart().hbeatf != 0, "the riddle's INIVU leaves the audio heartbeat on (no WIZIN)");
 }
 
 void test_winner() {
@@ -158,6 +350,28 @@ void test_winner() {
     const std::uint64_t at = game.counters().total_jiffies;
     game.advance_jiffies(100);
     check(game.counters().total_jiffies == at, "WINNER ends in BRA *");
+}
+
+void test_death_load_resumes() {
+    dag::Game game(1, 0);
+    game.load_script(keys_for(10, {"ZSAVE QUEST"}));
+    game.advance_jiffies(80);
+    const std::string* saved = game.cassette_image("QUEST");
+    check(saved != nullptr && saved->rfind("DAGRAM 1", 0) == 0,
+          "ZSAVE keeps a named cassette image");
+    if (saved == nullptr) return;
+    const std::string image = *saved;
+    game.set_player_damage(static_cast<std::uint16_t>(game.player().power + 1));
+    game.advance_jiffies(2);
+    check(game.player().dead, "damage past power is death");
+    const auto frozen = game.counters().total_jiffies;
+    game.advance_jiffies(30);
+    check(game.counters().total_jiffies == frozen, "DEATH's BRA * takes no further interrupts");
+    game.restore_ram_image(image);
+    check(!game.player().dead, "the cassette image is the living game");
+    game.advance_jiffies(30);
+    check(game.counters().total_jiffies == frozen + 30,
+          "restoring a living image returns to SCHED");
 }
 
 void test_death_line() {
@@ -299,19 +513,23 @@ void test_fudge_harness_is_not_source_behaviour() {
     const dag::Ccb& c = a.creatures()[static_cast<std::size_t>(sl)];
     a.place_player(c.row, c.col);
     const std::string snap = a.snapshot();
-    const std::uint16_t before = a.player().damage;
-    a.advance_jiffies(400);
-    const unsigned full =
-        static_cast<unsigned>(a.player().damage) + (a.player().damage < before ? 65536u : 0u) -
-        before;
+    const auto first_hit_damage = [](dag::Game& g) {
+        const auto hits = [&g] {
+            std::size_t n = 0;
+            for (const auto& e : g.trace()) n += e.kind == "HIT";
+            return n;
+        };
+        const std::size_t seen = hits();
+        const std::uint16_t before = g.player().damage;
+        for (int i = 0; i < 400 && hits() == seen; ++i) g.advance_jiffies(1);
+        return static_cast<unsigned>(g.player().damage) - before;
+    };
+    const unsigned full = first_hit_damage(a);
     dag::Game b;
     b.restore_snapshot(snap);
     check(b.incoming_damage_percent() == 100, "snapshot default incoming stays 100");
     b.set_incoming_damage_percent(25);
-    const std::uint16_t b0 = b.player().damage;
-    b.advance_jiffies(400);
-    const unsigned quarter =
-        static_cast<unsigned>(b.player().damage) + (b.player().damage < b0 ? 65536u : 0u) - b0;
+    const unsigned quarter = first_hit_damage(b);
     check(full > 0, "a creature hit the player at 100%", "added=" + std::to_string(full));
     check(quarter == full * 25u / 100u, "FUDGE incoming 25 scales creature-to-player damage",
           "full=" + std::to_string(full) + " quarter=" + std::to_string(quarter));
@@ -321,10 +539,20 @@ void test_fudge_harness_is_not_source_behaviour() {
 }  // namespace
 
 int main() {
+    test_spent_ring_becomes_a_plain_gold_ring();
+    test_luknew_pupdat_costs_a_sync();
+    test_no_pupdat_while_fainted();
+    test_blocked_move_still_reports_its_half_step();
+    test_pull_costs_a_sync();
+    test_torch_use_redraws_twice_and_flask_not_at_all();
+    test_inivu_returns_to_the_viewer();
+    test_examine_costs_a_sync();
+    test_turn_around_sweeps_twice();
     test_image_ending();
     test_wizard_ending();
     test_winner();
     test_death_line();
+    test_death_load_resumes();
     test_save_load_resumes_at_the_save();
     test_ram_image_is_the_whole_state();
     test_snapshot_round_trip_and_replay();

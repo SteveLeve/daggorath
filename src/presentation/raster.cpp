@@ -1,8 +1,8 @@
 #include "daggorath/raster.hpp"
 
 #include "daggorath/vctlst.hpp"
+#include "daggorath/vector_tables.hpp"
 
-#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <vector>
@@ -127,15 +127,17 @@ std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeig
 
 std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view) {
     std::array<std::uint8_t, kScreenWidth * kScreenHeight> pixels{};
-    const std::uint8_t light = static_cast<std::uint8_t>(
-        std::min(255, view.regular_light + view.magic_light));
-    const std::uint8_t fade = set_fade(light, 0);
-    for (const DrawSegment& segment : project(view).segments) draw_segment(pixels, segment, fade);
-    for (const DrawSegment& segment : forward_object(view.foreground))
-        draw_segment(pixels, segment, fade);
-    for (const DrawSegment& segment : forward_object(view.left_class))
-        draw_segment(pixels, segment, fade);
-    for (const DrawSegment& segment : forward_object(view.right_class))
+    // SETFAX already stored each segment's fade from that draw's light and
+    // range. A pine torch (regular light 7) is solid only at range 0.
+    for (const DrawSegment& segment : project(view).segments)
+        draw_segment(pixels, segment, static_cast<std::uint8_t>(segment.fade));
+    return pixels;
+}
+
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(std::uint8_t fade) {
+    std::array<std::uint8_t, kScreenWidth * kScreenHeight> pixels{};
+    for (const DrawSegment& segment :
+         decode_vectors(kVectorBlob, 0x80, 0x80, kCentroidX, kCentroidY, fade, kVec_WIZ1))
         draw_segment(pixels, segment, fade);
     return pixels;
 }
