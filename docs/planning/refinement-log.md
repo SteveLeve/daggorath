@@ -77,11 +77,11 @@ then the rest.
 | SOUNDS.ASM:GLUGLG |  | unreviewed |  |  |
 | SOUNDS.ASM:BDLBDL |  | unreviewed |  |  |
 | SOUNDS.ASM:MSQUEK |  | unreviewed |  |  |
-| PINCAN.ASM:PINCAN |  | unreviewed |  |  |
-| PINCAN.ASM:WINNER |  | unreviewed |  |  |
+| PINCAN.ASM:PINCAN | game.cpp cmd_incant, incant_hand | matches | 8 | ADJTAB + FULFLG, K.RING, P.OCXXX+1 match, OCBFIL, A$RING, CLR +1, T.RN15 goes to WINNER. The ROM tries the right hand even after the left incants (BSR, then fall-through), while the core stops after the left. That only differs if both hands hold a ring answering the same word [INF]; not changed. |
+| PINCAN.ASM:WINNER | game.cpp incant_hand WINNER | matches | 8 | WIZ2 fade-in, two OUTSTI, BRA *; test_winner. |
 | PTURN.ASM:PTURN |  | unreviewed |  |  |
-| PTURN.ASM:PMOVE |  | unreviewed |  |  |
-| PTURN.ASM:PSTEP |  | unreviewed |  |  |
+| PTURN.ASM:PMOVE | game.cpp cmd_move; sdl_app half-step/wipe | deviation + gap-open | 8 | Core: parse, PSTEP, PMOV90 exertion ((POBJWT asr 3)+3) on every path, SYNC; the half-step PUPDAT timing is D-4a [ROM]. **Presentation gap:** a forward or back MOVE draws the half-step view (HLFSTP/BAKSTP PUPDAT) before PSTEP, even when PSTEP then THUDs into a wall. The desktop shows a half-step only when the position changes, so a wall bump shows no lunge. It needs the MoveAnimation block to carry the direction (event schema change plus a test). A blocked sidestep correctly shows no wipe (BNE PMOV90). |
+| PTURN.ASM:PSTEP | game.cpp step_player | matches | 8 | STEPOK; on failure ISOUND A$THUD and the position is kept; PUPSUB redraws the backplane. |
 | PUPDAT.ASM:PUPDAX | game.cpp PUPDAX redraw | matches | 2 | HUPD32 clears KBDHDR/KBDTAL; the core leaves the buffer but PLAYER discards every char while fainted (HUMAN.ASM:21), and CLK50 stops polling, so the effect is the same [INF]. |
 | PUPDAT.ASM:PUPSUB | game.cpp refresh_light | matches | 2 | PRLITE is non-zero only after ENDGAM (PATTK:158), when there is no torch; the core writes 7/$13 directly and refresh_light cannot run then. |
 | PGET.ASM:PGET |  | unreviewed |  |  |
@@ -112,3 +112,4 @@ then the rest.
 | 2026-09-26 | 5 | CWALK, COMPLR LUKNEW | CWALK matches; LUKNEW was a stub, so neither LUKNEW nor CMOVE charged the PUPDAT SYNC | Fix on branch refinement/pupdat-sync (ef68ecd), not merged; Q2 raised | Baseline regeneration — not run: needs Steve's call (Q2) |
 | 2026-09-26 | 6 | PATTK, ATTACK, DAMAGE, OCBFIL | Spent rings kept 255/255 offense; OCBFIL zeroed ring charges (256 swings instead of 3) | Fix on branch refinement/ring-charges (44d428c + labels); Q3 raised | Playthrough re-plan — not run: planner blocked, needs strategy rework (Q3) |
 | 2026-09-27 | 7 | Q2/Q3 follow-through | Merged both fixes; phase-3 and phase-0b baselines regenerated with reasons recorded; D-15 added; playthrough disabled; two regression tests; audited | this commit | No regression test yet for the CMOV90 NEWLUK clear or the two-SYNC pickup on the player's cell |
+| 2026-09-27 | 8 | PINCAN, WINNER, PMOVE, PSTEP | All match; PMOVE's wall-bump half-step view is missing in the desktop (gap-open) | log only | Wall-bump fix — not run: needs an event-schema change, next run |
