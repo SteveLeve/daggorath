@@ -138,4 +138,4 @@ then the rest.
 | 2026-09-27 | 17 | PZTAPE, COMMON SAVE/LOAD/LOAD90 | LOAD90 PROMPT missing after INIVU; the audit of a1df32c found its reverse-video band disagrees with NLVL50 (Q5) | Prompt fix + test (committed by Steve in a1df32c) | a1df32c audited; band left to Steve |
 | 2026-09-27 | 18 | NEWLVL; Q5 follow-up | NEWLVL matches; the VDGINV flip moved into a tested presentation helper | apply_vdginv + test | none |
 | 2026-09-27 | 19 | HUPDAT heart rate, HUPD90, DEATH | DEATH did not clear FAINT; the halt-instead-of-restart was unrecorded | CLR FAINT + test; D-16 added | none |
-| 2026-09-27 | 20 | COMPLR BURNER, LUKNEW | BURNER never set NEWLUK | NEWLUK at BURN99 + test; t1-t5 and phase-3 fight traces regenerated under Q2 | none |
+| 2026-09-27 | 20 | COMPLR BURNER, LUKNEW | BURNER never set NEWLUK | NEWLUK at BURN99 + test; t1-t5 and phase-3 fight traces regenerated under Q2 | f53cf22 was pushed with a failing test: the gate chain used `grep`, which succeeded on the FAIL line. Fixed in the next commit. Gate on `make all`'s exit code, never on grep. |
