@@ -116,6 +116,9 @@ then the rest.
 | COMPLR.ASM:LUKNEW | game.cpp task_luknew | matches | 20 | NEWLUK or map mode, CLR NEWLUK, PUPDAT, SCHED$ 3,Q.TEN. |
 | MISC.ASM:WIZIX, WIZOX, WIZZES, WAITX, PREPAX | game.cpp wizard_fade_in, endgame_image/endgame_resume | gap-fixed | 21 | ENDGAM's 1+81+16 SYNCs, both A$EXP1 and WIZIX0 CLRPRI were missing; NEWLVL 3 now uses the later SECOND. DEATH's 17-step fade stays D-14. Note: no test yet for DEATH's CLRPRI. PREPAX not yet traced to a caller. |
 | PCLIMB.ASM:PCLI20 + MISC.ASM:PREPAX | game.cpp cmd_climb | needs-human | 22 | PREPAR's PREPARE! and the NEWLVL build time are not modelled; the core generates at the command's SECOND (ROM: ~330 interrupts later). Q6, C-22. |
+| OBIRTH.ASM:OBIRTX, GENVAL | population.cpp make_object | matches | 24 | Specific OCBFIL, then for GENVAL classes (shield, sword, torch) a generic OCBFIL that keeps P.OCREV and P.OCTYP; special bytes kept when the generic type has no XXXTAB entry. |
+| OBIRTH.ASM:OCBFIX | population.cpp ocbfil, fill_ocb_specific | matches | 24 | ODBTAB copy of OD.LEN bytes; OFIL10 writes P.OCXXX only on an XXXTAB match (run 6 fix). |
+| TOKEN.ASM (all tables) | lexicon_tables.hpp (generated from tokens.json) | matches | 24 | Fixture-generated from the listing (EXPAND.ASM decode); `make fixtures` checks it. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -145,3 +148,4 @@ then the rest.
 | 2026-09-27 | 21 | MISC wizard/WAIT routines, ENDGAM timing; audit of 66e2b6f | ENDGAM ran instantly: no WIZIN/WAIT/WIZOUT SYNCs, no A$EXP1, level 3 built ~1.4 s early (different SECOND) | Staged ENDGAM + timing test; no baseline moved | — |
 | 2026-09-27 | 22 | PREPAR/PCLIMB build time; ENDGAM text | [ROM] CLIMB builds ~330 interrupts after the command, so level SECOND and creature placement differ (Q6, C-22). A test for WIZIN's CLRPRI showed DEATH's is unobservable (the faint's CLRPRI always runs first), and ENDGAM's staged text shows an unexplained extra dot row before its messages: likely the staged ENDGAM lets HMAN70's line handling run early (gap-open, next run). | none; edits reverted | ENDGAM text — not run: time |
 | 2026-09-27 | 23 | ENDGAM extra prompt line (from run 22) | Staged ENDGAM let HMAN70 prompt before its stages; INIVU then wiped it, leaving no prompt | HMAN70 deferred to ENDGAM's last stage + tests; audited | — |
+| 2026-09-27 | 24 | OBIRTH, TOKEN | Both match (TOKEN via fixtures) | log only | — |
