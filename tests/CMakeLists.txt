@@ -46,6 +46,10 @@ target_compile_definitions(gesture_tests
   PRIVATE DAG_PHASE8_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/docs/archaeology/phase-8/fixtures")
 add_test(NAME gesture_tests COMMAND gesture_tests)
 
+add_executable(touch_overlay_tests input/touch_overlay_tests.cpp)
+target_link_libraries(touch_overlay_tests PRIVATE daggorath::input)
+add_test(NAME touch_overlay_tests COMMAND touch_overlay_tests)
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")
