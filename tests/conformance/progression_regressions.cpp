@@ -263,6 +263,16 @@ void test_inivu_returns_to_the_viewer() {
     check(climb.level_index() == 1 && inivu, "CLIMB runs INIVU after NEWLVL");
 }
 
+void test_examine_costs_a_sync() {
+    // PEXAM.ASM PEXAM: STX DSPMOD (EXAMIN), then PUPDAT.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    const std::size_t from = game.trace().size();
+    run(game, {"EXAMINE"});
+    check(game.display_mode() == dag::DisplayMode::Examine && count_pupdat(game, from, "pexam") == 1,
+          "EXAMINE switches to the examine display and redraws once");
+}
+
 void test_image_ending() {
     dag::Game game(1, 0);
     game.set_frozen(true);
@@ -520,6 +530,7 @@ int main() {
     test_pull_costs_a_sync();
     test_torch_use_redraws_twice_and_flask_not_at_all();
     test_inivu_returns_to_the_viewer();
+    test_examine_costs_a_sync();
     test_image_ending();
     test_wizard_ending();
     test_winner();

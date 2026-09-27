@@ -923,6 +923,7 @@ void Game::cmd_examine() {
     set_mode(DisplayMode::Examine);
     const int creature = find_creature(player_.row, player_.col);
     emit("EXAMINE", "creature=" + std::to_string(creature));
+    pupdat("pexam");   // PEXAM.ASM PEXAM: DSPMOD = EXAMIN, PUPDAT (source-proven)
 }
 
 void Game::cmd_climb(const std::string& line, std::size_t& pos) {

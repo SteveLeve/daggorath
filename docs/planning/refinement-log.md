@@ -92,12 +92,12 @@ then the rest.
 | PGET.ASM:COMUPD | game.cpp | gap-fixed | 10 | STATUS + PUPDAT, now charged (D-15). |
 | PUSE.ASM:PUSE | game.cpp cmd_use | gap-fixed | 10 | Torch (two PUPDATs), flasks (no OCBFIL, type goes to T.FLA4, reveal 0, no redraw) and scrolls match; the missing PUPDAT charges are added. Quirk: USC100/200 store MAPFLG before the reveal test, so an unrevealed scroll still sets MAPFLG; no visible effect, because every map display runs through a scroll that resets it [INF]. |
 | PCLIMB.ASM:PCLIMB | game.cpp cmd_climb | gap-fixed | 11 | VFIND/DIRTAB/VF codes match. The INIVU after NEWLVL was missing, so a climb left the text area uncleared, skipped the heart resets and charged no redraw; added. |
-| PREVEA.ASM:PREVEA |  | unreviewed |  |  |
-| PEXAM.ASM:PEXAM |  | unreviewed |  |  |
-| PEXAM.ASM:EXAMIN |  | unreviewed |  |  |
-| PEXAM.ASM:PRTOBJ |  | unreviewed |  |  |
-| HUMAN.ASM:PLAYER |  | unreviewed |  |  |
-| HUMAN.ASM:HUMAN |  | unreviewed |  |  |
+| PREVEA.ASM:PREVEA | game.cpp cmd_reveal | matches | 12 | REV*25 against PPOW (signed BGT; the core's unsigned compare agrees while PPOW < $8000, which the PATT42 cap keeps [INF]), OCBFIL, CLR P.OCREV, STATUS only (no PUPDAT). |
+| PEXAM.ASM:PEXAM | game.cpp cmd_examine | gap-fixed | 12 | The PUPDAT after DSPMOD = EXAMIN was uncharged; now D-15. |
+| PEXAM.ASM:EXAMIN | presentation examine.cpp project_examine | matches | 12 | Header at 10, creature line at +11, OFIND floor list in two columns (NEWLIN), 32 × '!', backpack header at +12, bag with the lit torch inverted. A trailing newline after an odd bag list was removed in run 12, since EXAM30 has no CRLF. |
+| PEXAM.ASM:PRTOBJ | examine.cpp print_names | matches | 12 | COM NEWLIN, tab to the next 16 columns or CRLF; inverse reset after each name. |
+| HUMAN.ASM:PLAYER | game.cpp task_player | matches | 12 | Chars eaten while fainted; SP, CR and BS mapped; A-Z to 5 bits; anything else, lowercase included, becomes a space; ROM-captured t4/t5. AUTFLG demo path not modelled (Original Mode starts past the demo). |
+| HUMAN.ASM:HUMAN | game.cpp feed_char | matches | 12 | HMAN10 INIVU on any key in map mode; dispatch when the buffer is full; BS at the start ignored; HMAN70 prompt rules. |
 | MISC.ASM:WIZIX | src/platform/sdl_app.cpp (death block) | gap-fixed | 1 | 18 jiffies per step [ROM], C-17; still open: NOISEF buzz. 17 WIZZES steps, each ZFLOP+VCTLST+SYNC; 110 ms/step is [INF]; NOISEF 30 Hz buzz, with NOISEV set to the fade value, not reproduced. |
 | COMPLR.ASM:HSLOW | game.cpp task_hslow | matches | 3 | ASRD6 of -PDAM, signed BGT floor at 0, reschedule HEARTR on Q.JIF; the core's delay-0 guard needs D > P, which is already death [INF]. C-18 shows healing continuing while fainted. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
@@ -117,3 +117,4 @@ then the rest.
 | 2026-09-27 | 9 | PMOVE wall bump | The desktop now draws the half-step before the THUD; the MoveAnimation block carries step_relative; test added | this commit | — |
 | 2026-09-27 | 10 | PGET (GET, DROP, STOW, PULL, COMUPD), PUSE | Logic matches; COMUPD, PUSE and PATT40 PUPDATs were uncharged | D-15 extended; fight baselines regenerated (one kill SYNC each); 3 tests; audited | Tests for GET, DROP and STOW individually — not added (the shared COMUPD path is covered by PULL) |
 | 2026-09-27 | 11 | PCLIMB, INIVU/PLOOK, HMAN10, endgames | Typing after a map never left map mode; CLIMB skipped INIVU; INIVU lacked CLRPRI, PLOOK and PUPDAT; the ring riddle wrongly stopped the heartbeat (a stray WIZIX CLR HBEATF); ENDGAM lacked WIZIX's CLR HBEATF | Fixed; tests for climb, map exit, riddle and ENDGAM (no LOAD90 test); no baseline moved; Q4 raised | GAME50 charge — not run: Q4 |
+| 2026-09-27 | 12 | PEXAM, EXAMIN, PRTOBJ, PREVEA, HUMAN | The PEXAM PUPDAT was uncharged; the rest match | PEXAM charge + test; no baseline moved | — |

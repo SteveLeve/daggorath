@@ -57,7 +57,7 @@ struct Pad {
     }
 };
 
-void print_names(Pad& pad, const std::vector<std::string>& names, int torch) {
+void print_names(Pad& pad, const std::vector<std::string>& names, int torch, bool close_line) {
     bool newline = false;
     for (int i = 0; i < static_cast<int>(names.size()); ++i) {
         if (i == torch) pad.inverse_next = true;
@@ -66,7 +66,8 @@ void print_names(Pad& pad, const std::vector<std::string>& names, int torch) {
         if (newline) pad.cur = (pad.cur + 16) & ~15;
         else pad.put('\n');
     }
-    if (newline) pad.put('\n');
+    // EXAM20 closes an odd floor list; the bag list (EXAM30 -> EXAM99) is left open.
+    if (newline && close_line) pad.put('\n');
 }
 
 }  // namespace
@@ -81,12 +82,12 @@ ExamineProjection project_examine(const ExamineSnapshot& snap) {
         pad.write(kExamCreature);
         pad.put('\n');
     }
-    print_names(pad, snap.floor, -1);
+    print_names(pad, snap.floor, -1, true);
     pad.write("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     pad.cur += 12;
     pad.write(kExamBackpack);
     pad.put('\n');
-    print_names(pad, snap.bag, snap.torch_index);
+    print_names(pad, snap.bag, snap.torch_index, false);
     ExamineProjection out;
     out.text = pad.to_text();
     return out;
