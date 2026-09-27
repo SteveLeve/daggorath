@@ -1,0 +1,29 @@
+# C-22: level-build interrupts for CLIMB to levels 1-4 (harness-modified).
+# Pokes place the player on a vertical
+# feature from VFTTAB (COMCRE.ASM:184) before each CLIMB; one pokes LEVEL
+# so PCLIMB's ADDA LEVEL builds level 3, which no ladder or hole reaches.
+# L0 hole (15,4) -> L1; L1 hole (3,31) -> L2; L2 ladder (2,3) -> L1;
+# L1 hole (19,20) with LEVEL=2 -> L3; L3 hole (0,31) -> L4.
+# Run with DOD_JIFFIES=3600 and
+# DOD_POKE=5:PPOW:0x7000,5:PDAM:0,50:PROW:0x0F04,700:PDAM:0,750:PROW:0x031F,1400:PDAM:0,1450:PROW:0x0203,2100:PDAM:0,2150:PROW:0x1314,2150:LEVEL:2:1,2800:PDAM:0,2850:PROW:0x001F
+# (PROW is written as two bytes, PROW then PCOL.)
+60 C
+61 SPACE
+62 D
+63 CR
+760 C
+761 SPACE
+762 D
+763 CR
+1460 C
+1461 SPACE
+1462 U
+1463 CR
+2160 C
+2161 SPACE
+2162 D
+2163 CR
+2860 C
+2861 SPACE
+2862 D
+2863 CR

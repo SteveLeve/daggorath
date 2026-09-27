@@ -1,4 +1,5 @@
 #include "daggorath/examine.hpp"
+#include "daggorath/raster.hpp"
 #include "daggorath/text.hpp"
 #include "daggorath/text_tables.hpp"
 
@@ -157,6 +158,15 @@ ExamineSnapshot examine_snapshot_from(const Game& game) {
         ++bag_i;
     }
     return exam;
+}
+
+void paint_prepare(std::uint8_t* pixels, int width) {
+    for (int y = 0; y < kViewportScanlineEnd; ++y)
+        std::fill(pixels + static_cast<std::size_t>(y * width),
+                  pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
+    const std::string_view word = "PREPARE!";
+    for (std::size_t i = 0; i < word.size(); ++i)
+        plot_cell(pixels, width, 12 + static_cast<int>(i), 9 * 8, word[i], false);
 }
 
 }  // namespace dag

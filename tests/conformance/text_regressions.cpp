@@ -15,6 +15,8 @@
 #include "daggorath/text.hpp"
 #include "daggorath/text_tables.hpp"
 
+bool cell_matches(const std::uint8_t* pixels, int col, int y, const std::uint8_t rows[7]);
+
 namespace {
 
 int g_failures = 0;
@@ -137,6 +139,14 @@ void test_examine() {
         if (std::string(row.data(), 32).find("LEATHER SHIELD") != std::string::npos) shield = true;
     check(top.find("IN THIS ROOM") == std::string::npos && shield,
           "a long EXAMINE list scrolls TXTEXA instead of dropping lines");
+
+    // MISC.ASM PREPAX: PREPARE! at TXTEXA cursor 32*9+12 on a blanked viewport.
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(dag::kScreenWidth * dag::kScreenHeight), 1);
+    dag::paint_prepare(pixels.data(), dag::kScreenWidth);
+    std::uint8_t p_rows[7] = {};
+    dag::glyph_rows(static_cast<std::uint8_t>('P' - 'A' + 1), p_rows);
+    check(cell_matches(pixels.data(), 12, 9 * 8, p_rows) && pixels[0] == 0,
+          "PREPAR blanks the viewport and prints PREPARE! at row 9, column 12");
 }
 
 void test_maps() {

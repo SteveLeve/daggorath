@@ -124,6 +124,7 @@ void Game::systcb() {
 // NEWLVL: zero the CCBs, SYSTCB, DGNGEN, CBIRTH per CMXLND, attach objects.
 void Game::build_level(int level, std::uint8_t second) {
     level_index_ = level;
+    polarity_level_ = level;
     systcb();
     level_ = generate_level(level, second);
     birth_creatures(level, matrix_[static_cast<std::size_t>(level)], level_.rng,
@@ -373,7 +374,8 @@ void Game::advance_jiffies(std::uint64_t n) {
             --sync_pending_;
             block(BlockKind::Sync, 1, 1, true);
             emit("SYNC", "display swap");
-            if (sync_pending_ == 0 && endgame_stage_ != 0) endgame_resume();
+            if (sync_pending_ == 0 && build_stage_ != 0) build_resume();
+            else if (sync_pending_ == 0 && endgame_stage_ != 0) endgame_resume();
             continue;
         }
         sched_.run_ready_pass();
@@ -537,7 +539,7 @@ void Game::finish_line() {
     out_char(kISp);   // HMAN30 erases the underline cursor
     dispatch_line();
     // A staged ENDGAM has not returned yet; its last stage runs HMAN70.
-    if (endgame_stage_ != 0) return;
+    if (endgame_stage_ != 0 || build_stage_ != 0) return;
     hman70();
 }
 
@@ -975,8 +977,65 @@ void Game::cmd_climb(const std::string& line, std::size_t& pos) {
         return;
     }
     emit("CLIMB", "level=" + std::to_string(next));
-    enter_level(next);
-    inivu();   // PCLIMB.ASM PCLI20: NEWLVL then SWI INIVU
+    // PCLIMB.ASM PCLI20: PREPAR, NEWLVL, INIVU. NEWLVL is CPU time the core
+    // charges as blocked jiffies (C-22); HMAN70 prompts once INIVU is done.
+    begin_newlvl(next, true, 0);
+}
+
+// NEWLVL.ASM NEWLVX as a timed build. The start (STA LEVEL, the CCB ZERO and
+// SYSTCB) happens at once. [ROM] C-22 and descend-early: the DGEN90 spin reads
+// SECOND this many interrupts after the command line, per level built; the
+// carving before it starts from a fixed per-level seed.
+namespace {
+constexpr int kNewlvlPreSpin[5] = {362, 326, 378, 377, 339};
+// [ROM] spin exit to the first PLAYER dispatch (births, NLVL40, NLVL50, INIVU).
+constexpr int kNewlvlTail[5] = {26, 23, 22, 23, 27};
+}  // namespace
+
+void Game::begin_newlvl(int level, bool prepare, int then) {
+    preparing_ = prepare;           // MISC.ASM PREPAX: PREPARE! on the viewport
+    level_index_ = level;           // NEWLVX: STA LEVEL
+    ccbs_ = {};                     // SWI ZERO over the CCB table
+    // SYSTCB clears the queues now. Its new TCBs sit in Q.SCD, which SCHED
+    // only reaches after PLAYER returns from the whole build (descend-early:
+    // CREGEN at isr 2133, after NEWLVL's exit at 2121), so the core adds them
+    // when the build ends, still ahead of CBIRTH's creature TCBs.
+    sched_.reset_tasks();
+    creature_tasks_.clear();
+    build_target_ = level;
+    build_then_ = then;
+    sync_pending_ += kNewlvlPreSpin[level];
+    build_stage_ = 1;
+}
+
+void Game::build_resume() {
+    if (build_stage_ == 1) {
+        const std::uint8_t second = sched_.counters().second;
+        emit("NEWLVL", "level=" + std::to_string(build_target_) +
+                           " second=" + std::to_string(second));
+        level_ = generate_level(build_target_, second);
+        systcb();
+        birth_creatures(build_target_, matrix_[static_cast<std::size_t>(build_target_)],
+                        level_.rng, level_.maze, ccbs_);
+        attach_objects(build_target_, ccbs_, objects_);
+        queue_creatures();
+        polarity_level_ = build_target_;   // NLVL50
+        // [INF] the spin costs about one interrupt per ten draws, +-1 (C-22 and
+        // descend-early: 12->2, 25->2, 36->4, 41->4, 48->5, 50->5, 59->6; this
+        // formula gives 3 for 25). SECOND 0 is 256 draws.
+        const int draws = second == 0 ? 256 : second;
+        sync_pending_ += (draws + 5) / 10 + kNewlvlTail[build_target_] - 1;
+        build_stage_ = 2;
+        return;
+    }
+    build_stage_ = 0;
+    preparing_ = false;
+    if (build_then_ == 1) {
+        endgame_after_newlvl();
+        return;
+    }
+    inivu();    // PCLIMB PCLI20 SWI INIVU (its SYNC is the tail's last jiffy)
+    hman70();   // PCLIMB returns into HUMAN
 }
 
 int Game::find_creature(int row, int col) const {
@@ -1054,28 +1113,32 @@ void Game::endgame_resume() {
             player_.bag_head = player_.torch;
         }
         player_.carried_weight = 200;
-        enter_level(3);
-        for (;;) {
-            const int col = level_.rng.next() & 31;
-            const int row = level_.rng.next() & 31;
-            if (level_.maze.at(row, col) == 0xFF) continue;
-            player_.row = row;
-            player_.col = col;
-            break;
-        }
-        emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
-        // WIZOUT (MISC.ASM WIZOX): CLRPRI, WIZI20's A$EXP1, then WIZZES for
-        // B = 0, 2, ... 30: sixteen draws, each with a SYNC.
-        clear_primary_text();
-        sound(SoundCue::EXP1);
-        sync_pending_ += 16;
-        endgame_stage_ = 3;
+        begin_newlvl(3, false, 1);   // NEWLVL 3, timed as a CLIMB's (C-22)
         return;
     }
     if (stage == 3) {
         inivu();   // PATTK.ASM ENDGAM: SWI INIVU, then RTS
-        hman70();   // ENDGAM's RTS returns into HUMAN (HMAN60 falls into HMAN70)
+        hman70();  // ENDGAM's RTS returns into HUMAN (HMAN60 falls into HMAN70)
     }
+}
+
+void Game::endgame_after_newlvl() {
+    // PATTK.ASM ENDGAM after NEWLVL 3: FNDCEL relocates the player.
+    for (;;) {
+        const int col = level_.rng.next() & 31;
+        const int row = level_.rng.next() & 31;
+        if (level_.maze.at(row, col) == 0xFF) continue;
+        player_.row = row;
+        player_.col = col;
+        break;
+    }
+    emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
+    // WIZOUT (MISC.ASM WIZOX): CLRPRI, WIZI20's A$EXP1, then WIZZES for
+    // B = 0, 2, ... 30: sixteen draws, each with a SYNC.
+    clear_primary_text();
+    sound(SoundCue::EXP1);
+    sync_pending_ += 16;
+    endgame_stage_ = 3;
 }
 
 void Game::endgame_wizard() {
@@ -1337,6 +1400,9 @@ void Game::load_ram(std::istream& in) {
     frozen_ = frozen != 0;
     sync_pending_ = sync;
     endgame_stage_ = 0;   // not in the image; PLAYER cannot ZSAVE while ENDGAM blocks
+    build_stage_ = 0;     // likewise for a timed NEWLVL
+    preparing_ = false;
+    polarity_level_ = level_index_;
     newluk_ = newluk != 0;
     in.get();
     line_.assign(line_size, ' ');

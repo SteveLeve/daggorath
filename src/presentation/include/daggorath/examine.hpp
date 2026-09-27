@@ -34,4 +34,8 @@ ExamineSnapshot examine_snapshot_from(const Game& game);
 // inferred (phase-7 reconciliation).
 void paint_examine(std::uint8_t* pixels, int width, const ExamineProjection& page);
 
+// MISC.ASM PREPAX: EXAMIO's ZFLOP blanks the viewport, then PREPARE! at TXTEXA
+// cursor 32*9+12, shown while PCLIMB's NEWLVL builds.
+void paint_prepare(std::uint8_t* pixels, int width);
+
 }  // namespace dag
