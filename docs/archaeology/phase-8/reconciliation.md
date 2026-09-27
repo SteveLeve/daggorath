@@ -9,26 +9,25 @@ contradicts or this environment could not build.
 
 ## Workstreams, as delivered
 
-**Merge status (2026-09-27, when this note was written): only #25 (8.0) is
-merged to `main`.** #26-29 (8.1-8.4) are open pull requests, each reviewed
-by `boundary-checker`/`evidence-auditor` and passing `make all` on its own
-branch, not yet merged. This branch (8.5) merges #26-29 in locally so its
-own tests and this document can exercise and describe the whole phase
-together; that is a local integration for writing and testing this note,
-not a claim that `main` already contains them. "Complete" below means every
-workstream's work exists, is tested, and is queued to merge — not that
-`main` has absorbed it yet. Whoever merges these five PRs should merge them
-in order (8.0 already is; then #26, #27, #28, #29, then this one), since
-each was branched from the one before it and carries its content forward.
+**Merge status (updated 2026-09-27): #25-29 (8.0-8.4) are all merged to
+`main`**, in order, each rebased onto the previous merge and re-verified
+(`make all` green, no fixture drift) before merging. This PR (8.5) is the
+last workstream, opened once #26-29 landed. Between when this section was
+first written (only #25 merged) and now, a bug-fix branch
+(`refinement/playthrough-and-discovery`, PR #23) merged to `main` ahead of
+this work; each Phase 8 branch was rebased onto that fix (and onto each
+prior Phase 8 merge) before merging, so `main`'s history is linear and every
+merge was re-verified independently, not just carried forward assuming it
+still worked.
 
 | # | PR | Merged to `main`? | What landed | What did not |
 |---|---|---|---|---|
 | 8.0 | #25 | **yes** | Coverage table: every `CMDTAB` verb has a touch path or a stated keyboard-only reason (`docs/architecture/touch-input.md` §1-6) | — |
-| 8.1 | #26 | no, open | `src/input/gesture.{hpp,cpp}`: whole-line, one-jiffy gesture adapters (D-17 implemented); per-gesture fixtures | — |
-| 8.2 | #27 | no, open | `src/shell/shell.{hpp,cpp}`: pause/resume (D-16 implemented), five slots + hidden slot, confirmations, PAUSE/RESUME trace markers, pause-invariance test; ADR-0009 Resolution | Video/Controls menu entries, option-setting, keystroke delivery through the shell, and the Esc-key/on-screen-button SDL wiring |
-| 8.3 | #28 | no, open | `src/presentation/crisp.{hpp,cpp}`: segment/dot/map geometry from the same draw list `pixel` rasterises; per-golden-state segment fixtures; golden images unchanged; ADR-0010 Resolution | Device-pixel scaling, line thickness, HiDPI, smoothing, text-as-geometry (SDL3 platform concerns; text explicitly not reopened) |
-| 8.4 | #29 | no, open | `src/input/touch_overlay.{hpp,cpp}`: headless layout, hit-testing and gesture dispatch for phone landscape and tablet 4:3, mouse-as-touch | The actual SDL rendering, the manual landscape/tablet evaluation, and wiring the shell/`crisp` into the desktop window |
-| 8.5 | (to be opened) | no | `tests/input/replay_equivalence_tests.cpp`: a touch session's trace matches the committed scripted-burst fixture byte for byte, and a touch burst matches typed pacing finishing on the same jiffy; this reconciliation note; `docs/architecture/touch-input.md` finished through §11 | A chosen default between the two layouts (needs the manual evaluation 8.4 could not do here) |
+| 8.1 | #26 | **yes** | `src/input/gesture.{hpp,cpp}`: whole-line, one-jiffy gesture adapters (D-17 implemented); per-gesture fixtures | — |
+| 8.2 | #27 | **yes** | `src/shell/shell.{hpp,cpp}`: pause/resume (D-16 implemented), five slots + hidden slot, confirmations, PAUSE/RESUME trace markers, pause-invariance test; ADR-0009 Resolution | Video/Controls menu entries, option-setting, keystroke delivery through the shell, and the Esc-key/on-screen-button SDL wiring |
+| 8.3 | #28 | **yes** | `src/presentation/crisp.{hpp,cpp}`: segment/dot/map geometry from the same draw list `pixel` rasterises; per-golden-state segment fixtures; golden images unchanged; ADR-0010 Resolution | Device-pixel scaling, line thickness, HiDPI, smoothing, text-as-geometry (SDL3 platform concerns; text explicitly not reopened) |
+| 8.4 | #29 | **yes** | `src/input/touch_overlay.{hpp,cpp}`: headless layout, hit-testing and gesture dispatch for phone landscape and tablet 4:3, mouse-as-touch | The actual SDL rendering, the manual landscape/tablet evaluation, and wiring the shell/`crisp` into the desktop window |
+| 8.5 | #30 | pending this PR | `tests/input/replay_equivalence_tests.cpp`: a touch session's trace matches the committed scripted-burst fixture byte for byte, and a touch burst matches typed pacing finishing on the same jiffy; this reconciliation note; `docs/architecture/touch-input.md` finished through §11 | A chosen default between the two layouts (needs the manual evaluation 8.4 could not do here) |
 
 ## Recorded obstacle: no SDL3 in this environment
 
@@ -77,10 +76,9 @@ this environment cannot perform.
 
 ## Completion gate checklist
 
-Every artifact the gate names exists and passes, checked on this branch
-(#26-29 merged locally into it, per the merge-status note above). This
-checklist is not a claim that `main` already has them — see that note —
-only that the work itself is done and ready to merge.
+Every artifact the gate names exists and passes, re-verified after each
+merge onto `main`'s current tip (rebuilt and re-tested, not just carried
+forward).
 
 - [x] Coverage table (every command form reachable by touch) — §1-6.
 - [x] Replay-equivalence test output — `replay_equivalence_tests`, 7 checks passing.
@@ -89,4 +87,4 @@ only that the work itself is done and ready to merge.
 - [x] `make all` output — 16/16 tests passing (17 with the disabled playthrough), fixture manifests clean, golden images unchanged.
 - [x] README phase table showing Phase 8 complete.
 - [x] This reconciliation note.
-- [ ] PRs #26, #27, #28, #29, and this workstream's own PR merged to `main`, in that order.
+- [x] PRs #25, #26, #27, #28, #29 merged to `main`, in that order (each rebased onto the previous merge and `main`'s own `refinement/playthrough-and-discovery` fix, PR #23, and re-verified before merging). #30 (this PR) is the last of the six.
