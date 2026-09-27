@@ -315,7 +315,8 @@ void Game::inivu(bool charge) {
 }
 
 void Game::wizard_fade_in() {
-    heart_.hbeatf = 0;   // MISC.ASM WIZIX CLR HBEATF
+    heart_.hbeatf = 0;      // MISC.ASM WIZIX CLR HBEATF
+    clear_primary_text();   // WIZIX0 CLRPRI [SRC]; CLRSTS is unresolved (status line not modelled)
 }
 
 void Game::heartbeat_interrupt() {
@@ -372,6 +373,7 @@ void Game::advance_jiffies(std::uint64_t n) {
             --sync_pending_;
             block(BlockKind::Sync, 1, 1, true);
             emit("SYNC", "display swap");
+            if (sync_pending_ == 0 && endgame_stage_ != 0) endgame_resume();
             continue;
         }
         sched_.run_ready_pass();
@@ -1016,30 +1018,55 @@ void Game::kill_creature(int slot) {
 }
 
 void Game::endgame_image() {
-    // ENDGAM (PATTK.ASM): the two messages, then BAGPTR = PTORCH with the
-    // torch's link cleared. PLHAND, PRHAND, and PTORCH are kept. Weight becomes
-    // 200, level 3 is rebuilt, and FNDCEL relocates.
+    // PATTK.ASM ENDGAM (source-proven). WIZIN with FADFLG clear is the
+    // immediate form: WIZIX clears HBEATF and the text, then one WIZZES draw
+    // and its SYNC (MISC.ASM WIZI10, B = 0), then WIZI20's A$EXP1.
     emit("ENDGAM", "image");
-    wizard_fade_in();   // PATTK.ASM:193-195 ENDGAM: WIZIN, whose WIZIX clears HBEATF
-    emit("DIALOGUE", "^ ENOUGH! I TIRE OF THIS PLAY...");   // PATTK.ASM:198
-    emit("DIALOGUE", "   PREPARE TO MEET THY DOOM!!!");     // PATTK.ASM:222
-    player_.bag_head = -1;
-    if (player_.torch >= 0) {
-        objects_[static_cast<std::size_t>(player_.torch)].next = -1;
-        player_.bag_head = player_.torch;
+    wizard_fade_in();
+    ++sync_pending_;   // WIZZES: DEC UPDATE / SYNC
+    endgame_stage_ = 1;
+}
+
+void Game::endgame_resume() {
+    const int stage = endgame_stage_;
+    endgame_stage_ = 0;
+    if (stage == 1) {
+        sound(SoundCue::EXP1);   // MISC.ASM WIZI20 ISOUND A$EXP1
+        emit("DIALOGUE", "^ ENOUGH! I TIRE OF THIS PLAY...");   // PATTK.ASM:198
+        emit("DIALOGUE", "   PREPARE TO MEET THY DOOM!!!");     // PATTK.ASM:222
+        sync_pending_ += 81;   // SWI WAIT: MISC.ASM WAITX, 81 x SYNC
+        endgame_stage_ = 2;
+        return;
     }
-    player_.carried_weight = 200;
-    enter_level(3);
-    for (;;) {
-        const int col = level_.rng.next() & 31;
-        const int row = level_.rng.next() & 31;
-        if (level_.maze.at(row, col) == 0xFF) continue;
-        player_.row = row;
-        player_.col = col;
-        break;
+    if (stage == 2) {
+        // Strip the bag to the torch alone (BAGPTR = PTORCH, link cleared);
+        // PLHAND, PRHAND and PTORCH are kept. Weight 200, NEWLVL 3 with the
+        // SECOND now current, and FNDCEL relocates.
+        player_.bag_head = -1;
+        if (player_.torch >= 0) {
+            objects_[static_cast<std::size_t>(player_.torch)].next = -1;
+            player_.bag_head = player_.torch;
+        }
+        player_.carried_weight = 200;
+        enter_level(3);
+        for (;;) {
+            const int col = level_.rng.next() & 31;
+            const int row = level_.rng.next() & 31;
+            if (level_.maze.at(row, col) == 0xFF) continue;
+            player_.row = row;
+            player_.col = col;
+            break;
+        }
+        emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
+        // WIZOUT (MISC.ASM WIZOX): CLRPRI, WIZI20's A$EXP1, then WIZZES for
+        // B = 0, 2, ... 30: sixteen draws, each with a SYNC.
+        clear_primary_text();
+        sound(SoundCue::EXP1);
+        sync_pending_ += 16;
+        endgame_stage_ = 3;
+        return;
     }
-    emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
-    inivu();   // PATTK.ASM ENDGAM: WIZOUT, then SWI INIVU
+    if (stage == 3) inivu();   // PATTK.ASM ENDGAM: SWI INIVU, then RTS
 }
 
 void Game::endgame_wizard() {
@@ -1300,6 +1327,7 @@ void Game::load_ram(std::istream& in) {
     mode_ = static_cast<DisplayMode>(mode);
     frozen_ = frozen != 0;
     sync_pending_ = sync;
+    endgame_stage_ = 0;   // not in the image; PLAYER cannot ZSAVE while ENDGAM blocks
     newluk_ = newluk != 0;
     in.get();
     line_.assign(line_size, ' ');

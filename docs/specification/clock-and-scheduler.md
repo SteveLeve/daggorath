@@ -160,6 +160,15 @@ which blocks the whole foreground **[SRC]**:
   (`PTURN.ASM PTUR90`, `PMOV90`).
 - `WAITX` (`MISC.ASM`) is `81 × SYNC` ≈ 1.35 s of blocked foreground, despite its
   "1.5 second" comment.
+- `ENDGAM` (`PATTK.ASM`) blocks the foreground across its wizard: `WIZIN` with
+  `FADFLG` clear clears the text (`WIZIX0` `CLRPRI`), draws once (`MISC.ASM`
+  `WIZZES`, one `SYNC`) and sounds `A$EXP1`,
+  then the two messages and `WAIT` (81 `SYNC`s), then `NEWLVL 3` with the
+  `SECOND` current at that point, then `WIZOUT` (`CLRPRI`, `A$EXP1`, 16 `WIZZES` `SYNC`s)
+  and `INIVU`. **[SRC]** The core runs these as stages resumed when the pending
+  `SYNC`s are spent. **[INF]** each `SYNC` is charged as one lost scheduler pass,
+  like D-15; the stage is not in the RAM image, which is safe because `PLAYER`
+  cannot reach `ZSAVE` while it is blocked.
 - Turn and sidestep animation (`LRTURN`/`RLTURN`) draws 8 lines per sweep with
   `VECTOR` and no `SYNC`, so its cost is CPU-bound and not expressible in jiffies
   from the listing alone **[OPEN]**.
