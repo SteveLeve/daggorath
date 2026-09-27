@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,15 @@ void pack_bitmap(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& p
 void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
                   const DrawSegment& segment, std::uint8_t fade = 0);
 
+// The same VECTOR.ASM walk `draw_segment` plots, exposed so a second
+// consumer (the `crisp` render style, ADR-0010) can find the exact dots a
+// dim segment would plot without a second geometry source (ADR-0010 §2).
+// Calls `emit(x, y)` for each in-bounds source-pixel position `draw_segment`
+// would set at this `fade`; a zero-length segment or `fade == 0xFF` calls it
+// zero times.
+void walk_segment(const DrawSegment& segment, std::uint8_t fade,
+                  const std::function<void(int x, int y)>& emit);
+
 // Host microseconds owed to the 60 Hz core. Every owed jiffy is returned.
 // A stall catches up; it does not drop jiffies.
 // SETFAX. Light minus 7 minus range. Non-negative is full brightness (fade 0).
@@ -34,13 +44,16 @@ std::uint8_t set_fade(std::uint8_t light, std::uint8_t range);
 int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us);
 
 // P1 portable bitmap, one character per pixel. Used by the offscreen tests.
-std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels);
+std::string bitmap_pbm(
+    const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels);
 
 // Project the view and plot every segment with the fade SETFAX stored on it.
-std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view);
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(
+    const ViewSnapshot& view);
 
 // MISC.ASM WIZZES: the crescent wizard (WIZ1) at scale $80 with VCTFAD = `fade`.
-std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(std::uint8_t fade);
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(
+    std::uint8_t fade);
 
 // Integer scale. Each source dot becomes a factor-by-factor block. Factor 1 copies.
 std::vector<std::uint8_t> scale_frame(

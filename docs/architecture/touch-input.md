@@ -178,9 +178,35 @@ The SDL menu UI (Esc key, the on-screen button, backgrounding hook) is
 deferred to 8.4, which wires this headless shell into `src/platform`;
 ADR-0009 is accepted on that basis (see its Resolution).
 
-## Later sections (added by 8.3–8.5)
+## 9. Crisp render style (8.3, ADR-0010)
 
-- `crisp` segment fixtures and the render-style decision record (8.3).
+`src/presentation/crisp.{hpp,cpp}`, headless (no SDL). `build_crisp_frame`
+consumes `RenderState::segments` — the same logical draw list `pixel`'s
+`raster.cpp` rasterises (ADR-0010 §2), not a second geometry source. A
+fully-lit segment (`fade == 0`) becomes one continuous line; a dim segment
+becomes the exact dots `draw_segment` would plot (found via the newly shared
+`raster.hpp::walk_segment`), matching ADR-0010 §8's dotted dimness. `build_crisp_map`
+projects the same `MapSnapshot` `rasterize_map` (`mapper.hpp`) rasterises: a
+solid-wall cell becomes one filled square (§7), and the player/object/
+creature/vertical-feature marks stay nearest-neighbour bitmap cells (small
+bitmaps, not squares) via the newly shared `mark4_rows`.
+
+Segment fixtures, one per Phase 6 golden state:
+`docs/archaeology/phase-8/fixtures/crisp-segments.txt`, regenerated and
+checked byte-for-byte by the `crisp_segment_fixtures` ctest. The Phase 6/7
+golden pixel images are unchanged — confirmed by `viewer_regressions`,
+`text_regressions`, and `make verify`'s fixture manifests, all still passing
+after the `walk_segment`/`mark4_rows` refactor that let both render styles
+share one implementation.
+
+Not built here: device-pixel scaling, line thickness, HiDPI handling, and
+smoothing are SDL3 platform concerns this headless module leaves to the
+caller (it emits source-256x192 coordinates only) — deferred to 8.4, which
+wires `crisp`/`pixel` into `src/platform`. Text stays on the existing bitmap
+path (`text.cpp`); ADR-0010 §6's all-vector-text option is not reopened.
+
+## Later sections (added by 8.4–8.5)
+
 - Layouts evaluated and the chosen default, with screenshots kept out of tree
   (8.4).
 - Replay-equivalence evidence (8.5).

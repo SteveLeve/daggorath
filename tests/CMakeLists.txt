@@ -50,6 +50,18 @@ add_executable(shell_tests shell/shell_tests.cpp)
 target_link_libraries(shell_tests PRIVATE daggorath::shell)
 add_test(NAME shell_tests COMMAND shell_tests)
 
+# Phase 8.3: the `crisp` draw list, regenerated from the same golden states
+# Phase 6's viewer fixtures fix, must match the committed fixture byte for
+# byte — proof `crisp` and `pixel` project the same logical draw list
+# (ADR-0010 §2), and that the Phase 6/7 golden pixel images are unaffected by
+# the `walk_segment`/`mark4_rows` refactor (checked by the unchanged
+# `viewer_regressions`/`text_regressions` results, not by this test alone).
+add_executable(crisp_fixture_gen presentation/crisp_fixture_gen.cpp)
+target_link_libraries(crisp_fixture_gen PRIVATE daggorath::core daggorath::presentation)
+set(CRISP_FIXTURE ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-8/fixtures/crisp-segments.txt)
+add_test(NAME crisp_segment_fixtures
+  COMMAND sh -c "\"$<TARGET_FILE:crisp_fixture_gen>\" > \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" && cmp \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" \"${CRISP_FIXTURE}\"")
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")

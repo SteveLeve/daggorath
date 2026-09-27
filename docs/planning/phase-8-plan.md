@@ -33,6 +33,28 @@ independent of 8.1 and can run in parallel with it.
 | 8.4 | Touch overlay prototype, mouse-as-touch, per the mockups; phone landscape and tablet 4:3; optional command trace | Overlay in the desktop app | Manual evaluation notes; screenshots out of tree |
 | 8.5 | Replay equivalence and write-up | `docs/architecture/touch-input.md` with layouts evaluated | Touch session ≡ keystroke transcript trace; `make all` |
 
+## Rescoping recorded at 8.2/8.3 (2026-09-27)
+
+The table above is the original plan; the ADR Resolutions narrow what each
+workstream's own PR actually built, without changing the table (a record of
+what was decided, not a moving target):
+
+- **8.2** built pause/resume, snapshot slots and confirmations headlessly in
+  `src/shell` (ADR-0009's Resolution). The table's Video/Controls menu
+  entries, option-setting, keystroke delivery through the shell, and the
+  Esc-key/on-screen-button SDL wiring are not yet built; they move to 8.4's
+  PR alongside the touch overlay, since both need `src/platform`/SDL.
+- **8.3** built the `crisp` segment/dot/map-square geometry headlessly in
+  `src/presentation` (ADR-0010's Resolution). The table's "SDL3 line
+  drawing", device-scaled thick lines, HiDPI, and bitmap glyph cells (text)
+  are not yet built; the first three move to 8.4 for the same reason as
+  8.2's remainder. Text-as-geometry is not reopened at all (ADR-0010 §6
+  keeps it "a later option, not Phase 8").
+
+8.4's scope is therefore larger than the table's original "touch overlay
+prototype" row: it also carries the SDL platform wiring for 8.2's shell and
+8.3's `crisp` style, which is why both ADRs defer to it by name.
+
 ## Decisions already taken (2026-09-27)
 
 - Pause is a shell pause (ADR-0009, D-16); overlays never pause.
