@@ -1477,23 +1477,34 @@ void test_fire_ring_reaches_wizard() {
     say("ATTACK LEFT");
     check(game.creatures()[static_cast<std::size_t>(wizard)].damage == 14,
           "one fire-ring swing deals 14 wizard damage");
-    int swings = 1;
-    while (game.creatures()[static_cast<std::size_t>(wizard)].in_use && !game.player().dead &&
-           swings < 600) {
+    // The ring has three charges: VULCAN's P.OCXXX survives INCANT's OCBFIL
+    // (OBIRTH.ASM OFIL10), and PATTK decrements it per swing. The last charge
+    // turns it into a gold ring through PREV00, whose offense 0/5 cannot touch
+    // the wizard's zero physical defense. A starting-power player cannot finish
+    // the wizard with the fire ring alone.
+    auto rest = [&]() {
         int guard = 0;
         while (game.player().damage > 63 && !game.player().dead && guard < 80) {
             game.advance_jiffies(200);
             ++guard;
         }
+    };
+    const int ring_index = game.player().left_hand;
+    for (int n = 1; n < 3; ++n) {
+        rest();
         say("ATTACK LEFT");
-        ++swings;
     }
-    check(!game.player().dead && !game.creatures()[static_cast<std::size_t>(wizard)].in_use &&
-              swings == 572,
-          "572 rested fire-ring swings kill the wizard");
-    say("GET RIGHT RING");
-    say("INCANT FINAL");
-    check(game.player().won, "incanting the wizard's ring reaches WINNER");
+    check(game.creatures()[static_cast<std::size_t>(wizard)].damage == 42,
+          "three charged fire-ring swings deal 3 x 14 wizard damage");
+    check(ring_index >= 0 && game.objects()[static_cast<std::size_t>(ring_index)].type == 22,
+          "the third swing spends the fire ring into a gold ring (T.RN20)");
+    for (int n = 0; n < 5; ++n) {
+        rest();
+        say("ATTACK LEFT");
+    }
+    check(!game.player().dead && game.creatures()[static_cast<std::size_t>(wizard)].in_use &&
+              game.creatures()[static_cast<std::size_t>(wizard)].damage == 42,
+          "the spent gold ring does no further wizard damage");
 }
 
 }  // namespace
