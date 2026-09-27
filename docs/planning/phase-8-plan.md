@@ -29,7 +29,7 @@ independent of 8.1 and can run in parallel with it.
 | 8.0 | Interaction inventory from `commands-and-parser.md`, item and combat specs | Coverage table: every command form → keystrokes → control | Reviewed table in `docs/architecture/touch-input.md` |
 | 8.1 | `src/input` gesture → keystroke adapters; line-at-once vs paced keystrokes (32-byte buffer quirk) | Adapter library, no SDL; deviation entry if not typist-paced | Per-gesture keystroke fixtures |
 | 8.2 | Shell: pause/resume jiffy delivery; menu Resume · Save slot · Load slot · Restart · Video · Controls · Quit; Esc on desktop | Shell code in `src/platform` (or `src/shell`) | Pause-invariance test (ADR-0009 §4); snapshot slot round-trip |
-| 8.3 | `crisp` renderer and style toggle; inventory of every drawn frame kind | Segment list from presentation, SDL3 line drawing | Segment fixtures per golden state; goldens unchanged |
+| 8.3 | `crisp` renderer and style toggle: device-scaled thick lines, HiDPI, dotted dimness; inventory of every drawn frame kind ([vector study](port-comparison.md#vector-rendering-study-2026-09-27)) | Segment list from presentation, SDL3 line drawing | Segment fixtures per golden state; goldens unchanged |
 | 8.4 | Touch overlay prototype, mouse-as-touch, per the mockups; phone landscape and tablet 4:3; optional command trace | Overlay in the desktop app | Manual evaluation notes; screenshots out of tree |
 | 8.5 | Replay equivalence and write-up | `docs/architecture/touch-input.md` with layouts evaluated | Touch session ≡ keystroke transcript trace; `make all` |
 
@@ -64,6 +64,8 @@ independent of 8.1 and can run in parallel with it.
    lines, not core events (ADR-0009).
 9. **Phase 9 hook** Backgrounding = shell pause + snapshot to a hidden
    sixth slot, restored paused at next launch.
+10. **8.3** Dim segments stay dotted in `crisp` (ADR-0010 §8). The web
+    port's colour blend is rejected.
 
 ## Still open
 

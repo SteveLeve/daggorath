@@ -17,8 +17,13 @@ in every mode.
 1. Two styles: **`crisp`** (default) and **`pixel`** (the exact raster).
 2. `crisp` consumes the **same logical draw list** `pixel` rasterises: line
    segments in 256×192 source coordinates, including `VCTFAD` and scale. The
-   platform maps them to device pixels and draws them with SDL3 geometry, with
-   optional thickness and anti-aliasing. No second geometry source.
+   platform maps them to device pixels and draws them with SDL3 geometry. No
+   second geometry source. Lines are drawn as quads whose thickness scales
+   with the device, and all sizing uses real device pixels (SDL3 pixel
+   density), not logical points. The
+   [vector study](../planning/port-comparison.md#vector-rendering-study-2026-09-27)
+   found that the web port's fixed 1-pixel lines and missing HiDPI handling
+   are what this avoids.
 3. Golden images stay on `pixel`. `crisp` gets a segment-list fixture per
    golden state, so both styles are demonstrably one projection.
 4. Every frame the window draws — viewer, map, examine page, turn wipe (D-13),
@@ -32,8 +37,8 @@ in every mode.
 
 6. **Text in `crisp`** (decided 2026-09-27): status line, command line and
    text pages use the original glyph bitmaps, scaled nearest-neighbour; only
-   the vector geometry is drawn as lines. The project owner saw the web port
-   make the same split; it is not recorded in the ledger. Reason: the
+   the vector geometry is drawn as lines. The web port reaches the same look by
+   drawing each glyph cell as a filled quad in every mode (vector study). Reason: the
    geometry is the listing's `VECTOR`/`VCTLST` data (ADR-0006), so drawing it
    as lines renders the same data more sharply. **[INF]** the text glyphs are
    bitmaps (the Phase 6 text fixtures). Stroked text would need glyph data the
@@ -44,7 +49,18 @@ in every mode.
    sharp squares at device resolution, from the same cell projection
    (`mapper.hpp`) that `pixel` rasterises.
 
+8. **Dimness in `crisp`** (decided 2026-09-27): `VCTFAD` keeps the
+   listing's dot-skipping: **[SRC]** `VECTOR.ASM` plots one dot in every
+   `VCTFAD`+1 steps of its walk, as transliterated in `raster.cpp`
+   `draw_segment`, whose output the Phase 7 golden images fix. A dim segment is drawn as evenly spaced sharp dots
+   at the spacing the `pixel` DDA uses (`raster.cpp`), not as a colour blend.
+   The web port's blend is rejected, because it changes how dim creatures
+   look.
+
 ## Open for Phase 8
+
+- Whether smoothing helps at the chosen thickness. The web port disabled it
+  without a stated reason. Evaluate in 8.3.
 
 - All-vector text (see §6): later option, not Phase 8.
 - Line thickness default relative to screen size; whether `pixel` offers
