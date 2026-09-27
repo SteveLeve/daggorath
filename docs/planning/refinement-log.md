@@ -111,6 +111,8 @@ then the rest.
 | PEXAM.ASM:EXAMIN (window) | examine.cpp paint_examine; sdl_app | gap-fixed | 16 | TXTEXA page over the viewport, lit torch inverse; test_examine_page. |
 | PZTAPE.ASM:PZSAVE, PZLOAD, FILNAM; COMMON.ASM:SAVE, LOAD, LOAD90 | game.cpp cmd_zsave, cmd_zload, tape_operation | gap-fixed | 17 | FILNAM/GETTOK 8-character name matches; the ??? for a missing name is D-11. LOAD90's PROMPT was missing (fixed in a1df32c). |
 | NEWLVL.ASM:NEWLVX, NLVL30-44, NLVL50 | game.cpp build_level, population.cpp birth_creatures/attach_objects; raster.cpp apply_vdginv | matches | 18 | SYSTCB, DGNGEN, births from CTYPES-1 down, round-robin attach (no-live-creature hang is a quirk). NLVL50 polarity done runs 17-18. |
+| COMPLR.ASM:BURNER | game.cpp task_burner | gap-fixed | 20 | Timer, dead-torch at <=5, light clamps match. BURN99 DEC NEWLUK was missing (fixed; D-15 baselines regenerated, [ROM]-consistent with t1). |
+| COMPLR.ASM:LUKNEW | game.cpp task_luknew | matches | 20 | NEWLUK or map mode, CLR NEWLUK, PUPDAT, SCHED$ 3,Q.TEN. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -136,3 +138,4 @@ then the rest.
 | 2026-09-27 | 17 | PZTAPE, COMMON SAVE/LOAD/LOAD90 | LOAD90 PROMPT missing after INIVU; the audit of a1df32c found its reverse-video band disagrees with NLVL50 (Q5) | Prompt fix + test (committed by Steve in a1df32c) | a1df32c audited; band left to Steve |
 | 2026-09-27 | 18 | NEWLVL; Q5 follow-up | NEWLVL matches; the VDGINV flip moved into a tested presentation helper | apply_vdginv + test | none |
 | 2026-09-27 | 19 | HUPDAT heart rate, HUPD90, DEATH | DEATH did not clear FAINT; the halt-instead-of-restart was unrecorded | CLR FAINT + test; D-16 added | none |
+| 2026-09-27 | 20 | COMPLR BURNER, LUKNEW | BURNER never set NEWLUK | NEWLUK at BURN99 + test; t1-t5 and phase-3 fight traces regenerated under Q2 | none |
