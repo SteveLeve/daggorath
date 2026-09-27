@@ -332,6 +332,19 @@ void test_image_ending() {
     for (std::size_t i = 0; i + 2 < lines.size(); ++i)
         if (lines[i] != "!!!") hits_marked = false;
     check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
+    game.advance_jiffies(200);
+    // PATTK.ASM ENDGAM / MISC.ASM: WIZIN's one WIZZES SYNC and WAITX's 81 SYNCs
+    // come before NEWLVL; WIZOUT's 16 WIZZES SYNCs come before INIVU.
+    std::uint64_t start = 0, relocate = 0, inivu_at = 0;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "KILL") start = e.jiffy;
+        if (e.kind == "RELOCATE") relocate = e.jiffy;
+        if (e.kind == "PUPDAT" && e.detail == "inivu" && relocate != 0 && inivu_at == 0)
+            inivu_at = e.jiffy;
+    }
+    // From the kill: PATT40's PUPDAT SYNC, WIZIN's WIZZES SYNC, WAITX's 81.
+    check(relocate - start == 83, "NEWLVL 3 waits for PATT40's, WIZIN's and WAITX's SYNCs");
+    check(inivu_at - relocate == 16, "INIVU waits for WIZOUT's 16 WIZZES SYNCs");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
     check(game.display_mode() == dag::DisplayMode::Viewer && game.heart().hbeatf == 0xFF,
           "ENDGAM's WIZIN clears HBEATF and its closing INIVU sets it to $FF, in the viewer");
