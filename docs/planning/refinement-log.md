@@ -7,6 +7,7 @@ Steve adds hand-play observations here. The loop works these first.
 - ~~Death animation too fast~~ fixed by C-17 (2026-09-26). Hand-play check pending.
 
 ## Open questions
+- **Q2 (loop 5): charge the PUPDAT SYNC in the core?** [SRC] `LUKNEW` (COMPLR.ASM:53-63) redraws via `PUPDAT` whenever a creature has moved into view range (`CWALK` sets `NEWLUK`) or the map is up. `CMOVE` also calls `PUPDAT` after each pickup and when it ends on the player's cell. `PUPDAX` then `SYNC`s unless fainted, so the foreground loses at least 1 jiffy each time. The core had `LUKNEW` as a stub and charged none of this. Branch `refinement/pupdat-sync` (ef68ecd) adds the charge using the same next-pass approximation as D-4a, and saves `NEWLUK`. All tests pass except the two Phase 3 fight traces, which gain a `PUPDAT`+`SYNC` jiffy at 4 points each. Merge it and regenerate those two baselines, with the reason recorded in phase-3 reconciliation? Or wait for ROM capture C-19 first?
 
 ## Answered
 - **Q1 (loop 1): death and faint fade speed.** The listing gives one redraw + `SYNC` per step: 17 wizard steps in `WIZIX`, and `RLIGHT` down to -8 in `HUPD30`. Real duration is the CoCo's draw time per step, which the listing cannot give. MAME was not available this run (`/tmp/mame-user` gone after reboot). Options: (a) you re-extract MAME and the loop captures it (C-17); (b) you time it on your CoCo 2 or a video; (c) you pick a feel-right number now as [INF]. Which?
@@ -32,7 +33,7 @@ then the rest.
 | CRETUR.ASM:SHIELD | creature_move.cpp apply_shield | matches | 4 | Class K.SHIE; the lower 16-bit (MGD<<8 or PHD) pair wins, BHS keeps the current one; $8080 default stored every attack. |
 | CRETUR.ASM:STEP |  | unreviewed |  |  |
 | CRETUR.ASM:STEPOK | creature_move.cpp step_ok | matches | 4 | Border then $FF solid-wall test; used by both the line-of-sight walk and CWALK. |
-| CRETUR.ASM:CWALK |  | unreviewed |  |  |
+| CRETUR.ASM:CWALK | creature_move.cpp cwalk | matches | 5 | STEPOK+CFIND, big<=8/little<=2 window, RANDOM bit 0, volume ~(big*31); sets NEWLUK (see Q2). |
 | PATTK.ASM:PATTK |  | unreviewed |  |  |
 | PATTK.ASM:ATTACK |  | unreviewed |  |  |
 | PATTK.ASM:DAMAGE |  | unreviewed |  |  |
@@ -104,3 +105,4 @@ then the rest.
 | 2026-09-26 | 2 | HUPD40/HUPD42, PUPDAX, PUPSUB, CREGEN | Wake-up fade missing; desktop fade-out drew one step early; PUPSUB, keyboard flush and CREGEN match | Wake fade-in to saved OLIGHT, fade-out order fixed; C-18 added; audited | Revival capture — not run: C-18 next |
 | 2026-09-26 | 3 | C-18 revival capture, HSLOW | Wake fade 5 jiffies/step confirms 83 ms; the 400 ms faint hold was invented (ROM: 1 jiffy); HSLOW matches | Faint hold 33 ms, wake pacing [ROM]; audited | — |
 | 2026-09-26 | 4 | COMCRE (OFIND, FNDOBJ, CFIND, FNDCEL, CBIRTH, VFIND), CRETUR (CMOVE, SHIELD, STEPOK) | All match except the CMOVE PUPDAT SYNC time, which is not charged | none; CMOVE gap-open, C-19 added | Fix — deferred until C-19 measures the cost |
+| 2026-09-26 | 5 | CWALK, COMPLR LUKNEW | CWALK matches; LUKNEW was a stub, so neither LUKNEW nor CMOVE charged the PUPDAT SYNC | Fix on branch refinement/pupdat-sync (ef68ecd), not merged; Q2 raised | Baseline regeneration — not run: needs Steve's call (Q2) |
