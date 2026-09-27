@@ -13,6 +13,14 @@ Steve adds hand-play observations here. The loop works these first.
 
 
 ## Answered
+- **Phase 5b preparation (2026-09-27):** use a dedicated worktree on
+  `refinement/phase-5b-honest-playthrough`, based on `6459a84`. Scaffold the shared
+  skill and Codex review agents before gameplay implementation. Require a real
+  death/restart/typed ZLOAD sequence in the final script. Full read-only planner
+  inspection, hidden state, and separate exploratory simulations/search are
+  allowed; preserve game rules and legal replay inputs. Deliver headless
+  recovery first; test desktop compatibility and defer unifying its death menu.
+  The active Phase 5b prompt owns the detailed acceptance criteria.
 - **Q5 (2026-09-27, run 17): reverse-video band in a1df32c.** The listing inverts only the status line: NEWLVL.ASM:83-90 NLVL50 sets VDGINV and the P.TXINV flags of TXTPRI and TXTEXA to -(LEVEL&1), then stores the complement to TXTSTS (defaults COMDAT.ASM:96-106: TXTEXA 0, TXTSTS -1, TXTPRI 0). a1df32c inverts the command and message lines too, and the whole screen does not flip on odd levels. There is also no spec text or §13 entry for it. Options: (a) invert only the status line and model the odd-level VDGINV flip, or (b) keep the current look as a recorded deviation. Which? **Answer (Steve):** the status line is always reversed and flips with the level. Done in the polarity commit. Open note: the odd-level inversion lives in sdl_app present_frame and has no test; a pure helper would make it testable.
 - **Q4 (loop 11): charge the GAME50 start-up INIVU?** `INIVU` now runs its whole `INIVUX`/`PLOOK` body: CLRPRI, viewer mode and the D-15 `PUPDAT` charge. The start-up call in `GAME50` is left uncharged, because the capture harness defines jiffy 0 as the first interrupt after `GAME50` is fetched. Charging it would shift every baseline by one jiffy at the start, and the alignment is already [INF]. Leave it, or charge it and regenerate every baseline?
   - **Answer (2026-09-27):** deferred to a start-up alignment task (capture C-21). The ROM's first PLAYER turn comes about 13 jiffies after the core's (t1), so one jiffy here cannot be checked alone. Take it up with the opening-timing work and regenerate the baselines once.

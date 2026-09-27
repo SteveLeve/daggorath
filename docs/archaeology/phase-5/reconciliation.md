@@ -92,3 +92,26 @@ Authored by `src/app/dplan.cpp`. Committed script:
 
 The committed `traces/power-on-to-winner.script` and its two-replay sha256 `be5409e5…0ead` in the table above are **superseded, not regenerated**. That route won by swinging the fire ring hundreds of times, which the listing does not allow. The conformance route test's "572 rested fire-ring swings kill the wizard" figure came from the core, never from a ROM run, and has been replaced by a 3-charge, gold-ring check. Re-running `dplan --fudge` stops with "rings not ready" at the level-2 image, because its strategy assumes a lasting fire ring. `ctest` `playthrough_power_on_to_winner` is **disabled** (`tests/CMakeLists.txt`) until the planner is reworked and the script re-authored, as the project owner decided on 2026-09-27 (refinement log Q3).
 
+
+## 2026-09-27 — Phase 5b headless recovery slice
+
+**Source-proven:** HUPDAT DEATH loops in the foreground while CLOCK continues;
+CLK50 redirects a keypress to GAME, whose COMINI clears RAM and the triggering
+key. The core now preserves cassette, future keys, trace history and external
+replay time while resetting gameplay state. Typed ZLOAD resumes the save.
+See the scheduler specification's Phase 5b restart section and D-16 for inferred
+startup timing. WINNER likewise leaves interrupts running, with no death restart.
+
+Verification: all 13 enabled ctests pass; WINNER replay remains disabled. Two
+fresh default dcli runs of a temporary 1700-jiffy recovery script match byte for
+byte: ZSAVE QUEST at 12, natural DEATH at 1591, keypress RESTART at 1601, typed
+ZLOAD QUEST at 1622. No harness directives or startup overrides were used.
+Independent evidence/boundary review found only the collateral victory-clock
+assertion, now corrected and documented. All 56 fixtures verify. No fixture,
+trace baseline or manifest was regenerated. Future death trace regeneration may
+change post-death IRQ events because the former full interrupt halt was wrong;
+review generated changes against this recorded reason before acceptance.
+
+The desktop target builds and existing dod/dcli parity test passes; its death
+menu and filesystem load shortcut remain deferred. No honest WINNER route is
+established; planner and independent acceptance implementation remain pending.

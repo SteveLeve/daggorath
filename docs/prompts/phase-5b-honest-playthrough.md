@@ -2,7 +2,13 @@
 
 Read `CLAUDE.md`, `docs/project-instructions.md`, `docs/archaeology/phase-5/reconciliation.md`
 (the "Playthrough harness" section and the 2026-09-27 correction) and
-`docs/provenance/ledger.md` first. Work on `refinement/playthrough-and-discovery`.
+`docs/provenance/ledger.md` first. Work in the dedicated Phase 5b worktree on
+`refinement/phase-5b-honest-playthrough`. Confirm branch, HEAD, and clean/owned
+changes before editing; do not modify the original checkout or other worktrees.
+Use the shared `daggorath-playthrough` skill and validate its review-agent
+scaffolding before changing gameplay. Read
+[`../planning/phase-5b-handoff.md`](../planning/phase-5b-handoff.md) for the
+preparation status and continuation steps; this prompt owns acceptance criteria.
 
 ## Why this phase exists
 
@@ -28,7 +34,9 @@ Original Mode:
 - **Progress is saved with real `ZSAVE <name>` and resumed with real `ZLOAD <name>`.**
   After a death, the script does what a player would: it recovers the way the original
   allows (see "Death and reload" below), `ZLOAD`s the latest save, and carries on. It
-  never starts over from power-on.
+  does not discard its input history or abandon saved progress. The source
+  `GAME` restart after death is required, not prohibited. The final script must
+  demonstrate at least one death, keypress restart, and successful reload.
 - Deterministic: two replays give byte-identical traces, and the ctest is re-enabled with
   the new script and hash.
 
@@ -46,7 +54,8 @@ Original Mode:
   guide or a port. Every mechanic the planner relies on must be checked against this core
   and the listing, not the guide.
 - The mechanics now in force are the ones any route must respect:
-  - Rings have three charges, then become useless gold rings.
+  - The incanted attack rings have three charges, then become plain gold rings
+    with 0/5 offense; verify the relevant ring transitions against the listing.
   - A kill adds creature power ÷ 8 to `PPOW` (`PATT42`).
   - Flasks: THEWS adds 1000 power, HALE heals fully, ABYE hurts.
   - Darkness gives a 25% hit gate.
@@ -62,15 +71,76 @@ Establish what the listing does after death, and record it:
 - The cassette is outside RAM, so a following `ZLOAD` can restore the last save.
 
 The core halts on death and does not model that restart; the desktop fakes it in
-`sdl_app.cpp`. If the script is to recover from a death, model the `AUTFLG` restart in the
-core first, as source-proven behaviour:
+`sdl_app.cpp`. Model the source-proven `AUTFLG` restart control flow in the
+core first:
 - it gets its own regression test;
 - the in-memory cassette (D-11) survives the restart;
 - it needs no harness API.
 
-If you decide instead that a death-free script is cleaner, where the planner backtracks
-to its last `ZSAVE` internally and the committed script never dies, say why in the
-reconciliation. Either way, the committed script contains only keystrokes.
+The restart control flow is **source-proven** at the labels above. Its exact
+elapsed timing is not established by those labels alone. Record reset/preserved
+state, treatment of the triggering key, and any timing inference before coding.
+Distinguish foreground halt from interrupt processing. Preserve the cassette,
+future timestamped input, and monotonic replay timestamps through restart and
+ZLOAD; game clock counters can reset or restore independently. Do not implement
+recovery as an external replacement Game or a harness-only restore call.
+
+This phase establishes headless core/dcli recovery. Check desktop compatibility,
+but defer replacing its existing death menu and filesystem load shortcut; record
+that distinction in reconciliation rather than claiming desktop recovery parity.
+
+## Planner freedom and checkpoints
+
+Full read-only inspection of hidden core state is allowed. Use prediction,
+route search, simulations, parallel experiments, debugging, and any available
+research tools that simplify the task. Honesty constrains game rules and the
+replayed candidate's actions, not the planner's knowledge or human playability.
+Separate exploratory simulations from the candidate execution. Scratch copies
+and snapshots of reachable, unmodified game states are allowed for faithful
+what-if simulations and search. They must not supply state to the final candidate
+or substitute for its recorded save/recovery input. Do not add
+snapshot restoration to its checkpoint/recovery path or use game-state edits
+to make the candidate succeed. Snapshot APIs with unrelated consumers need not
+be removed globally.
+
+Candidate actions are recorded timestamped keystrokes; waiting advances every
+intervening jiffy. Use unique uppercase alphabetic save names of at most eight
+characters. Confirm successful ZSAVE events before accepting checkpoints. Keep
+planner bookkeeping outside simulation state. For a process restart, replay the
+recorded candidate prefix to reconstruct its cassette and state; do not resume
+from old `.cache/playthrough` snapshots.
+
+After a death and reload, the same restored simulation state and relative input
+timing reproduce the same failure; changing the absolute trace offset alone is
+not a new strategy.
+Change route, equipment, or timing; bound attempts and total simulated jiffies,
+and report the exhausted bound, last successful save, and failure evidence.
+Retain deaths and recovery input within the final candidate. Exploratory runs
+that are not selected for the candidate may be discarded.
+
+## Replay acceptance
+
+Generate candidates in separate temporary/build paths. Publish a replacement
+script and baseline only after independent verification succeeds. The verifier
+must fail on missing output, malformed script/trace, process failure, timeout,
+forbidden harness directives, or incomplete progress.
+
+Run two fresh dcli processes with default Original Mode startup: no SECOND/level,
+frozen-creature, damage, RAM, or snapshot overrides. Require actual parsed WINNER
+events, successful named saves, and at least one ordered death, core restart,
+and successful ZLOAD of the latest completed save. Check every death in the
+candidate has a recovery sequence. Candidate qualification requires byte-identical
+full traces and computes their proposed SHA-256. After that candidate is accepted
+and its hash recorded, regression runs must match the recorded hash as well as
+each other. Do not require a new candidate to match the superseded baseline or
+accept an arbitrary occurrence of the word WINNER.
+Provide negative verifier tests for bypasses, missing recovery/victory, mismatched
+traces and hashes, and failed replay processes.
+
+Choose replay length from the completed route and timeout from measured runtime
+with margin. Record both. Two matching core traces prove deterministic core
+replay under documented deviations, not ROM conformance. Record the reason for
+replacing the old baseline before updating the hash; never invent expected data.
 
 ## Work plan
 
@@ -82,13 +152,18 @@ reconciliation. Either way, the committed script contains only keystrokes.
    and reload behaviour above.
 4. Rework the strategy for three-charge rings and honest damage: build power before the
    image and the wizard, choose the ring each fight needs, and rest by waiting.
-5. Plan, replay twice, and compare hashes. Then re-enable
+5. Generate and independently verify a candidate under Replay acceptance. Then re-enable
    `playthrough_power_on_to_winner` in `tests/CMakeLists.txt`.
 6. Update `phase-5/reconciliation.md` "Playthrough status" with the new jiffy count,
-   saves, deaths if any, and hash. Retire the D-12 rows that no longer apply in
-   `clock-and-scheduler.md` §13.
-7. Run the `evidence-auditor` agent, and `boundary-checker` if `src/core` changed.
-   `make all` must pass.
+   saves, demonstrated deaths/recoveries, and hash. Mark this playthrough independent of D-12 in
+   `clock-and-scheduler.md` §13; retain documentation for any remaining harness
+   APIs or tests. Preserve the superseded baseline history.
+7. Run `evidence-auditor` and `playthrough-reviewer` for phase closure. Also run
+   `boundary-checker` if core or module boundaries changed. Run the README
+   verification commands;
+   `make all` must pass for phase completion. It regenerates evidence, so
+   record reasons first and inspect generated diffs rather than accepting them
+   blindly. Keep the phase open on incomplete or failed acceptance.
 
 ## Out of scope
 

@@ -349,7 +349,8 @@ void test_winner() {
           "WINNER prints PINCAN.ASM's two OUTSTI strings");
     const std::uint64_t at = game.counters().total_jiffies;
     game.advance_jiffies(100);
-    check(game.counters().total_jiffies == at, "WINNER ends in BRA *");
+    check(game.counters().total_jiffies == at + 100 && game.player().won,
+          "WINNER foreground loops while CLOCK continues");
 }
 
 // COMMON.ASM:136-141 LOAD90: after INIVU clears the text area, PROMPT prints
@@ -377,14 +378,26 @@ void test_death_load_resumes() {
     game.set_player_damage(static_cast<std::uint16_t>(game.player().power + 1));
     game.advance_jiffies(2);
     check(game.player().dead, "damage past power is death");
-    const auto frozen = game.counters().total_jiffies;
+    const auto death_time = game.counters().total_jiffies;
+    auto keys = keys_for(death_time + 35, {"ZLOAD QUEST", "TURN RIGHT"});
+    keys.insert(keys.begin(), {death_time + 30, 'X'});
+    game.load_script(keys);
     game.advance_jiffies(30);
-    check(game.counters().total_jiffies == frozen, "DEATH's BRA * takes no further interrupts");
-    game.restore_ram_image(image);
-    check(!game.player().dead, "the cassette image is the living game");
-    game.advance_jiffies(30);
-    check(game.counters().total_jiffies == frozen + 30,
-          "restoring a living image returns to SCHED");
+    check(game.player().dead, "without a key, death remains in the foreground loop");
+    check(game.counters().total_jiffies == death_time + 30,
+          "CLOCK continues during death");
+    game.advance_jiffies(1);
+    check(!game.player().dead && has(game, "RESTART", "GAME after death"),
+          "timestamped key restarts through GAME");
+    check(game.cassette_image("QUEST") && *game.cassette_image("QUEST") == image,
+          "cassette survives COMINI");
+    check(game.line_buffer().empty(), "restart clears its triggering key");
+    game.advance_jiffies(100);
+    check(has(game, "ZLOAD", "QUEST"), "future typed ZLOAD restores the saved game");
+    check(game.player().dir == dag::Dir::East, "future command runs after reload");
+    check(has(game, "DEATH") && has(game, "ZSAVE"), "restart retains trace history");
+    check(game.counters().total_jiffies == death_time + 131,
+          "restart and ZLOAD preserve monotonic replay time");
 }
 
 void test_death_line() {

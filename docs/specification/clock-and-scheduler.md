@@ -372,3 +372,23 @@ creature's attack cue and the `A$KLK3` clank that follows a hit play back to bac
 and preempts only when more than 12000 samples (2 s) would be pending, keeping at
 most 6000. Core time is unchanged (D-4b), so attacks still repeat on their table
 delay while the audio may trail by a fraction of a second.
+
+### Phase 5b death restart (2026-09-27)
+
+**[SRC]** `HUPDAT.ASM DEATH` clears FAINT, sets AUTFLG and loops in the
+foreground. IRQ `COMMON.ASM CLOCK CLK50` continues; any depressed key redirects
+RTI to `ONCE.ASM GAME`. CLK60 may buffer that character, but COMINI clears
+$0200–$3fff, including the keyboard buffer. The triggering key is consumed.
+**[SRC]** `PINCAN.ASM WINNER` also ends in `BRA *` without disabling IRQ;
+its foreground remains halted while CLOCK continues. It does not set AUTFLG,
+so victory does not use the death restart path.
+
+RAM state, queues, player, objects, clock counters and command buffer reset;
+the external cassette survives. The core also preserves its external replay
+clock, scheduled future input and trace/event history through restart and ZLOAD.
+
+**D-16 [INF]** The headless restart uses the existing 377-interrupt startup
+counter alignment and performs initialization within the triggering input jiffy.
+It does not charge startup elapsed time to the external replay clock. Exact
+keypress-to-GAME50 elapsed timing is **[OPEN]**, distinct from the source-proven
+restart control flow. Desktop death-menu replacement remains deferred.

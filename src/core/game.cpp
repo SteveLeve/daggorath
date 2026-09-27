@@ -58,6 +58,27 @@ Game::Game(std::uint8_t second_at_entry, int level) {
     start(false, second_at_entry, level);
 }
 
+// Source-proven: CLOCK CLK50 redirects RTI to GAME; COMINI clears RAM,
+// including the triggering key buffered by CLK60. Cassette and replay state
+// are external. Inferred: reuse the startup clock alignment (see D-16).
+void Game::restart_after_death() {
+    const auto absolute = sched_.counters().total_jiffies;
+    sched_ = Scheduler{};
+    sched_.counters().total_jiffies = absolute;
+    player_ = PlayerState{};
+    heart_ = HeartState{};
+    mode_ = DisplayMode::Viewer;
+    line_.clear();
+    text_.fill(0);
+    text_cursor_ = 0;
+    zflag_ = 0;
+    tape_name_.clear();
+    sync_pending_ = 0;
+    newluk_ = false;
+    emit("RESTART", "GAME after death");
+    start(true, 0, 0);
+}
+
 void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     // The clock is already running when NEWLVL builds the maze, so the SECOND
     // counter at level entry is an input to DGEN90, not to the maze itself.
@@ -367,6 +388,10 @@ void Game::advance_jiffies(std::uint64_t n) {
             ++script_pos_;
         }
         sched_.interrupt(keys);
+        if (player_.dead && !keys.empty()) {
+            restart_after_death();
+            continue;
+        }
 
         if (sync_pending_ > 0) {   // a SYNC in the last pass owns this jiffy
             --sync_pending_;
@@ -412,6 +437,7 @@ void Game::update_heart_rate() {
     // HUPD90: BLO, so equal power and damage is not death.
     if (!player_.dead && player_.power < player_.damage) {
         player_.dead = true;
+        sched_.set_faint(false); // source-proven: DEATH CLR FAINT
         sched_.halt();
         emit("DEATH", "power=" + std::to_string(player_.power) +
                           " damage=" + std::to_string(player_.damage));

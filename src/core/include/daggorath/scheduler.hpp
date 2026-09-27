@@ -88,8 +88,8 @@ public:
     void set_sleep(bool s) { sleep_ = s; }
     void set_faint(bool f) { faint_ = f; }
     bool faint() const { return faint_; }
-    // DEATH's BRA *: the CPU never returns to CLOCK. Later tasks in this
-    // jiffy do not run, and later interrupts are not taken.
+    // Source-proven: HUPDAT.ASM DEATH loops in the foreground; CLOCK
+    // interrupts continue. halt suppresses foreground tasks only.
     void halt() { halted_ = true; }
     void set_halted(bool halted) { halted_ = halted; }   // suspend-snapshot restore
     bool halted() const { return halted_; }

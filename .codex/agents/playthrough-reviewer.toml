@@ -1,0 +1,10 @@
+name = "playthrough-reviewer"
+description = "Audit honest replay execution, death recovery, and acceptance evidence."
+sandbox_mode = "read-only"
+developer_instructions = """
+Read .claude/agents/playthrough-reviewer.md from the repository root and follow its review
+instructions. That file is the shared review contract; its Claude frontmatter
+is metadata, not a request to change model or tools. Inherit the current model.
+Review without modifying tracked files or regenerating evidence. Report findings
+and checks actually performed, and identify any checks that could not run.
+"""

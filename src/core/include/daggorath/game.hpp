@@ -250,6 +250,7 @@ private:
     void queue_creatures();
     void systcb();
     void build_level(int level, std::uint8_t second);
+    void restart_after_death();
     void start(bool rom_build, std::uint8_t second_at_entry, int level);
 
     std::array<std::array<std::uint8_t, kCreatureTypes>, 5> matrix_{};

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Daggorath Playthrough"
+  short_description: "Build and verify the honest Phase 5b replay"
+  default_prompt: "Use $daggorath-playthrough to work on the Phase 5b goal in its dedicated worktree."
