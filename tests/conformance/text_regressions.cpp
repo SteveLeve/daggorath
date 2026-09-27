@@ -124,6 +124,19 @@ void test_examine() {
     stuff.bag = {"LEATHER SHIELD"};
     stuff.torch_index = 0;
     check_file("examine-objects.txt", dag::project_examine(stuff).text);
+
+    // TXTSER.ASM:40-42: a list longer than the 19-line TXTEXA page scrolls it,
+    // so the header leaves the top and the last name is still printed.
+    dag::ExamineSnapshot many;
+    for (int i = 0; i < 40; ++i) many.floor.push_back("PINE TORCH");
+    many.bag = {"LEATHER SHIELD"};
+    const auto page = dag::project_examine(many);
+    const std::string top(page.cells[0].data(), 32);
+    bool shield = false;
+    for (const auto& row : page.cells)
+        if (std::string(row.data(), 32).find("LEATHER SHIELD") != std::string::npos) shield = true;
+    check(top.find("IN THIS ROOM") == std::string::npos && shield,
+          "a long EXAMINE list scrolls TXTEXA instead of dropping lines");
 }
 
 void test_maps() {

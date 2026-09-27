@@ -44,3 +44,4 @@ implementation artifact, comment error, or a discrepancy between two sources.
 | Scorpions and both wizard types do not pick objects up | source behaviour | preserve |
 | `MOVTAB` tries a side before forward when the random byte's low two bits are 0 | source behaviour | preserve; 64 of 256 |
 | `CMOVE` stops at `JSR ATTACK` | retired 2026-09-25 | was D-7; the attack branch now calls `ATTACK` |
+| `EXAMINE`: a `PRTOBJ` tab (`PEXAM.ASM:154-157`) from the second half of row 18 leaves the cursor at 608; the next name's first character is drawn at column 0 of the status line (`COMDAT.ASM:93`, 98), then `TXTSER` scrolls the 19-line page, leaving it there | bug (original) | not reproduced: the examine pad drops that character (`src/presentation/examine.cpp`); visibility before the status redraw is [INF]. Run 25 |
