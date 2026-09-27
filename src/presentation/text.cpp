@@ -103,9 +103,10 @@ void plot_code_cell(std::uint8_t* pixels, int width, int col, int y, std::uint8_
                 pixels[static_cast<std::size_t>((y + row) * width + col * 8 + bit)] = 0;
 }
 
-// Status/command band on a black viewport is reverse video: white cells,
-// black glyphs. Each cell is repainted whole, so unused columns still turn
-// white background rather than staying black.
+// The status line is reverse video relative to the rest of the screen
+// (source-proven: STATUS.ASM:7-9 stores COM VDGINV to TXTSTS.TXINV; COMDAT.ASM:96-106
+// defaults TXTSTS -1, TXTPRI 0). Each cell is repainted whole, so unused
+// columns are white too.
 void plot_string_inverse(std::uint8_t* pixels, int width, int col, int y, std::string_view text) {
     for (char ch : text) {
         if (col >= 32) break;
@@ -140,13 +141,15 @@ void plot_cell(std::uint8_t* pixels, int width, int col, int y, char ch, bool in
 void paint_text_bands(std::uint8_t* pixels, int width,
                       const TextSnapshot& snap, std::string_view message,
                       std::string_view command_override) {
-    // The viewport background is black, so the status/command band is
-    // reverse video against it: white cells, black glyphs and heart.
+    // Drawn in even-level polarity (VDGINV 0): TXTPRI shares the viewport's
+    // black background and only the status line is inverse. Odd levels flip
+    // the whole screen when the frame is presented (NEWLVL.ASM:83-90).
     for (int y = kViewportScanlineEnd; y < kScreenHeight; ++y) {
         std::fill(pixels + static_cast<std::size_t>(y * width),
-                  pixels + static_cast<std::size_t>(y * width + kScreenWidth), 1);
+                  pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
     }
     std::string status = project_text(snap).text.substr(7, 32);
+    status.resize(32, ' ');
     // project_text marks the heart with s/L for the text dump. Those letters
     // are not SPCTAB. CLK30 deposits the heart glyphs into a blank pair of cells.
     if (snap.heart == HeartGlyph::Small || snap.heart == HeartGlyph::Large) {
@@ -161,12 +164,6 @@ void paint_text_bands(std::uint8_t* pixels, int width,
                        static_cast<std::uint8_t>(base + 1), true);
     }
     if (snap.has_page) {
-        // The EXAMINE page keeps the original black-background, white-glyph
-        // rendering (with its own per-cell inverse for the lit torch).
-        for (int y = kStatusScanlineEnd; y < kScreenHeight; ++y) {
-            std::fill(pixels + static_cast<std::size_t>(y * width),
-                      pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
-        }
         for (int row = 0; row < 4; ++row) {
             for (int col = 0; col < 32; ++col) {
                 plot(pixels, width, col, kStatusScanlineEnd + row * 8,
@@ -184,8 +181,8 @@ void paint_text_bands(std::uint8_t* pixels, int width,
     command += snap.line;
     if (command.size() < 32) command.push_back('_');
     if (!command_override.empty()) command = std::string(command_override.substr(0, 32));
-    plot_string_inverse(pixels, width, 0, kStatusScanlineEnd, command);
-    plot_string_inverse(pixels, width, 0, kStatusScanlineEnd + 8, message.substr(0, 32));
+    plot_string(pixels, width, 0, kStatusScanlineEnd, command);
+    plot_string(pixels, width, 0, kStatusScanlineEnd + 8, message.substr(0, 32));
 }
 
 }  // namespace dag

@@ -159,8 +159,8 @@ bool cell_matches(const std::uint8_t* pixels, int col, int y, const std::uint8_t
     return true;
 }
 
-// The status/command band is reverse video against the black viewport, so
-// a glyph cell there is white background with the glyph's bits cleared.
+// The status line is reverse video (STATUS.ASM:7-9), so a glyph cell there
+// is white background with the glyph's bits cleared.
 bool cell_matches_inverse(const std::uint8_t* pixels, int col, int y, const std::uint8_t rows[7]) {
     for (int row = 0; row < 7; ++row) {
         for (int bit = 0; bit < 8; ++bit) {
@@ -171,6 +171,22 @@ bool cell_matches_inverse(const std::uint8_t* pixels, int col, int y, const std:
         }
     }
     return true;
+}
+
+// STATUS.ASM:7-9 and COMDAT.ASM:96-106 TXTSTS/TXTPRI defaults: at VDGINV 0 only the
+// status line is inverse; the command line shares the viewport's polarity.
+void test_band_polarity() {
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(dag::kScreenWidth * dag::kScreenHeight));
+    dag::TextSnapshot snap;
+    snap.line = "A";
+    dag::paint_text_bands(pixels.data(), dag::kScreenWidth, snap, "");
+    std::uint8_t blank[7] = {};
+    std::uint8_t letter[7] = {};
+    dag::glyph_rows(1, letter);
+    check(cell_matches_inverse(pixels.data(), 20, dag::kViewportScanlineEnd, blank),
+          "an empty status cell is inverse (TXTSTS.TXINV = COM VDGINV)");
+    check(cell_matches(pixels.data(), 1, dag::kStatusScanlineEnd, letter),
+          "the command line is drawn with TXTPRI.TXINV = VDGINV, not inverse");
 }
 
 void test_heart_raster() {
@@ -210,6 +226,7 @@ void test_glyph_a() {
 
 int main() {
     test_glyph_a();
+    test_band_polarity();
     test_heart_raster();
     test_regions();
     test_names();
