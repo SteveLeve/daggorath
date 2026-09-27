@@ -737,6 +737,9 @@ TaskResult Game::task_burner() {
                               " light=" + std::to_string(player_.regular_light));
         }
     }
+    // BURN99 (COMPLR.ASM:43, source-proven): every path, torch or not, ends in
+    // DEC NEWLUK, so LUKNEW redraws (a D-15 PUPDAT) after each BURNER run.
+    newluk_ = true;
     return {Queue::Minute, 1};
 }
 
