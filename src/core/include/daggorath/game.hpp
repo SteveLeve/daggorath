@@ -288,6 +288,7 @@ private:
     // draw, 2 after WAIT (NEWLVL 3), 3 after WIZOUT (INIVU).
     int endgame_stage_ = 0;
     void endgame_resume();
+    void hman70();
     int incoming_damage_percent_ = 100;
     std::vector<HarnessEvent> harness_;
     std::size_t harness_pos_ = 0;

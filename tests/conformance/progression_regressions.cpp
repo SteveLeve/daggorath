@@ -339,6 +339,14 @@ void test_image_ending() {
     for (std::size_t i = 0; i + 2 < lines.size(); ++i)
         if (lines[i] != "!!!") hits_marked = false;
     check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
+    // MISC.ASM WIZIX0 CLRPRI wipes the swings' !!! before ENDGAM's messages, and
+    // HMAN70's prompt waits until ENDGAM returns (HUMAN.ASM), so row 0 is blank
+    // and only ENOUGH! and DOOM!!! carry bangs.
+    const auto& text = game.primary_text();
+    check(game.level_index() == 2 &&
+              std::all_of(text.begin(), text.begin() + 32, [](std::uint8_t c) { return c == 0; }) &&
+              std::count(text.begin(), text.end(), std::uint8_t{0x1B}) == 4,
+          "WIZIN clears the text and no prompt precedes ENDGAM's messages");
     game.advance_jiffies(200);
     // PATTK.ASM ENDGAM / MISC.ASM: WIZIN's one WIZZES SYNC and WAITX's 81 SYNCs
     // come before NEWLVL; WIZOUT's 16 WIZZES SYNCs come before INIVU.
@@ -352,6 +360,8 @@ void test_image_ending() {
     // From the kill: PATT40's PUPDAT SYNC, WIZIN's WIZZES SYNC, WAITX's 81.
     check(relocate - start == 83, "NEWLVL 3 waits for PATT40's, WIZIN's and WAITX's SYNCs");
     check(inivu_at - relocate == 16, "INIVU waits for WIZOUT's 16 WIZZES SYNCs");
+    check(std::count(text.begin(), text.end(), std::uint8_t{0x1E}) == 1,
+          "HMAN70 prompts once, after ENDGAM's closing INIVU");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
     check(game.display_mode() == dag::DisplayMode::Viewer && game.heart().hbeatf == 0xFF,
           "ENDGAM's WIZIN clears HBEATF and its closing INIVU sets it to $FF, in the viewer");

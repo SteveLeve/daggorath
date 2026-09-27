@@ -528,11 +528,17 @@ void Game::prompt() {
     out_char(kIDot);
 }
 
+// HUMAN.ASM:181-188 HMAN70: prompt unless in map mode (HEARTF == 0) or fainted.
+void Game::hman70() {
+    if (heart_.heartf != 0 && !player_.fainted) prompt();
+}
+
 void Game::finish_line() {
     out_char(kISp);   // HMAN30 erases the underline cursor
     dispatch_line();
-    // HMAN70: no prompt in map mode (HEARTF == 0) or while fainted.
-    if (heart_.heartf != 0 && !player_.fainted) prompt();
+    // A staged ENDGAM has not returned yet; its last stage runs HMAN70.
+    if (endgame_stage_ != 0) return;
+    hman70();
 }
 
 void Game::feed_char(std::uint8_t ch) {
@@ -1066,7 +1072,10 @@ void Game::endgame_resume() {
         endgame_stage_ = 3;
         return;
     }
-    if (stage == 3) inivu();   // PATTK.ASM ENDGAM: SWI INIVU, then RTS
+    if (stage == 3) {
+        inivu();   // PATTK.ASM ENDGAM: SWI INIVU, then RTS
+        hman70();   // ENDGAM's RTS returns into HUMAN (HMAN60 falls into HMAN70)
+    }
 }
 
 void Game::endgame_wizard() {
