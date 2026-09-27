@@ -142,6 +142,15 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(std::uin
     return pixels;
 }
 
+std::uint8_t vdginv(int level) {
+    return static_cast<std::uint8_t>(-(level & 1));   // ANDA #BIT0 / NEGA
+}
+
+void apply_vdginv(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int level) {
+    if (vdginv(level) == 0) return;
+    for (auto& dot : pixels) dot = dot != 0 ? 0 : 1;
+}
+
 std::vector<std::uint8_t> scale_frame(
     const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int factor) {
     if (factor < 1) factor = 1;

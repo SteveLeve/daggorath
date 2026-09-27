@@ -76,7 +76,7 @@ For each target:
 - Do not start creature AI, combat or UI redesign, refactors, or new modes. Ask first.
 
 ## 6. Gate
-- `make all` must pass.
+- `make all` must pass. Gate on its exit code (`make all && git commit ...`), never on a `grep` of its output: run 20 pushed a failing test that way.
 - Run the `evidence-auditor` agent on the diff. If `src/` module boundaries or CMake
   wiring changed, run `boundary-checker` at the same time, in parallel.
 - Apply the audit's blocking items, then the cheap notes (labels, line citations,
