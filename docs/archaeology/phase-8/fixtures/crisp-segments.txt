@@ -1,0 +1,990 @@
+FRAME level-0-dark lines=0 dots=0
+FRAME level-0-regular lines=7 dots=369
+LINE architecture -30 -18 28 16
+LINE architecture 28 16 28 135
+LINE architecture 28 135 -30 169
+LINE architecture 285 -18 228 16
+LINE architecture 228 16 228 135
+LINE architecture 228 135 285 169
+LINE vertical 1 1 256 1
+DOT architecture 28 17
+DOT architecture 30 18
+DOT architecture 32 19
+DOT architecture 34 20
+DOT architecture 36 21
+DOT architecture 38 23
+DOT architecture 40 24
+DOT architecture 42 25
+DOT architecture 44 26
+DOT architecture 46 27
+DOT architecture 48 28
+DOT architecture 50 30
+DOT architecture 52 31
+DOT architecture 54 32
+DOT architecture 56 33
+DOT architecture 58 34
+DOT architecture 60 36
+DOT architecture 62 37
+DOT architecture 64 39
+DOT architecture 64 41
+DOT architecture 64 43
+DOT architecture 64 45
+DOT architecture 64 47
+DOT architecture 64 49
+DOT architecture 64 51
+DOT architecture 64 53
+DOT architecture 64 55
+DOT architecture 64 57
+DOT architecture 64 59
+DOT architecture 64 61
+DOT architecture 64 63
+DOT architecture 64 65
+DOT architecture 64 67
+DOT architecture 64 69
+DOT architecture 64 71
+DOT architecture 64 73
+DOT architecture 64 75
+DOT architecture 64 77
+DOT architecture 64 79
+DOT architecture 64 81
+DOT architecture 64 83
+DOT architecture 64 85
+DOT architecture 64 87
+DOT architecture 64 89
+DOT architecture 64 91
+DOT architecture 64 93
+DOT architecture 64 95
+DOT architecture 64 97
+DOT architecture 64 99
+DOT architecture 64 101
+DOT architecture 64 103
+DOT architecture 64 105
+DOT architecture 64 107
+DOT architecture 64 109
+DOT architecture 64 111
+DOT architecture 64 113
+DOT architecture 63 115
+DOT architecture 61 116
+DOT architecture 59 117
+DOT architecture 57 118
+DOT architecture 55 119
+DOT architecture 53 121
+DOT architecture 51 122
+DOT architecture 49 123
+DOT architecture 47 124
+DOT architecture 45 125
+DOT architecture 43 126
+DOT architecture 41 128
+DOT architecture 39 129
+DOT architecture 37 130
+DOT architecture 35 131
+DOT architecture 33 132
+DOT architecture 31 134
+DOT architecture 29 135
+DOT architecture 228 17
+DOT architecture 226 18
+DOT architecture 224 19
+DOT architecture 222 20
+DOT architecture 220 21
+DOT architecture 218 23
+DOT architecture 216 24
+DOT architecture 214 25
+DOT architecture 212 26
+DOT architecture 210 27
+DOT architecture 208 28
+DOT architecture 206 30
+DOT architecture 204 31
+DOT architecture 202 32
+DOT architecture 200 33
+DOT architecture 198 34
+DOT architecture 196 36
+DOT architecture 194 37
+DOT architecture 192 39
+DOT architecture 192 41
+DOT architecture 192 43
+DOT architecture 192 45
+DOT architecture 192 47
+DOT architecture 192 49
+DOT architecture 192 51
+DOT architecture 192 53
+DOT architecture 192 55
+DOT architecture 192 57
+DOT architecture 192 59
+DOT architecture 192 61
+DOT architecture 192 63
+DOT architecture 192 65
+DOT architecture 192 67
+DOT architecture 192 69
+DOT architecture 192 71
+DOT architecture 192 73
+DOT architecture 192 75
+DOT architecture 192 77
+DOT architecture 192 79
+DOT architecture 192 81
+DOT architecture 192 83
+DOT architecture 192 85
+DOT architecture 192 87
+DOT architecture 192 89
+DOT architecture 192 91
+DOT architecture 192 93
+DOT architecture 192 95
+DOT architecture 192 97
+DOT architecture 192 99
+DOT architecture 192 101
+DOT architecture 192 103
+DOT architecture 192 105
+DOT architecture 192 107
+DOT architecture 192 109
+DOT architecture 192 111
+DOT architecture 192 113
+DOT architecture 193 115
+DOT architecture 195 116
+DOT architecture 197 117
+DOT architecture 199 118
+DOT architecture 201 119
+DOT architecture 203 121
+DOT architecture 205 122
+DOT architecture 207 123
+DOT architecture 209 124
+DOT architecture 211 125
+DOT architecture 213 126
+DOT architecture 215 128
+DOT architecture 217 129
+DOT architecture 219 130
+DOT architecture 221 131
+DOT architecture 223 132
+DOT architecture 225 134
+DOT architecture 227 135
+DOT vertical 48 28
+DOT vertical 50 28
+DOT vertical 52 28
+DOT vertical 54 28
+DOT vertical 56 28
+DOT vertical 58 28
+DOT vertical 60 28
+DOT vertical 62 28
+DOT vertical 64 28
+DOT vertical 66 28
+DOT vertical 68 28
+DOT vertical 70 28
+DOT vertical 72 28
+DOT vertical 74 28
+DOT vertical 76 28
+DOT vertical 78 28
+DOT vertical 80 28
+DOT vertical 82 28
+DOT vertical 84 28
+DOT vertical 86 28
+DOT vertical 88 28
+DOT vertical 90 28
+DOT vertical 92 28
+DOT vertical 94 28
+DOT vertical 96 28
+DOT vertical 98 28
+DOT vertical 100 28
+DOT vertical 102 28
+DOT vertical 104 28
+DOT vertical 106 28
+DOT vertical 108 28
+DOT vertical 110 28
+DOT vertical 112 28
+DOT vertical 114 28
+DOT vertical 116 28
+DOT vertical 118 28
+DOT vertical 120 28
+DOT vertical 122 28
+DOT vertical 124 28
+DOT vertical 126 28
+DOT vertical 128 28
+DOT vertical 130 28
+DOT vertical 132 28
+DOT vertical 134 28
+DOT vertical 136 28
+DOT vertical 138 28
+DOT vertical 140 28
+DOT vertical 142 28
+DOT vertical 144 28
+DOT vertical 146 28
+DOT vertical 148 28
+DOT vertical 150 28
+DOT vertical 152 28
+DOT vertical 154 28
+DOT vertical 156 28
+DOT vertical 158 28
+DOT vertical 160 28
+DOT vertical 162 28
+DOT vertical 164 28
+DOT vertical 166 28
+DOT vertical 168 28
+DOT vertical 170 28
+DOT vertical 172 28
+DOT vertical 174 28
+DOT vertical 176 28
+DOT vertical 178 28
+DOT vertical 180 28
+DOT vertical 182 28
+DOT vertical 184 28
+DOT vertical 186 28
+DOT vertical 188 28
+DOT vertical 190 28
+DOT vertical 192 28
+DOT vertical 194 28
+DOT vertical 196 28
+DOT vertical 198 28
+DOT vertical 200 28
+DOT vertical 202 28
+DOT vertical 204 28
+DOT vertical 206 28
+DOT vertical 208 28
+DOT architecture 66 39
+DOT architecture 69 41
+DOT architecture 72 43
+DOT architecture 75 44
+DOT architecture 78 46
+DOT architecture 81 48
+DOT architecture 84 50
+DOT architecture 87 51
+DOT architecture 88 54
+DOT architecture 88 57
+DOT architecture 88 60
+DOT architecture 88 63
+DOT architecture 88 66
+DOT architecture 88 69
+DOT architecture 88 72
+DOT architecture 88 75
+DOT architecture 88 78
+DOT architecture 88 81
+DOT architecture 88 84
+DOT architecture 88 87
+DOT architecture 88 90
+DOT architecture 88 93
+DOT architecture 88 96
+DOT architecture 86 100
+DOT architecture 83 102
+DOT architecture 80 104
+DOT architecture 77 105
+DOT architecture 74 107
+DOT architecture 71 109
+DOT architecture 68 111
+DOT architecture 65 112
+DOT architecture 189 39
+DOT architecture 186 41
+DOT architecture 183 43
+DOT architecture 180 45
+DOT architecture 177 46
+DOT architecture 174 48
+DOT architecture 171 50
+DOT architecture 168 54
+DOT architecture 168 57
+DOT architecture 168 60
+DOT architecture 168 63
+DOT architecture 168 66
+DOT architecture 168 69
+DOT architecture 168 72
+DOT architecture 168 75
+DOT architecture 168 78
+DOT architecture 168 81
+DOT architecture 168 84
+DOT architecture 168 87
+DOT architecture 168 90
+DOT architecture 168 93
+DOT architecture 168 96
+DOT architecture 170 100
+DOT architecture 173 102
+DOT architecture 176 104
+DOT architecture 179 106
+DOT architecture 182 107
+DOT architecture 185 109
+DOT architecture 188 111
+DOT vertical 79 46
+DOT vertical 82 46
+DOT vertical 85 46
+DOT vertical 88 46
+DOT vertical 91 46
+DOT vertical 94 46
+DOT vertical 97 46
+DOT vertical 100 46
+DOT vertical 103 46
+DOT vertical 106 46
+DOT vertical 109 46
+DOT vertical 112 46
+DOT vertical 115 46
+DOT vertical 118 46
+DOT vertical 121 46
+DOT vertical 124 46
+DOT vertical 127 46
+DOT vertical 130 46
+DOT vertical 133 46
+DOT vertical 136 46
+DOT vertical 139 46
+DOT vertical 142 46
+DOT vertical 145 46
+DOT vertical 148 46
+DOT vertical 151 46
+DOT vertical 154 46
+DOT vertical 157 46
+DOT vertical 160 46
+DOT vertical 163 46
+DOT vertical 166 46
+DOT vertical 169 46
+DOT vertical 172 46
+DOT vertical 175 46
+DOT vertical 178 46
+DOT architecture 92 54
+DOT architecture 97 57
+DOT architecture 102 60
+DOT architecture 103 65
+DOT architecture 103 70
+DOT architecture 103 75
+DOT architecture 103 80
+DOT architecture 103 85
+DOT architecture 99 92
+DOT architecture 94 95
+DOT architecture 89 98
+DOT architecture 163 55
+DOT architecture 158 58
+DOT architecture 153 65
+DOT architecture 153 70
+DOT architecture 153 75
+DOT architecture 153 80
+DOT architecture 153 85
+DOT architecture 157 93
+DOT architecture 162 96
+DOT vertical 100 57
+DOT vertical 105 57
+DOT vertical 110 57
+DOT vertical 115 57
+DOT vertical 120 57
+DOT vertical 125 57
+DOT vertical 130 57
+DOT vertical 135 57
+DOT vertical 140 57
+DOT vertical 145 57
+DOT vertical 150 57
+DOT vertical 155 57
+DOT architecture 112 74
+DOT architecture 112 83
+DOT architecture 104 85
+DOT architecture 111 65
+DOT architecture 144 66
+DOT architecture 143 74
+DOT architecture 143 83
+DOT architecture 151 85
+DOT architecture 144 65
+DOT vertical 116 64
+DOT vertical 125 64
+DOT vertical 134 64
+DOT vertical 143 64
+DOT vertical 131 68
+FRAME level-0-magic lines=2 dots=0
+LINE architecture 126 79 128 75
+LINE architecture 128 75 129 79
+FRAME level-1-dark lines=0 dots=0
+FRAME level-1-regular lines=9 dots=0
+LINE architecture -30 -18 28 16
+LINE architecture 28 16 28 135
+LINE architecture 28 135 -30 169
+LINE architecture 28 16 228 16
+LINE architecture 28 135 228 135
+LINE architecture 285 -18 228 16
+LINE architecture 228 16 228 135
+LINE architecture 228 135 285 169
+LINE vertical 1 1 256 1
+FRAME level-1-magic lines=0 dots=0
+FRAME level-2-dark lines=0 dots=0
+FRAME level-2-regular lines=14 dots=0
+LINE architecture -10 157 -10 58
+LINE architecture -10 58 15 63
+LINE architecture 15 63 15 143
+LINE architecture 3 101 9 102
+LINE architecture -30 -18 28 16
+LINE architecture 28 16 28 135
+LINE architecture 28 135 -30 169
+LINE architecture 28 16 228 16
+LINE architecture 28 135 228 135
+LINE architecture 285 16 228 16
+LINE architecture 228 16 228 135
+LINE architecture 228 135 285 135
+LINE architecture 285 -18 228 16
+LINE vertical 1 1 256 1
+FRAME level-2-magic lines=0 dots=0
+FRAME level-3-dark lines=0 dots=0
+FRAME level-3-regular lines=9 dots=0
+LINE architecture -30 -18 28 16
+LINE architecture 28 16 28 135
+LINE architecture 28 135 -30 169
+LINE architecture 28 16 228 16
+LINE architecture 28 135 228 135
+LINE architecture 285 -18 228 16
+LINE architecture 228 16 228 135
+LINE architecture 228 135 285 169
+LINE vertical 1 1 256 1
+FRAME level-3-magic lines=0 dots=0
+FRAME level-4-dark lines=0 dots=0
+FRAME level-4-regular lines=11 dots=0
+LINE architecture -27 16 28 16
+LINE architecture 28 16 28 135
+LINE architecture 28 135 -30 135
+LINE architecture -30 -18 28 16
+LINE architecture 28 16 228 16
+LINE architecture 28 135 228 135
+LINE architecture 285 16 228 16
+LINE architecture 228 16 228 135
+LINE architecture 228 135 285 135
+LINE architecture 285 -18 228 16
+LINE vertical 1 1 256 1
+FRAME level-4-magic lines=0 dots=0
+MAP walls=524 marks=29
+WALL 56 0 8 6
+WALL 64 0 8 6
+WALL 72 0 8 6
+WALL 80 0 8 6
+WALL 88 0 8 6
+WALL 96 0 8 6
+WALL 104 0 8 6
+WALL 112 0 8 6
+WALL 120 0 8 6
+WALL 128 0 8 6
+WALL 136 0 8 6
+WALL 152 0 8 6
+WALL 160 0 8 6
+WALL 168 0 8 6
+WALL 176 0 8 6
+WALL 192 0 8 6
+WALL 200 0 8 6
+WALL 208 0 8 6
+WALL 216 0 8 6
+WALL 224 0 8 6
+WALL 8 6 8 6
+WALL 16 6 8 6
+WALL 24 6 8 6
+WALL 32 6 8 6
+WALL 40 6 8 6
+WALL 56 6 8 6
+WALL 240 6 8 6
+WALL 8 12 8 6
+WALL 40 12 8 6
+WALL 56 12 8 6
+WALL 72 12 8 6
+WALL 80 12 8 6
+WALL 88 12 8 6
+WALL 96 12 8 6
+WALL 104 12 8 6
+WALL 112 12 8 6
+WALL 128 12 8 6
+WALL 136 12 8 6
+WALL 152 12 8 6
+WALL 168 12 8 6
+WALL 176 12 8 6
+WALL 192 12 8 6
+WALL 200 12 8 6
+WALL 208 12 8 6
+WALL 216 12 8 6
+WALL 224 12 8 6
+WALL 240 12 8 6
+WALL 8 18 8 6
+WALL 24 18 8 6
+WALL 72 18 8 6
+WALL 80 18 8 6
+WALL 88 18 8 6
+WALL 96 18 8 6
+WALL 104 18 8 6
+WALL 112 18 8 6
+WALL 128 18 8 6
+WALL 136 18 8 6
+WALL 152 18 8 6
+WALL 168 18 8 6
+WALL 176 18 8 6
+WALL 40 24 8 6
+WALL 56 24 8 6
+WALL 64 24 8 6
+WALL 72 24 8 6
+WALL 80 24 8 6
+WALL 88 24 8 6
+WALL 96 24 8 6
+WALL 104 24 8 6
+WALL 112 24 8 6
+WALL 128 24 8 6
+WALL 136 24 8 6
+WALL 152 24 8 6
+WALL 192 24 8 6
+WALL 200 24 8 6
+WALL 208 24 8 6
+WALL 216 24 8 6
+WALL 224 24 8 6
+WALL 240 24 8 6
+WALL 8 30 8 6
+WALL 24 30 8 6
+WALL 40 30 8 6
+WALL 56 30 8 6
+WALL 64 30 8 6
+WALL 72 30 8 6
+WALL 80 30 8 6
+WALL 88 30 8 6
+WALL 96 30 8 6
+WALL 104 30 8 6
+WALL 112 30 8 6
+WALL 128 30 8 6
+WALL 136 30 8 6
+WALL 152 30 8 6
+WALL 160 30 8 6
+WALL 168 30 8 6
+WALL 176 30 8 6
+WALL 192 30 8 6
+WALL 200 30 8 6
+WALL 208 30 8 6
+WALL 216 30 8 6
+WALL 224 30 8 6
+WALL 24 36 8 6
+WALL 40 36 8 6
+WALL 128 36 8 6
+WALL 136 36 8 6
+WALL 168 36 8 6
+WALL 176 36 8 6
+WALL 192 36 8 6
+WALL 200 36 8 6
+WALL 208 36 8 6
+WALL 216 36 8 6
+WALL 224 36 8 6
+WALL 240 36 8 6
+WALL 8 42 8 6
+WALL 16 42 8 6
+WALL 24 42 8 6
+WALL 40 42 8 6
+WALL 56 42 8 6
+WALL 72 42 8 6
+WALL 80 42 8 6
+WALL 88 42 8 6
+WALL 96 42 8 6
+WALL 104 42 8 6
+WALL 112 42 8 6
+WALL 128 42 8 6
+WALL 136 42 8 6
+WALL 152 42 8 6
+WALL 168 42 8 6
+WALL 176 42 8 6
+WALL 192 42 8 6
+WALL 200 42 8 6
+WALL 208 42 8 6
+WALL 216 42 8 6
+WALL 224 42 8 6
+WALL 240 42 8 6
+WALL 8 48 8 6
+WALL 16 48 8 6
+WALL 24 48 8 6
+WALL 40 48 8 6
+WALL 56 48 8 6
+WALL 72 48 8 6
+WALL 80 48 8 6
+WALL 88 48 8 6
+WALL 96 48 8 6
+WALL 104 48 8 6
+WALL 112 48 8 6
+WALL 128 48 8 6
+WALL 136 48 8 6
+WALL 152 48 8 6
+WALL 168 48 8 6
+WALL 176 48 8 6
+WALL 192 48 8 6
+WALL 200 48 8 6
+WALL 208 48 8 6
+WALL 216 48 8 6
+WALL 224 48 8 6
+WALL 8 54 8 6
+WALL 16 54 8 6
+WALL 24 54 8 6
+WALL 40 54 8 6
+WALL 56 54 8 6
+WALL 72 54 8 6
+WALL 80 54 8 6
+WALL 96 54 8 6
+WALL 104 54 8 6
+WALL 112 54 8 6
+WALL 240 54 8 6
+WALL 8 60 8 6
+WALL 16 60 8 6
+WALL 24 60 8 6
+WALL 40 60 8 6
+WALL 56 60 8 6
+WALL 72 60 8 6
+WALL 80 60 8 6
+WALL 96 60 8 6
+WALL 104 60 8 6
+WALL 112 60 8 6
+WALL 120 60 8 6
+WALL 128 60 8 6
+WALL 136 60 8 6
+WALL 152 60 8 6
+WALL 168 60 8 6
+WALL 176 60 8 6
+WALL 192 60 8 6
+WALL 200 60 8 6
+WALL 208 60 8 6
+WALL 216 60 8 6
+WALL 232 60 8 6
+WALL 240 60 8 6
+WALL 8 66 8 6
+WALL 16 66 8 6
+WALL 24 66 8 6
+WALL 40 66 8 6
+WALL 56 66 8 6
+WALL 72 66 8 6
+WALL 80 66 8 6
+WALL 96 66 8 6
+WALL 104 66 8 6
+WALL 112 66 8 6
+WALL 152 66 8 6
+WALL 168 66 8 6
+WALL 176 66 8 6
+WALL 112 72 8 6
+WALL 128 72 8 6
+WALL 136 72 8 6
+WALL 144 72 8 6
+WALL 152 72 8 6
+WALL 168 72 8 6
+WALL 176 72 8 6
+WALL 192 72 8 6
+WALL 200 72 8 6
+WALL 208 72 8 6
+WALL 216 72 8 6
+WALL 232 72 8 6
+WALL 240 72 8 6
+WALL 8 78 8 6
+WALL 16 78 8 6
+WALL 24 78 8 6
+WALL 40 78 8 6
+WALL 48 78 8 6
+WALL 56 78 8 6
+WALL 64 78 8 6
+WALL 80 78 8 6
+WALL 96 78 8 6
+WALL 104 78 8 6
+WALL 112 78 8 6
+WALL 240 78 8 6
+WALL 8 84 8 6
+WALL 16 84 8 6
+WALL 24 84 8 6
+WALL 40 84 8 6
+WALL 48 84 8 6
+WALL 64 84 8 6
+WALL 80 84 8 6
+WALL 96 84 8 6
+WALL 104 84 8 6
+WALL 112 84 8 6
+WALL 128 84 8 6
+WALL 144 84 8 6
+WALL 152 84 8 6
+WALL 160 84 8 6
+WALL 176 84 8 6
+WALL 192 84 8 6
+WALL 200 84 8 6
+WALL 208 84 8 6
+WALL 216 84 8 6
+WALL 232 84 8 6
+WALL 240 84 8 6
+WALL 40 90 8 6
+WALL 48 90 8 6
+WALL 64 90 8 6
+WALL 80 90 8 6
+WALL 96 90 8 6
+WALL 104 90 8 6
+WALL 112 90 8 6
+WALL 128 90 8 6
+WALL 176 90 8 6
+WALL 192 90 8 6
+WALL 200 90 8 6
+WALL 216 90 8 6
+WALL 232 90 8 6
+WALL 240 90 8 6
+WALL 0 96 8 6
+WALL 16 96 8 6
+WALL 24 96 8 6
+WALL 40 96 8 6
+WALL 48 96 8 6
+WALL 64 96 8 6
+WALL 80 96 8 6
+WALL 96 96 8 6
+WALL 104 96 8 6
+WALL 112 96 8 6
+WALL 128 96 8 6
+WALL 144 96 8 6
+WALL 152 96 8 6
+WALL 168 96 8 6
+WALL 176 96 8 6
+WALL 192 96 8 6
+WALL 200 96 8 6
+WALL 216 96 8 6
+WALL 232 96 8 6
+WALL 240 96 8 6
+WALL 0 102 8 6
+WALL 16 102 8 6
+WALL 24 102 8 6
+WALL 96 102 8 6
+WALL 104 102 8 6
+WALL 112 102 8 6
+WALL 128 102 8 6
+WALL 144 102 8 6
+WALL 152 102 8 6
+WALL 168 102 8 6
+WALL 176 102 8 6
+WALL 216 102 8 6
+WALL 232 102 8 6
+WALL 240 102 8 6
+WALL 0 108 8 6
+WALL 16 108 8 6
+WALL 24 108 8 6
+WALL 40 108 8 6
+WALL 48 108 8 6
+WALL 64 108 8 6
+WALL 72 108 8 6
+WALL 88 108 8 6
+WALL 96 108 8 6
+WALL 104 108 8 6
+WALL 112 108 8 6
+WALL 128 108 8 6
+WALL 144 108 8 6
+WALL 152 108 8 6
+WALL 168 108 8 6
+WALL 176 108 8 6
+WALL 184 108 8 6
+WALL 192 108 8 6
+WALL 200 108 8 6
+WALL 216 108 8 6
+WALL 232 108 8 6
+WALL 240 108 8 6
+WALL 0 114 8 6
+WALL 64 114 8 6
+WALL 72 114 8 6
+WALL 88 114 8 6
+WALL 96 114 8 6
+WALL 104 114 8 6
+WALL 112 114 8 6
+WALL 128 114 8 6
+WALL 144 114 8 6
+WALL 152 114 8 6
+WALL 168 114 8 6
+WALL 176 114 8 6
+WALL 184 114 8 6
+WALL 192 114 8 6
+WALL 200 114 8 6
+WALL 216 114 8 6
+WALL 232 114 8 6
+WALL 240 114 8 6
+WALL 0 120 8 6
+WALL 16 120 8 6
+WALL 24 120 8 6
+WALL 40 120 8 6
+WALL 48 120 8 6
+WALL 0 126 8 6
+WALL 64 126 8 6
+WALL 72 126 8 6
+WALL 88 126 8 6
+WALL 104 126 8 6
+WALL 112 126 8 6
+WALL 128 126 8 6
+WALL 144 126 8 6
+WALL 152 126 8 6
+WALL 168 126 8 6
+WALL 176 126 8 6
+WALL 184 126 8 6
+WALL 192 126 8 6
+WALL 200 126 8 6
+WALL 216 126 8 6
+WALL 232 126 8 6
+WALL 240 126 8 6
+WALL 248 126 8 6
+WALL 0 132 8 6
+WALL 16 132 8 6
+WALL 24 132 8 6
+WALL 32 132 8 6
+WALL 48 132 8 6
+WALL 64 132 8 6
+WALL 72 132 8 6
+WALL 88 132 8 6
+WALL 104 132 8 6
+WALL 112 132 8 6
+WALL 128 132 8 6
+WALL 144 132 8 6
+WALL 152 132 8 6
+WALL 168 132 8 6
+WALL 176 132 8 6
+WALL 184 132 8 6
+WALL 192 132 8 6
+WALL 200 132 8 6
+WALL 216 132 8 6
+WALL 232 132 8 6
+WALL 240 132 8 6
+WALL 248 132 8 6
+WALL 88 138 8 6
+WALL 104 138 8 6
+WALL 112 138 8 6
+WALL 248 138 8 6
+WALL 0 144 8 6
+WALL 16 144 8 6
+WALL 24 144 8 6
+WALL 32 144 8 6
+WALL 48 144 8 6
+WALL 64 144 8 6
+WALL 72 144 8 6
+WALL 80 144 8 6
+WALL 88 144 8 6
+WALL 104 144 8 6
+WALL 112 144 8 6
+WALL 128 144 8 6
+WALL 144 144 8 6
+WALL 152 144 8 6
+WALL 168 144 8 6
+WALL 176 144 8 6
+WALL 184 144 8 6
+WALL 192 144 8 6
+WALL 200 144 8 6
+WALL 216 144 8 6
+WALL 232 144 8 6
+WALL 248 144 8 6
+WALL 0 150 8 6
+WALL 16 150 8 6
+WALL 24 150 8 6
+WALL 32 150 8 6
+WALL 48 150 8 6
+WALL 64 150 8 6
+WALL 72 150 8 6
+WALL 80 150 8 6
+WALL 88 150 8 6
+WALL 104 150 8 6
+WALL 112 150 8 6
+WALL 128 150 8 6
+WALL 144 150 8 6
+WALL 152 150 8 6
+WALL 216 150 8 6
+WALL 232 150 8 6
+WALL 248 150 8 6
+WALL 64 156 8 6
+WALL 72 156 8 6
+WALL 80 156 8 6
+WALL 88 156 8 6
+WALL 104 156 8 6
+WALL 112 156 8 6
+WALL 168 156 8 6
+WALL 176 156 8 6
+WALL 184 156 8 6
+WALL 192 156 8 6
+WALL 200 156 8 6
+WALL 208 156 8 6
+WALL 216 156 8 6
+WALL 232 156 8 6
+WALL 248 156 8 6
+WALL 8 162 8 6
+WALL 16 162 8 6
+WALL 24 162 8 6
+WALL 32 162 8 6
+WALL 48 162 8 6
+WALL 104 162 8 6
+WALL 112 162 8 6
+WALL 128 162 8 6
+WALL 144 162 8 6
+WALL 152 162 8 6
+WALL 168 162 8 6
+WALL 176 162 8 6
+WALL 184 162 8 6
+WALL 192 162 8 6
+WALL 200 162 8 6
+WALL 208 162 8 6
+WALL 216 162 8 6
+WALL 232 162 8 6
+WALL 248 162 8 6
+WALL 48 168 8 6
+WALL 64 168 8 6
+WALL 72 168 8 6
+WALL 80 168 8 6
+WALL 88 168 8 6
+WALL 96 168 8 6
+WALL 104 168 8 6
+WALL 112 168 8 6
+WALL 128 168 8 6
+WALL 144 168 8 6
+WALL 152 168 8 6
+WALL 168 168 8 6
+WALL 176 168 8 6
+WALL 184 168 8 6
+WALL 192 168 8 6
+WALL 200 168 8 6
+WALL 208 168 8 6
+WALL 216 168 8 6
+WALL 248 168 8 6
+WALL 8 174 8 6
+WALL 16 174 8 6
+WALL 24 174 8 6
+WALL 32 174 8 6
+WALL 48 174 8 6
+WALL 144 174 8 6
+WALL 152 174 8 6
+WALL 168 174 8 6
+WALL 176 174 8 6
+WALL 184 174 8 6
+WALL 192 174 8 6
+WALL 200 174 8 6
+WALL 208 174 8 6
+WALL 216 174 8 6
+WALL 232 174 8 6
+WALL 240 174 8 6
+WALL 248 174 8 6
+WALL 8 180 8 6
+WALL 16 180 8 6
+WALL 24 180 8 6
+WALL 32 180 8 6
+WALL 48 180 8 6
+WALL 64 180 8 6
+WALL 72 180 8 6
+WALL 80 180 8 6
+WALL 88 180 8 6
+WALL 96 180 8 6
+WALL 104 180 8 6
+WALL 112 180 8 6
+WALL 120 180 8 6
+WALL 128 180 8 6
+WALL 144 180 8 6
+WALL 152 180 8 6
+WALL 168 180 8 6
+WALL 176 180 8 6
+WALL 184 180 8 6
+WALL 192 180 8 6
+WALL 200 180 8 6
+WALL 208 180 8 6
+WALL 216 180 8 6
+WALL 232 180 8 6
+WALL 240 180 8 6
+WALL 248 180 8 6
+WALL 120 186 8 6
+WALL 128 186 8 6
+WALL 232 186 8 6
+WALL 240 186 8 6
+WALL 248 186 8 6
+MARK 120 30 0 16 84 84 16 0
+MARK 224 168 0 16 84 84 16 0
+MARK 184 96 0 16 84 84 16 0
+MARK 0 174 0 16 84 84 16 0
+MARK 8 36 0 16 84 84 16 0
+MARK 16 72 0 16 84 84 16 0
+MARK 224 150 0 16 84 84 16 0
+MARK 64 36 0 16 84 84 16 0
+MARK 0 18 0 16 84 84 16 0
+MARK 144 48 0 16 84 84 16 0
+MARK 240 48 0 16 84 84 16 0
+MARK 48 186 0 16 84 84 16 0
+MARK 80 138 0 16 84 84 16 0
+MARK 240 120 0 16 84 84 16 0
+MARK 64 6 0 16 84 84 16 0
+MARK 192 120 0 16 84 84 16 0
+MARK 64 72 0 16 84 84 16 0
+MARK 224 84 0 16 84 84 16 0
+MARK 80 6 0 16 84 84 16 0
+MARK 104 36 0 16 84 84 16 0
+MARK 216 6 0 16 84 84 16 0
+MARK 80 114 0 16 84 84 16 0
+MARK 8 168 0 16 84 84 16 0
+MARK 88 36 0 16 84 84 16 0
+MARK 88 96 0 36 24 24 36 0
+MARK 184 0 0 60 36 36 60 0
+MARK 32 90 0 60 36 36 60 0
+MARK 136 120 0 60 36 36 60 0
+MARK 240 168 0 60 36 36 60 0

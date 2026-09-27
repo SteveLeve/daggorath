@@ -2,6 +2,41 @@
 
 **Status:** Proposed, 2026-09-27. Settled by Phase 8 workstream 8.3.
 
+**Resolution (2026-09-27, Phase 8.3):** Accepted as written, for the part
+built headlessly in `src/presentation`:
+
+- `crisp.hpp`/`crisp.cpp` (`build_crisp_frame`) consumes `RenderState::segments`
+  — the same logical draw list `pixel`'s `raster.cpp` rasterises (§2). A
+  fully-lit segment (`fade == 0`) becomes one `CrispLine`; a dim segment
+  (`0 < fade < 0xFF`) becomes the exact dots `draw_segment` would plot,
+  found via `raster.hpp`'s new `walk_segment` (the same VECTOR.ASM walk,
+  refactored out of `draw_segment` so there is one implementation, not a
+  second geometry source) — §8's dotted dimness, no colour blend.
+- `build_crisp_map` projects the same `MapSnapshot` `rasterize_map`
+  (mapper.hpp) rasterises: a solid-wall cell becomes one filled square (§7);
+  the player/object/creature/vertical-feature marks become nearest-neighbour
+  bitmap cells (`mapper.hpp`'s new shared `mark4_rows`, also now the single
+  source `rasterize_map` itself calls) — the same choice §6 makes for text,
+  extended here because those marks are small bitmaps, not solid squares.
+- **Segment fixtures, one per Phase 6 golden state** (`docs/archaeology/phase-8/fixtures/crisp-segments.txt`,
+  regenerated and compared byte-for-byte by `tests/CMakeLists.txt`'s
+  `crisp_segment_fixtures`), demonstrating `crisp` and `pixel` project the
+  same data.
+- **Golden images unchanged:** `viewer_regressions`, `text_regressions`, and
+  the three fixture manifests (`make verify`) all still pass after the
+  `walk_segment`/`mark4_rows` refactor, with no fixture regenerated.
+
+**Not yet built, and not claimed here:** §6's text-as-lines question is not
+reopened (still "a later option, not Phase 8" per that section) — this PR
+adds no glyph-cell geometry at all, vector or bitmap; the existing bitmap
+text path (`text.cpp`) is untouched. Device-pixel scaling, line thickness,
+HiDPI handling, and whether smoothing helps (`raster.hpp`'s "Open for
+Phase 8" section) are SDL3 platform concerns this headless module
+deliberately leaves to the caller (it emits source-256x192 coordinates
+only); they are deferred to 8.4, which wires `crisp`/`pixel` into
+`src/platform`. This Resolution settles the geometry source and the segment
+contract, not the on-screen rendering.
+
 ## Context
 
 The desktop window rasterises the viewer's vector draw list onto a 256×192
