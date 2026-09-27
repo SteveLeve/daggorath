@@ -41,10 +41,19 @@ These are hypotheses to implement and evaluate, not evidence about the original.
 
 ## Open for Phase 8
 
-- System menu button (shell, ADR-0009): pauses and opens Resume, Save/Load
-  slots, Restart, Video, Controls. Position not yet mocked up.
+- Map style in crisp mode (ADR-0010).
 
-- Line-at-once vs paced keystrokes (32-byte buffer quirk); record a deviation if needed.
-- Tablet 4:3 layout (no side margins at full height).
-- Picker content must come from game state without leaking information the
-  original does not show.
+## Decided 2026-09-27
+
+- **System menu button** at bottom right, with `C E L ⌨` (ADR-0009 §6). It is
+  the only control that pauses.
+- **Whole line at once.** A finished gesture delivers its command line to the
+  keyboard buffer on one jiffy (D-17). Partial lines still show while a
+  picker or keyboard is open.
+- **Tablet 4:3.** Controls float over the game's left and right edges, not
+  the bottom, which stays clear for the status and command lines. The hand
+  buttons use the mostly empty upper left and right of the viewer.
+- **Pickers show only what is visible**: floor objects drawn on the player's
+  cell now (none in the dark), and pack names as the EXAMINE page gives them.
+  To be checked against the listing in 8.0.
+

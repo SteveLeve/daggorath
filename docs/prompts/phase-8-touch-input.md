@@ -24,10 +24,9 @@ Work in this order.
    combat specifications, list every command form a player needs, with its
    typed equivalent. This is the contract the controls must cover.
 2. **Adapters** in `src/input/`: gesture → keystroke stream, with the
-   keystrokes timestamped at the jiffy they are delivered. Decide and document
-   whether a gesture emits the whole line at once (and what that does to the
-   32-byte buffer quirk) or paces keystrokes; record the choice as a deviation
-   if it differs from a typist.
+   keystrokes timestamped at the jiffy they are delivered. A gesture emits its
+   whole line on one jiffy (decided; deviation D-17). Show that the 32-byte
+   buffer overrun stays reachable by typing.
 3. **Prototype on desktop** following the agreed direction in
    `docs/design/touch-controls/README.md` (landscape overlay, square letter
    buttons, sequential command entry), with mouse-as-touch; evaluate landscape

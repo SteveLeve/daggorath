@@ -30,11 +30,19 @@ in every mode.
    draw list, derived from the listing's `VECTOR`/`VCTLST` data (ADR-0006). No
    code from the Hunerlach or web ports enters the tree.
 
+6. **Text in `crisp`** (decided 2026-09-27): status line, command line and
+   text pages use the original glyph bitmaps, scaled nearest-neighbour; only
+   the vector geometry is drawn as lines. The project owner saw the web port
+   make the same split; it is not recorded in the ledger. Reason: the
+   geometry is the listing's `VECTOR`/`VCTLST` data (ADR-0006), so drawing it
+   as lines renders the same data more sharply. **[INF]** the text glyphs are
+   bitmaps (the Phase 6 text fixtures). Stroked text would need glyph data the
+   original never had. That would be a new
+   design with its own provenance, so it is left as a later option.
+
 ## Open for Phase 8
 
-- Text and status lines in `crisp`: the original glyph bitmap scaled
-  nearest-neighbour, or glyphs as strokes. The first keeps the character
-  set exact.
+- All-vector text (see §6): later option, not Phase 8.
 - The map (`MAPPER`) is cell-based: crisp squares at device resolution, or
   pixel style.
 - Line thickness default relative to screen size; whether `pixel` offers

@@ -40,14 +40,28 @@ independent of 8.1 and can run in parallel with it.
 - Menu Save/Load use suspend snapshots in slots; `ZSAVE`/`ZLOAD` stay commands.
 - Parallel port fixes land on `main`; no long-lived split branches.
 
-## Open questions (resolve before or inside the named workstream)
+## Decisions from review (2026-09-27)
 
-1. **8.1** Line-at-once or paced keystrokes. Paced matches a typist and keeps
-   the buffer quirk observable; line-at-once is what the web pad does.
-2. **8.4** Tablet 4:3 layout: no side margins at full height.
-3. **8.4** Floor/pack pickers must not show what the original would not.
-4. **8.3** Text in `crisp`: scaled glyph bitmap or stroked glyphs; map style.
-5. **8.2** Where the system-menu button sits on touch; snapshot slot count,
-   naming, storage path; whether a shell pause leaves a trace line.
-6. **8.2** Does Restart ask for confirmation; does Quit auto-snapshot.
-7. **Phase 9 hook** Backgrounding = shell pause + automatic snapshot.
+1. **8.1** A gesture delivers its whole line at once, like the web pad
+   (deviation D-17, planned). Typed input keeps per-key timing.
+2. **8.4** Tablet 4:3: controls float over the game's left and right edges,
+   kept off the bottom so the status and command lines stay clear. The upper
+   left and right of the viewer are mostly empty and take the hand buttons.
+3. **8.4** Pickers show only what the player can see: the floor picker lists
+   objects drawn on the player's cell now (none in the dark), by the names the
+   parser accepts; the pack picker uses the names the EXAMINE page shows.
+   **[INF]** exact visibility and naming rules are checked against the listing
+   in 8.0.
+4. **8.3** In `crisp`, maze, creatures and objects are vectors; status line,
+   command line and text pages use the original glyph bitmaps scaled
+   nearest-neighbour (ADR-0010 §6).
+5. **8.2** System-menu button at lower right. Five snapshot slots, auto-named
+   from dungeon level and time played; choosing an occupied slot asks to
+   overwrite, and on confirm it is saved and renamed.
+6. **8.2** Restart and Quit ask for confirmation.
+
+## Still open
+
+- **8.3** Map (`MAPPER`) style in `crisp`: crisp squares or pixel.
+- **8.2** Whether a shell pause leaves a trace line.
+- **Phase 9 hook** Backgrounding = shell pause + automatic snapshot (which slot).

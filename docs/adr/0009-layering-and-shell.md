@@ -60,10 +60,17 @@ these layers are built, so the two must not fork.
      rolls back any `ZSAVE` made after it was taken. The `DAGRAM 1` files the
      desktop window already copies out are unaffected.
 
-6. **Settings live in the shell** (`SDL_GetPrefPath` on desktop), never in the
+6. **The system menu** (decided 2026-09-27; button at lower right on touch, Esc on desktop)
+   offers Resume, Save, Load, Restart, Video, Controls and Quit. Save and Load
+   show five slots, each auto-named from the dungeon level and time played,
+   read from the core without changing it. Saving over an occupied slot asks
+   for confirmation, then saves and renames it. Restart and Quit ask for
+   confirmation.
+
+7. **Settings live in the shell** (`SDL_GetPrefPath` on desktop), never in the
    RAM image or snapshot.
 
-7. **Parallel work is trunk-based.** There is no long-lived "pure port"
+8. **Parallel work is trunk-based.** There is no long-lived "pure port"
    branch and no long-lived "enhanced" branch. Isolation is in code: build
    targets, the dependency direction checked by `boundary-checker`, and the
    Original conformance suite, which `make all` runs on every PR unchanged
@@ -81,4 +88,4 @@ these layers are built, so the two must not fork.
 - Phase 9's backgrounding handler is a shell pause plus an automatic snapshot,
   not new machinery.
 - **Open:** whether the trace records shell pauses (they add no jiffy, so a
-  trace line would be informational only); snapshot slot count and naming.
+  trace line would be informational only).
