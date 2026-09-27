@@ -19,6 +19,7 @@ different agent and produce comparable work.
 | [`phase-6-presentation-state.md`](phase-6-presentation-state.md) | 6 — render state, vector data, sound events (ADR-0004) | done — [reconciliation](../archaeology/phase-6/reconciliation.md) |
 | [`phase-7-desktop-sdl.md`](phase-7-desktop-sdl.md) | 7 — SDL3 desktop app, rasteriser, audio | done — [reconciliation](../archaeology/phase-7/reconciliation.md) |
 | [`phase-8-touch-input.md`](phase-8-touch-input.md) | 8 — touch adapters emitting keystrokes | planned |
+| [`phase-8-port-vector-study.md`](phase-8-port-vector-study.md) | 8.3 input — local, read-only study of the ports' vector rendering | ready |
 | [`phase-9-mobile-packaging.md`](phase-9-mobile-packaging.md) | 9 — Android and iOS shells (licensing precondition) | planned |
 | [`track-r-rom-observation.md`](track-r-rom-observation.md) | R — ROM captures, run whenever system ROMs are legally available (ADR-0003) | firmware recorded; remaining backlog in [`../planning/capture-backlog.md`](../planning/capture-backlog.md) |
 

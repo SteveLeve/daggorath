@@ -17,3 +17,5 @@ and adds a dated "Resolution" section; it does not rewrite the original text.
 | [0006](0006-historical-data-assets.md) | Extracted historical data: geometry, sound, tables | Accepted | — |
 | [0007](0007-mode-separation.md) | Original Mode isolation and extension points | Accepted | — |
 | [0008](0008-deferred-effects-policy.md) | How a phase stubs behaviour owned by a later phase | Accepted | — |
+| [0009](0009-layering-and-shell.md) | Layering: the pure port, the shell, and parallel work | Proposed | Phase 8 (8.2) |
+| [0010](0010-render-styles.md) | Render styles: crisp vectors and the exact raster | Proposed | Phase 8 (8.3) |

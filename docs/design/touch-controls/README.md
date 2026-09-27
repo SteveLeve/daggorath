@@ -31,16 +31,25 @@ These are hypotheses to implement and evaluate, not evidence about the original.
 - **Sequential entry.** Every tap types its letters into the real command line,
   so a partial command appears exactly as typed input would (`.G L` while the
   picker is open). The typed command line stays available and authoritative.
-- **No pausing.** Menus, pickers and the keyboard never stop the clock.
+- **No pausing in play.** Pickers and the keyboard never stop the clock. Only
+  the shell's system menu pauses (ADR-0009, D-16).
 - **INCANT.** `I` types `I ` and opens an in-game A–Z keyboard (QWERTY, `⌫`,
   `↵`) with a clear, empty text box and no hint. The player types the word and
   presses `↵`. The in-game keyboard replaces the system keyboard, which would
   be more disruptive. `✕` cancels. The same keyboard backs `⌨`.
 - **RESTART** is not a command in `CMDTAB`; not provided.
 
-## Open for Phase 8
+## Decided 2026-09-27
 
-- Line-at-once vs paced keystrokes (32-byte buffer quirk); record a deviation if needed.
-- Tablet 4:3 layout (no side margins at full height).
-- Picker content must come from game state without leaking information the
-  original does not show.
+- **System menu button** at bottom right, with `C E L ⌨` (ADR-0009 §6). It is
+  the only control that pauses.
+- **Whole line at once.** A finished gesture delivers its command line to the
+  keyboard buffer on one jiffy (D-17). Partial lines still show while a
+  picker or keyboard is open.
+- **Tablet 4:3.** Controls float over the game's left and right edges, not
+  the bottom, which stays clear for the status and command lines. The hand
+  buttons use the mostly empty upper left and right of the viewer.
+- **Pickers show only what is visible**: floor objects drawn on the player's
+  cell now (none in the dark), and pack names as the EXAMINE page gives them.
+  To be checked against the listing in 8.0.
+
