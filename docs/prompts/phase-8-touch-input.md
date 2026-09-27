@@ -10,9 +10,13 @@ to verify against the listing. Cite the listing, never this prompt.
 **Preservation requirement.** Touch is an adaptation layer. Every gesture
 produces the keystrokes (or a parsed command whose effect is identical to
 typing it) the original player would have typed; the typed command line stays
-available and authoritative. Nothing pauses the simulation unless the original
-pauses. Timing pressure is preserved: an overlay that takes time to operate
-costs game time.
+available and authoritative. Nothing in play pauses the simulation: an overlay that
+takes time to operate costs game time. The one pause is the shell's system
+menu (and OS backgrounding), which withholds jiffies outside the core
+(ADR-0009, deviation D-16).
+
+Read [`docs/planning/phase-8-plan.md`](../planning/phase-8-plan.md), ADR-0009
+and ADR-0010 before starting; the plan's workstreams 8.0–8.5 set the order.
 
 Work in this order.
 
@@ -30,10 +34,16 @@ Work in this order.
    layouts; optional visible command trace.
 4. **Tests**: each gesture's keystroke output as fixtures; a replay of a touch
    session produces the same core trace as its keystroke transcript.
-5. **Write** `docs/architecture/touch-input.md` with the layouts evaluated and
+5. **Shell** (ADR-0009): pause/resume, system menu, snapshot slots, Restart
+   through the canonical constructor; a pause-invariance test.
+6. **Render styles** (ADR-0010): `crisp` default drawn from the same draw
+   list as `pixel`; segment fixtures; golden images unchanged.
+7. **Write** `docs/architecture/touch-input.md` with the layouts evaluated and
    the evidence for the chosen default.
 
-**Do not build:** Android or iOS packaging, rule changes, pausing overlays.
+**Do not build:** Android or iOS packaging, rule changes, in-play pausing
+overlays, any shell action beyond ADR-0009 §2.
 
 **Completion gate.** Coverage table (every command form reachable by touch),
-replay-equivalence test output, `make all` output.
+replay-equivalence and pause-invariance test output, `crisp` segment fixtures,
+`make all` output.

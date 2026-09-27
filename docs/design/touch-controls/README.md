@@ -31,7 +31,8 @@ These are hypotheses to implement and evaluate, not evidence about the original.
 - **Sequential entry.** Every tap types its letters into the real command line,
   so a partial command appears exactly as typed input would (`.G L` while the
   picker is open). The typed command line stays available and authoritative.
-- **No pausing.** Menus, pickers and the keyboard never stop the clock.
+- **No pausing in play.** Pickers and the keyboard never stop the clock. Only
+  the shell's system menu pauses (ADR-0009, D-16).
 - **INCANT.** `I` types `I ` and opens an in-game A–Z keyboard (QWERTY, `⌫`,
   `↵`) with a clear, empty text box and no hint. The player types the word and
   presses `↵`. The in-game keyboard replaces the system keyboard, which would
@@ -39,6 +40,9 @@ These are hypotheses to implement and evaluate, not evidence about the original.
 - **RESTART** is not a command in `CMDTAB`; not provided.
 
 ## Open for Phase 8
+
+- System menu button (shell, ADR-0009): pauses and opens Resume, Save/Load
+  slots, Restart, Video, Controls. Position not yet mocked up.
 
 - Line-at-once vs paced keystrokes (32-byte buffer quirk); record a deviation if needed.
 - Tablet 4:3 layout (no side margins at full height).
