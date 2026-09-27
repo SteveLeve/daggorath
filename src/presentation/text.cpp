@@ -85,6 +85,35 @@ void plot_string(std::uint8_t* pixels, int width, int col, int y, std::string_vi
     }
 }
 
+void plot_code_cell(std::uint8_t* pixels, int width, int col, int y, std::uint8_t code,
+                     bool inverse) {
+    if (col < 0 || col >= 32 || y < 0) return;
+    if (!inverse) {
+        plot(pixels, width, col, y, code);
+        return;
+    }
+    for (int py = y; py < y + 8 && py < kScreenHeight; ++py)
+        std::fill(pixels + static_cast<std::size_t>(py * width + col * 8),
+                  pixels + static_cast<std::size_t>(py * width + col * 8 + 8), 1);
+    std::uint8_t rows[7] = {};
+    glyph_rows(code, rows);
+    for (int row = 0; row < 7; ++row)
+        for (int bit = 0; bit < 8; ++bit)
+            if ((rows[row] & (0x80 >> bit)) != 0 && y + row < kScreenHeight)
+                pixels[static_cast<std::size_t>((y + row) * width + col * 8 + bit)] = 0;
+}
+
+// Status/command band on a black viewport is reverse video: white cells,
+// black glyphs. Each cell is repainted whole, so unused columns still turn
+// white background rather than staying black.
+void plot_string_inverse(std::uint8_t* pixels, int width, int col, int y, std::string_view text) {
+    for (char ch : text) {
+        if (col >= 32) break;
+        plot_code_cell(pixels, width, col, y, code_for(ch), true);
+        ++col;
+    }
+}
+
 }  // namespace
 
 void glyph_rows(std::uint8_t code, std::uint8_t rows[7]) {
@@ -105,28 +134,17 @@ void glyph_rows(std::uint8_t code, std::uint8_t rows[7]) {
 }
 
 void plot_cell(std::uint8_t* pixels, int width, int col, int y, char ch, bool inverse) {
-    if (col < 0 || col >= 32 || y < 0) return;
-    if (inverse) {
-        for (int py = y; py < y + 8 && py < kScreenHeight; ++py)
-            std::fill(pixels + static_cast<std::size_t>(py * width + col * 8),
-                      pixels + static_cast<std::size_t>(py * width + col * 8 + 8), 1);
-        std::uint8_t rows[7] = {};
-        glyph_rows(code_for(ch), rows);
-        for (int row = 0; row < 7; ++row)
-            for (int bit = 0; bit < 8; ++bit)
-                if ((rows[row] & (0x80 >> bit)) != 0 && y + row < kScreenHeight)
-                    pixels[static_cast<std::size_t>((y + row) * width + col * 8 + bit)] = 0;
-        return;
-    }
-    plot(pixels, width, col, y, code_for(ch));
+    plot_code_cell(pixels, width, col, y, code_for(ch), inverse);
 }
 
 void paint_text_bands(std::uint8_t* pixels, int width,
                       const TextSnapshot& snap, std::string_view message,
                       std::string_view command_override) {
+    // The viewport background is black, so the status/command band is
+    // reverse video against it: white cells, black glyphs and heart.
     for (int y = kViewportScanlineEnd; y < kScreenHeight; ++y) {
         std::fill(pixels + static_cast<std::size_t>(y * width),
-                  pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
+                  pixels + static_cast<std::size_t>(y * width + kScreenWidth), 1);
     }
     std::string status = project_text(snap).text.substr(7, 32);
     // project_text marks the heart with s/L for the text dump. Those letters
@@ -135,13 +153,20 @@ void paint_text_bands(std::uint8_t* pixels, int width,
         status[15] = ' ';
         status[16] = ' ';
     }
-    plot_string(pixels, width, 0, kViewportScanlineEnd, status);
+    plot_string_inverse(pixels, width, 0, kViewportScanlineEnd, status);
     if (snap.heart == HeartGlyph::Small || snap.heart == HeartGlyph::Large) {
         const std::uint8_t base = snap.heart == HeartGlyph::Large ? 0x22 : 0x20;
-        plot(pixels, width, 15, kViewportScanlineEnd, base);
-        plot(pixels, width, 16, kViewportScanlineEnd, static_cast<std::uint8_t>(base + 1));
+        plot_code_cell(pixels, width, 15, kViewportScanlineEnd, base, true);
+        plot_code_cell(pixels, width, 16, kViewportScanlineEnd,
+                       static_cast<std::uint8_t>(base + 1), true);
     }
     if (snap.has_page) {
+        // The EXAMINE page keeps the original black-background, white-glyph
+        // rendering (with its own per-cell inverse for the lit torch).
+        for (int y = kStatusScanlineEnd; y < kScreenHeight; ++y) {
+            std::fill(pixels + static_cast<std::size_t>(y * width),
+                      pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
+        }
         for (int row = 0; row < 4; ++row) {
             for (int col = 0; col < 32; ++col) {
                 plot(pixels, width, col, kStatusScanlineEnd + row * 8,
@@ -159,8 +184,8 @@ void paint_text_bands(std::uint8_t* pixels, int width,
     command += snap.line;
     if (command.size() < 32) command.push_back('_');
     if (!command_override.empty()) command = std::string(command_override.substr(0, 32));
-    plot_string(pixels, width, 0, kStatusScanlineEnd, command);
-    plot_string(pixels, width, 0, kStatusScanlineEnd + 8, message.substr(0, 32));
+    plot_string_inverse(pixels, width, 0, kStatusScanlineEnd, command);
+    plot_string_inverse(pixels, width, 0, kStatusScanlineEnd + 8, message.substr(0, 32));
 }
 
 }  // namespace dag

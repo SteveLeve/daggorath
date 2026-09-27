@@ -1086,9 +1086,11 @@ void Game::tape_operation() {
         restore_ram_image(*image);
         emit("ZLOAD", name);
     }
-    // LOAD90: CLR ZFLAG, INIVU, PROMPT.
+    // LOAD90 (COMMON.ASM:136-141, source-proven): CLR ZFLAG, INIVU, PROMPT.
+    // INIVU's CLRPRI erases HMAN70's prompt, so LOAD90 prints a fresh one.
     zflag_ = 0;
     inivu();
+    prompt();
 }
 
 void Game::cmd_attack(const std::string& line, std::size_t& pos) {

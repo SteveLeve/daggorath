@@ -352,6 +352,19 @@ void test_winner() {
     check(game.counters().total_jiffies == at, "WINNER ends in BRA *");
 }
 
+// COMMON.ASM:136-141 LOAD90: after INIVU clears the text area, PROMPT prints
+// I.CR, I.DOT (MISC.ASM M$PROM1), so a save or load leaves a "." prompt.
+void test_tape_prompts_after_inivu() {
+    for (const char* command : {"ZSAVE QUEST", "ZLOAD QUEST"}) {
+        dag::Game game(1, 0);
+        game.load_script(keys_for(10, {"ZSAVE QUEST", command}));
+        game.advance_jiffies(200);
+        const auto& text = game.primary_text();
+        check(std::count(text.begin(), text.end(), std::uint8_t{0x1E}) == 1,
+              std::string("LOAD90 prompts after ") + command);
+    }
+}
+
 void test_death_load_resumes() {
     dag::Game game(1, 0);
     game.load_script(keys_for(10, {"ZSAVE QUEST"}));
@@ -552,6 +565,7 @@ int main() {
     test_wizard_ending();
     test_winner();
     test_death_line();
+    test_tape_prompts_after_inivu();
     test_death_load_resumes();
     test_save_load_resumes_at_the_save();
     test_ram_image_is_the_whole_state();
