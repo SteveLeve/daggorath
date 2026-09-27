@@ -39,7 +39,7 @@ then the rest.
 | PATTK.ASM:ENDGAM |  | unreviewed |  |  |
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
-| HUPDAT.ASM:HUPD40 |  | gap-fixed (pacing inferred) | 2 | Wake-up fade-in climbs to the saved OLIGHT [SRC], at the fade-out rate [INF]; revival capture is C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
+| HUPDAT.ASM:HUPD40 |  | gap-fixed | 3 | Wake-up fade-in climbs to the saved OLIGHT [SRC], 5 jiffies per step [ROM] C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
 | SOUNDS.ASM:SNOISE |  | unreviewed |  |  |
 | SOUNDS.ASM:SNOUT |  | unreviewed |  |  |
 | SOUNDS.ASM:SNWAIT |  | unreviewed |  |  |
@@ -93,6 +93,7 @@ then the rest.
 | HUMAN.ASM:PLAYER |  | unreviewed |  |  |
 | HUMAN.ASM:HUMAN |  | unreviewed |  |  |
 | MISC.ASM:WIZIX | src/platform/sdl_app.cpp (death block) | gap-fixed | 1 | 18 jiffies per step [ROM], C-17; still open: NOISEF buzz. 17 WIZZES steps, each ZFLOP+VCTLST+SYNC; 110 ms/step is [INF]; NOISEF 30 Hz buzz, with NOISEV set to the fade value, not reproduced. |
+| COMPLR.ASM:HSLOW | game.cpp task_hslow | matches | 3 | ASRD6 of -PDAM, signed BGT floor at 0, reschedule HEARTR on Q.JIF; the core's delay-0 guard needs D > P, which is already death [INF]. C-18 shows healing continuing while fainted. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -101,3 +102,4 @@ then the rest.
 | 2026-09-26 | 1 | Reported: death animation too fast (HUPDAT DEATH/HUPD30, MISC WIZIX) | Pacing unprovable from the listing (per-step draw cost); wake-up fade-in and fade-in buzz not reproduced | none; map seeded, Q1 raised, C-17 added | ROM capture — not run: MAME not extracted |
 | 2026-09-26 | 1b (manual) | C-17 capture | Wizard fade ~4.8 s on the ROM vs our 1.9 s; blank gap 33 ms vs our 400 ms | 9e8d66c, ab91dc7; audited | — |
 | 2026-09-26 | 2 | HUPD40/HUPD42, PUPDAX, PUPSUB, CREGEN | Wake-up fade missing; desktop fade-out drew one step early; PUPSUB, keyboard flush and CREGEN match | Wake fade-in to saved OLIGHT, fade-out order fixed; C-18 added; audited | Revival capture — not run: C-18 next |
+| 2026-09-26 | 3 | C-18 revival capture, HSLOW | Wake fade 5 jiffies/step confirms 83 ms; the 400 ms faint hold was invented (ROM: 1 jiffy); HSLOW matches | Faint hold 33 ms, wake pacing [ROM]; audited | — |

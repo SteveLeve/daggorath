@@ -393,7 +393,7 @@ int main(int argc, char** argv) {
                 SDL_Delay(83);
                 --fading.regular_light;
             } while (fading.regular_light > -8);
-            SDL_Delay(game.player().dead ? 33 : 400);
+            SDL_Delay(33);
         }
         if (game.player().dead && !was_dead) {
             auto dark = chrome;
@@ -418,7 +418,7 @@ int main(int argc, char** argv) {
         if (!faint_now && was_fainted) {
             // HUPD42: on waking, redraw and raise MLIGHT and RLIGHT one step per
             // pass from -8 back up to the level saved in OLIGHT. Presentation
-            // only (D-14); paced like the HUPD30 fade-out [INF].
+            // only (D-14); 5 jiffies per step on the ROM (C-18).
             auto dark = chrome;
             dark.has_page = true;
             dark.page = {};

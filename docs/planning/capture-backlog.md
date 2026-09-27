@@ -23,4 +23,4 @@ a link to the reconciliation entry. Procedure: `archaeology/phase-0b/traces/READ
 | C-15 | Bare `CLIMB` | manual/source discrepancy | Phase 0 | not captured |
 | C-16 | Screenshots at fixed states per level; map modes | viewer and mapper | Phase 6 (planned) | not captured |
 | C-17 | Death wizard fade-in and faint fade-out, jiffies per step | `WIZIX`/`WIZZES`, `HUPD30`, `HUPD42`; D-14 | Refinement loop 1 | captured, harness-modified (`PDAM` poke) — phase-7 reconciliation §C-17 |
-| C-18 | Faint followed by revival, jiffies per `HUPD42` step | `HUPD42`, D-14 | Refinement loop 2 | not captured |
+| C-18 | Faint followed by revival, jiffies per `HUPD42` step | `HUPD42`, D-14 | Refinement loop 2 (captured in loop 3) | captured, harness-modified (`PDAM` poke) — phase-7 reconciliation §C-18 |
