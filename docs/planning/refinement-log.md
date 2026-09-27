@@ -3,7 +3,7 @@
 Tracker for `refinement-loop.md`. Newest run last.
 
 ## Working branch
-`refinement/playthrough-and-discovery`, from `main` after PR #21 (runs 1–16) was merged on 2026-09-27. The playthrough rework is `docs/prompts/phase-5b-honest-playthrough.md`.
+`refinement/discovery-2`, from `main` after PR #23 (runs 17–22) was merged on 2026-09-27. Earlier: PR #21 (runs 1–16). The playthrough rework is `docs/prompts/phase-5b-honest-playthrough.md`.
 
 ## Reported symptoms
 Steve adds hand-play observations here. The loop works these first.
