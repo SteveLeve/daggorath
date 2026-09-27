@@ -372,7 +372,8 @@ int main(int argc, char** argv) {
         if (faint_now && !was_fainted) {
             // HUPDAT HUPD30: each SYNC lowers MLIGHT and RLIGHT and redraws until
             // RLIGHT reaches -8, then ZFLOP blanks the screen. Presentation-only
-            // pacing (D-13); the core spends no simulated time here.
+            // pacing (D-14); the core spends no simulated time here. C-17 on the
+            // ROM: 5 jiffies per step, and WIZIX follows 2 jiffies after the blank.
             auto dark = chrome;
             dark.has_page = true;
             dark.page = {};
@@ -384,9 +385,9 @@ int main(int argc, char** argv) {
                 auto step = dag::rasterize(fading);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
                 present_frame(renderer, texture, step);
-                SDL_Delay(90);
+                SDL_Delay(83);
             }
-            SDL_Delay(400);
+            SDL_Delay(game.player().dead ? 33 : 400);
         }
         if (game.player().dead && !was_dead) {
             auto dark = chrome;
@@ -395,12 +396,13 @@ int main(int argc, char** argv) {
             dark.line.clear();
             {
                 // DEATH: WIZIX fades the wizard in, VCTFAD 32 down to 0 in steps of
-                // two, then an explosion (MISC.ASM WIZI10, WIZI20).
+                // two, then an explosion (MISC.ASM WIZI10, WIZI20). C-17 on the
+                // ROM: 18 jiffies per step, about 4.8 s in all.
                 for (int fade = 32; fade >= 0; fade -= 2) {
                     auto step = dag::rasterize_wizard(static_cast<std::uint8_t>(fade));
                     dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
                     present_frame(renderer, texture, step);
-                    SDL_Delay(110);
+                    SDL_Delay(300);
                 }
                 std::uint16_t noise = 1;
                 dag::start_dac(effect_carry, dag::samples_for_cue(
