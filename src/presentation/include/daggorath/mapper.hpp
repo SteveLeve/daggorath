@@ -1,9 +1,12 @@
 // MAPPER.ASM top-view projection. Pure: reads a snapshot, mutates nothing.
 #pragma once
+#include <array>
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "daggorath/game.hpp"
 
 namespace dag {
 
@@ -22,5 +25,12 @@ struct MapProjection {
 };
 
 MapProjection project_map(const MapSnapshot& snap);
+
+// MAPPER.ASM on the 256x192 screen, one byte per pixel (0 or 1). Each maze cell
+// is one byte (8 pixels) wide and 6 scanlines tall (DSP32), so the map fills
+// the whole screen.
+std::array<std::uint8_t, 256 * 192> rasterize_map(const MapSnapshot& snap);
+
+MapSnapshot map_snapshot_from(const Game& game);
 
 }  // namespace dag

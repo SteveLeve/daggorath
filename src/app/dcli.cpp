@@ -160,24 +160,7 @@ int main(int argc, char** argv) {
         image << dag::bitmap_pbm(dag::rasterize(dag::snapshot_from(game)));
     }
     if (present_map) {
-        dag::MapSnapshot snap;
-        snap.cells = game.maze().bytes().data();
-        snap.player_row = game.player().row;
-        snap.player_col = game.player().col;
-        snap.features = game.player().map_features;
-        for (const auto& o : game.objects()) {
-            if (o.owner == 0 && o.level == game.level_index())
-                snap.objects.push_back({o.row, o.col});
-        }
-        for (const auto& c : game.creatures()) {
-            if (c.in_use) snap.creatures.push_back({c.row, c.col});
-        }
-        for (int r = 0; r < 32; ++r) {
-            for (int col = 0; col < 32; ++col) {
-                if (dag::vfind(game.level_index(), r, col) >= 0)
-                    snap.verticals.push_back({r, col});
-            }
-        }
+        const dag::MapSnapshot snap = dag::map_snapshot_from(game);
         std::cout << dag::project_map(snap).text;
     }
     if (present_text) {

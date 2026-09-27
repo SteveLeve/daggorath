@@ -19,6 +19,7 @@
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
+#include "daggorath/mapper.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snoise.hpp"
 #include "daggorath/snapshot.hpp"
@@ -1509,6 +1510,40 @@ void test_fire_ring_reaches_wizard() {
 
 }  // namespace
 
+void test_map_raster() {
+    // MAPPER.ASM: a $FF cell is one white byte on 6 scanlines (MAPP20-22); the
+    // player is MARK4 $24,$18 on scanlines 1-4 (MAPP50).
+    dag::Game game(1, 0);
+    const auto snap = dag::map_snapshot_from(game);
+    const auto px = dag::rasterize_map(snap);
+    auto byte_at = [&](int row, int col, int line) {
+        int v = 0;
+        for (int b = 0; b < 8; ++b)
+            v = (v << 1) | px[static_cast<std::size_t>((row * 6 + line) * 256 + col * 8 + b)];
+        return v;
+    };
+    int wall_r = -1, wall_c = -1;
+    for (int i = 0; i < 1024 && wall_r < 0; ++i)
+        if (snap.cells[i] == 0xFF) { wall_r = i / 32; wall_c = i % 32; }
+    bool wall_ok = wall_r >= 0;
+    for (int line = 0; line < 6 && wall_ok; ++line) wall_ok = byte_at(wall_r, wall_c, line) == 0xFF;
+    check(wall_ok, "a solid cell is white on all 6 scanlines");
+    const int r = snap.player_row, c = snap.player_col;
+    check(byte_at(r, c, 0) == 0 && byte_at(r, c, 1) == 0x24 && byte_at(r, c, 2) == 0x18 &&
+              byte_at(r, c, 3) == 0x18 && byte_at(r, c, 4) == 0x24 && byte_at(r, c, 5) == 0,
+          "the player cell carries MARK4 $24/$18");
+    // MAPP60 draws the verticals after the player, so a ladder underfoot wins.
+    dag::Game ladder(1, 0);
+    ladder.place_player(0, 23);   // level 0 ladder (VFTTAB)
+    const auto lp = dag::rasterize_map(dag::map_snapshot_from(ladder));
+    int line1 = 0, line2 = 0;
+    for (int b = 0; b < 8; ++b) {
+        line1 = (line1 << 1) | lp[static_cast<std::size_t>((0 * 6 + 1) * 256 + 23 * 8 + b)];
+        line2 = (line2 << 1) | lp[static_cast<std::size_t>((0 * 6 + 2) * 256 + 23 * 8 + b)];
+    }
+    check(line1 == 0x3C && line2 == 0x24, "a vertical feature underfoot overdraws the player mark");
+}
+
 void test_wizard_fade() {
     auto count = [](std::uint8_t fade) {
         std::size_t n = 0;
@@ -1541,6 +1576,7 @@ int main() {
     test_objects_and_climb();
     test_save_and_snapshot();
     test_projection();
+    test_map_raster();
     test_wizard_fade();
     test_incant_fire_script();
     test_prepared_winner();

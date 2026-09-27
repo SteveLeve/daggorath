@@ -1,5 +1,6 @@
 // Present when SDL3 is available. The core is advanced one jiffy at a time.
 #include "daggorath/game.hpp"
+#include "daggorath/mapper.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snapshot.hpp"
 #include "daggorath/snoise.hpp"
@@ -342,7 +343,11 @@ int main(int argc, char** argv) {
                 // standing view (PTURN.ASM:156-172, source-proven).
                 half_scale = step_relative == 0 ? 1 : 2;
         }
-        auto frame = dag::rasterize(snap);
+        // MAPPER draws over the whole screen; HEARTF and the prompt are off in
+        // map mode (PUSE.ASM USC210, HUMAN.ASM HMAN70). Hiding the text bands is
+        // inferred (phase-7 reconciliation; capture C-20).
+        const bool map_up = game.display_mode() == dag::DisplayMode::Mapper;
+        auto frame = map_up ? dag::rasterize_map(dag::map_snapshot_from(game)) : dag::rasterize(snap);
         dag::TextSnapshot chrome;
         auto hand = [&](int index) -> std::optional<dag::Ocb> {
             if (index < 0 || static_cast<std::size_t>(index) >= game.objects().size()) return {};
@@ -382,7 +387,8 @@ int main(int argc, char** argv) {
             command_override = "LOAD " + load_name;
             if (command_override.size() < 32) command_override.push_back('_');
         }
-        dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
+        if (!map_up)
+            dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
         const bool faint_now = game.player().fainted || game.player().dead;
         if (faint_now && !was_fainted) {
             // HUPDAT HUPD30: each SYNC lowers MLIGHT and RLIGHT and redraws until

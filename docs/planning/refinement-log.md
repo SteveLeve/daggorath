@@ -101,6 +101,8 @@ then the rest.
 | MISC.ASM:WIZIX | src/platform/sdl_app.cpp (death block) | gap-fixed | 1 | 18 jiffies per step [ROM], C-17; still open: NOISEF buzz. 17 WIZZES steps, each ZFLOP+VCTLST+SYNC; 110 ms/step is [INF]; NOISEF 30 Hz buzz, with NOISEV set to the fade value, not reproduced. |
 | COMPLR.ASM:HSLOW | game.cpp task_hslow | matches | 3 | ASRD6 of -PDAM, signed BGT floor at 0, reschedule HEARTR on Q.JIF; the core's delay-0 guard needs D > P, which is already death [INF]. C-18 shows healing continuing while fainted. |
 | STATUS.ASM:STATUX, OBJNAM | presentation text.cpp project_text, object_name | matches | 14 | Left name at 0, right name flush to column 31 (STAT10: 33 minus length plus terminator), EMPTY name, adjective shown only when revealed. The core clips at 15 characters; no name exceeds 14 [INF]. |
+| MAPPER.ASM:MAPPER | presentation mapper.cpp project_map, rasterize_map; sdl_app | gap-fixed | 15 | The logic matched in project_map, but the window never drew the map; rasterize_map added. Text bands hidden in map mode [INF]. |
+| PEXAM.ASM:EXAMIN (window) | sdl_app | gap-open | 15 | The window does not draw the examine screen; project_examine only reaches dcli. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -121,3 +123,4 @@ then the rest.
 | 2026-09-27 | 12 | PEXAM, EXAMIN, PRTOBJ, PREVEA, HUMAN | The PEXAM PUPDAT was uncharged; the rest match | PEXAM charge + test; no baseline moved | — |
 | 2026-09-27 | 13 | SOUNDS.ASM (all 31 routines), PTURN, STEP, ENDGAM | SOUNDS matches in full; TURN AROUND's second RLTURN sweep was missing on the desktop | About-face wipe drawn twice (16 loops) + test | — |
 | 2026-09-27 | 14 | Audit of run 13; STATUS.ASM | Run 13 audit clean; D-4a wording fixed (8 TURN10 iterations, 16 for an about-face, [INF] outside the viewer); STATUS matches | docs + a sturdier sweep count | — |
+| 2026-09-27 | 15 | MAPPER | The window showed a blank viewport in map mode | Map raster + test; examine screen still not drawn (gap-open) | Examine window drawing — next run |
