@@ -457,13 +457,15 @@ TaskResult Game::task_hslow() {
     return {Queue::Jiffy, delay};
 }
 
-// PUPDAT.ASM PUPDAX: nothing while fainted; otherwise redraw, DEC UPDATE, SYNC.
+// PUPDAT.ASM PUPDAX: nothing while fainted; otherwise redraw, DEC UPDATE, SYNC
+// (source-proven). One jiffy per SYNC is inferred (D-15).
 void Game::pupdat() {
     if (player_.fainted) return;
     ++sync_pending_;
 }
 
-// COMPLR.ASM LUKNEW: redraw when a creature asked for it or the map is up.
+// COMPLR.ASM LUKNEW: redraw when a creature asked for it or the map is up
+// (source-proven).
 TaskResult Game::task_luknew() {
     if (newluk_ || mode_ == DisplayMode::Mapper) {
         newluk_ = false;

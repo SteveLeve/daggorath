@@ -63,3 +63,16 @@ fainted) the planner rests when damage is above 63. The new script wins at jiffy
 `docs/archaeology/phase-5/reconciliation.md`. `tools/verify_manifest.py` also now skips
 subdirectories when listing unlisted files (`phase-6/fixtures/text` has its own manifest, verified
 by the third `make verify` line); that was a standing `make verify` failure, not a fixture change.
+
+## Correction 2026-09-27: PUPDAT costs a SYNC (LUKNEW, CMOVE)
+
+**[SRC]** `LUKNEW` (`COMPLR.ASM:53-63`) calls `PUPDAT` whenever `NEWLUK` is set or the map is up. `CWALK` sets `NEWLUK` when a creature moves within 8×2 cells of the player (`CRETUR.ASM` CWLK90). `CMOVE` calls `PUPDAT` after every pickup (CMOV10), and at CMOV90 when it ends on the player's cell, where it also clears `NEWLUK`. `PUPDAX` (`PUPDAT.ASM:3-8`) does nothing while fainted; otherwise it redraws, sets `UPDATE` and waits on `SYNC`. The core had `LUKNEW` as an inert stub and charged no time for any of these. It now charges one jiffy per `PUPDAT` with the same next-pass approximation as D-4a (**[INF]**; ROM capture C-19 is pending). The pending `SYNC` became a counter, so a pickup on the player's cell costs two. `NEWLUK` is saved in the RAM image. Restored games had also kept the stub `LUKNEW` through `task_body`; that is fixed.
+
+Baselines that change, and why:
+
+| Baseline | Change | Reason |
+|---|---|---|
+| `traces/fight-to-kill.trace` | 4 × `PUPDAT luknew` followed by a `SYNC` jiffy that replaces a `PLAYER` run | `LUKNEW` now redraws after a creature moves nearby. The kill, final cell and damage are unchanged |
+| `traces/fight-to-death.trace` | 28 × the same; the CMOV90 `PUPDAT` line gains a `cmov90` tag; at one point `TASK run PLAYER` now comes before `TASK run HSLOW`, because the `SYNC` jiffy took the lap that used to run `PLAYER` first | same cause. The kill, final cell and damage are unchanged |
+
+Decided by the project owner on 2026-09-27 (refinement log Q2).

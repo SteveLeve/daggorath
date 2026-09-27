@@ -124,6 +124,46 @@ void test_spent_ring_becomes_a_plain_gold_ring() {
     check(o.reveal == 0, "PREV00 clears P.OCREV");
 }
 
+void test_luknew_pupdat_costs_a_sync() {
+    // COMPLR.ASM LUKNEW calls PUPDAT once CWALK has set NEWLUK. PUPDAX's SYNC
+    // costs the next jiffy's pass (D-15, inferred). Level 0 unfrozen: vipers
+    // walk near the start cell within 200 jiffies (phase-0b t1 at jiffy 91).
+    dag::Game game(1, 0);
+    game.advance_jiffies(200);
+    const auto& tr = game.trace();
+    int charged = 0;
+    bool each_followed = true;
+    for (std::size_t i = 0; i < tr.size(); ++i) {
+        if (tr[i].kind != "PUPDAT" || tr[i].detail != "luknew") continue;
+        ++charged;
+        bool sync = false;
+        for (std::size_t k = i + 1; k < tr.size() && tr[k].jiffy <= tr[i].jiffy + 1; ++k)
+            if (tr[k].kind == "SYNC" && tr[k].jiffy == tr[i].jiffy + 1) sync = true;
+        if (!sync) each_followed = false;
+    }
+    check(charged > 0 && has(game, "LOOK"), "a nearby creature step makes LUKNEW call PUPDAT");
+    check(each_followed, "each LUKNEW PUPDAT gives up the next jiffy to SYNC");
+}
+
+void test_no_pupdat_while_fainted() {
+    // PUPDAT.ASM PUPDAX: TST FAINT / BNE PUPD99 - no redraw and no SYNC.
+    dag::Game game(1, 0);
+    game.set_player_damage(156);   // PPOW 160: heart rate 3, a faint and not a death
+    game.advance_jiffies(400);
+    bool fainted = false, revived = false;
+    std::uint64_t faint = 0, revive = 0;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "FAINT" && !fainted) { fainted = true; faint = e.jiffy; }
+        if (e.kind == "REVIVE" && fainted && !revived) { revived = true; revive = e.jiffy; }
+    }
+    check(fainted && revived && revive > faint, "damage 156 of 160 faints, then HSLOW revives");
+    bool charged = false;
+    for (const auto& e : game.trace())
+        if (e.jiffy > faint && e.jiffy < revive && (e.kind == "SYNC" || e.kind == "PUPDAT"))
+            charged = true;
+    check(!charged, "no PUPDAT or SYNC is charged while fainted");
+}
+
 void test_image_ending() {
     dag::Game game(1, 0);
     game.set_frozen(true);
@@ -372,6 +412,8 @@ void test_fudge_harness_is_not_source_behaviour() {
 
 int main() {
     test_spent_ring_becomes_a_plain_gold_ring();
+    test_luknew_pupdat_costs_a_sync();
+    test_no_pupdat_while_fainted();
     test_image_ending();
     test_wizard_ending();
     test_winner();

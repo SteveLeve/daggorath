@@ -277,7 +277,7 @@ private:
     int zflag_ = 0;
     std::string tape_name_;
     // DEC UPDATE / SYNC blocks the foreground until the next interrupt; each
-    // pending SYNC gives up one jiffy's scheduler pass.
+    // pending SYNC gives up one jiffy's scheduler pass (inferred, D-4a/D-15).
     int sync_pending_ = 0;
     // NEWLUK: a creature moved within view range (CWALK CWLK90); LUKNEW redraws.
     bool newluk_ = false;

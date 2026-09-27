@@ -85,3 +85,10 @@ Authored by `src/app/dplan.cpp`. Committed script:
 | Type 10 / ENDGAM | 25 | Original incoming one-shots the landing. `FUDGE incoming 25` plus `FUDGE rest`. Checkpoint `endgam`. |
 | Cleared level 3 | 25 | JOULE → ENERGY, ELVISH. Checkpoint `cleared-3`. |
 | Level 4 | 25 | Revealed ELVISH kite; never climb an occupied hole; ENERGY hit-and-run on type 11 only (wizard `pdef` 0 zeros a sword). `GET` SUPREME, `INCANT FINAL`. |
+
+## Correction 2026-09-27: rings have three charges; playthrough disabled
+
+**[SRC]** `OCBFIX` writes `P.OCXXX` only when the type has an `XXXTAB` entry (`OBIRTH.ASM:73-85`). `INCANT` therefore keeps VULCAN's charge count of 3 on the fire ring. The core zeroed it, so the count wrapped and the ring lasted 256 swings. When the last charge is spent, `PATTK` stores `T.RN20` and calls `PREV00` (`PATTK.ASM:44-54`, `PREVEA.ASM:34-38`). That runs `OCBFIL`, so the gold ring gets its own 0/5 offense, and it clears `P.OCREV`. The core kept 255/255, so a spent ring still hit every time at full force. Both are fixed.
+
+The committed `traces/power-on-to-winner.script` and its two-replay sha256 `be5409e5…0ead` in the table above are **superseded, not regenerated**. That route won by swinging the fire ring hundreds of times, which the listing does not allow. The conformance route test's "572 rested fire-ring swings kill the wizard" figure came from the core, never from a ROM run, and has been replaced by a 3-charge, gold-ring check. Re-running `dplan --fudge` stops with "rings not ready" at the level-2 image, because its strategy assumes a lasting fire ring. `ctest` `playthrough_power_on_to_winner` is **disabled** (`tests/CMakeLists.txt`) until the planner is reworked and the script re-authored, as the project owner decided on 2026-09-27 (refinement log Q3).
+

@@ -120,6 +120,10 @@ entry. A port that ships `HOTH` as a typed word gets it wrong.
 | Medium | Whether a task returning `Q.SCD` is re-entered within the same jiffy in practice | Spec deviation D-2; measurable only against a ROM trace. |
 | Distribution | Rights for the extracted lexicon and tuning tables | See [`../../provenance/ledger.md`](../../provenance/ledger.md) §4. Needs counsel. |
 
+## 3a. Correction 2026-09-27: LUKNEW's PUPDAT costs a SYNC jiffy
+
+The same change as phase-3 reconciliation, "Correction 2026-09-27". `t1`–`t5` each gain `PUPDAT luknew` at jiffies 91 and 181, and a `SYNC display swap` jiffy that replaces a `PLAYER` run at 92 and 182. In `t3`, `t4` and `t5`, one `TASK run PLAYER` / `TASK run HSLOW` pair also swaps order at jiffy 93. No `LINE`, `MOVE`, `TURN` or `LOOK` line changes. The ROM capture of `t1` (C-01, not in the tree) runs `CMOVE` at isr 91 and then has no `PLAYER` dispatch at isr 93. That is consistent with a `SYNC` costing one foreground jiffy near that point, one jiffy away from where the core's next-pass approximation places it. So the charge stays **[INF]** until C-19. These baselines were regenerated under the owner's Q2 decision (refinement log, 2026-09-27), which accepted the baseline changes this fix causes.
+
 ## 4. Phase 1 pointer
 
 Phase 1's reconciliation is
