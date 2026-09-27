@@ -102,3 +102,34 @@ paths. Its current `type()` batches same-jiffy keys (existing input model);
 checkpoint writes snapshot before save, stage names contain digits, resume and
 automatic fallback use snapshot/fudge. KillImage/KillWizard still assume old
 ring longevity. Keep scratch search separate from candidate execution.
+
+## Implementation progress — legal planner experiments
+
+Recovery/scaffolding committed as `008ab0f`. Planner now emits no FUDGE, uses
+confirmed uppercase alphabetic cassette saves, never restores snapshots, and
+always starts from power-on. Candidate retries preserve history and change
+relative timing; maximum 12 recoveries and requested simulated-jiffy bound.
+Death events are detected even if an already queued key restarts automatically.
+Planner checkpoints are external bookkeeping, not game-state checkpoints.
+
+Candidates `build/candidate-a` through `candidate-i` are diagnostics only; none
+is independently qualified. Candidate h defeated the image at normal damage
+with 4085 power after drinking level-2 THEWS, then exhausted fourth-floor retries.
+Its image route saves ENDGAM at 93199 with substantial residual exertion; need
+to improve transition survival and acquire fourth-floor equipment. Candidate i
+changed retreat choice to distance from hazards on level 3 as well as 4; it
+also exhausted 12 recoveries at 105736 jiffies. This is a bounded failed search,
+not a blocker requiring user input.
+
+**Source-proven** (`DTABAS.ASM CREXXX WIZ0/WIZ1`): wizard physical
+susceptibility is zero, so an iron sword cannot finish the image.
+**Source-proven** (`PATTK.ASM PATT10`, `ENDGAM/EGAM10`): charged ring
+exertion is about half power; ENDGAM sets weight 200 and clears the bag except
+for the torch, preserving hands. **Inferred** from candidate-b traces: repeated
+pursuit/escape movement can create a nonzero healing equilibrium. The candidate
+switches rings before the first spends to retain charges in hand at ENDGAM.
+
+The planner reviewer found startup budget/diagnostic gaps; fixed by clamping all
+advance calls to the requested budget and including latest save in failures.
+13 enabled ctests pass. Winner remains disabled; baseline untouched. Next slice:
+faithful scratch lookahead for fourth-floor survival and independent verifier.

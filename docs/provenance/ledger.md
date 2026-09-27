@@ -143,3 +143,22 @@ C++ core.
 Phase 2 added no fixture and no ROM. `docs/archaeology/phase-2/traces/idle-10min.trace`
 is `dcli` output from the core, not a capture. Creature delays were already in
 `fixtures/creatures.json` (`DTABAS.ASM` `CREXXX`).
+
+## Phase 5b strategy research (retrieved 2026-09-27)
+
+- Vernon Nemitz, [A Tour of Daggorath](https://iloveglory.freehostia.com/daggorath/tour.html),
+  described by the hosting fan site as published in a CoCo newsletter in 1985.
+  Secondary, strategy-only: existing planner opening corridor route and hit/run
+  approach. Search indexing supplied the strategy text; direct page retrieval
+  timed out on this date. No guide code or tuning tables were copied.
+- [Dungeons of Daggorath Walk-Through](https://iloveglory.freehostia.com/daggorath/dodwt.html),
+  author/date unresolved; secondary, strategy-only. Search excerpt suggests several
+  finite ring blows followed by sword attacks. Considered, not used as mechanic
+  authority: this core's wizard has zero physical susceptibility, so its actual
+  damage channels must determine the route. Direct retrieval timed out.
+
+**Source-proven** (`PATTK.ASM PATT10` exertion calculation, `ENDGAM`):
+ring exertion uses SCAL16 radix 63 (about half power), and ENDGAM keeps
+only hands and the torch while setting weight 200. These discoveries come
+from the pinned listing and core traces, not these guides. Published strategy is
+subject to the core's documented deviations and does not prove ROM conformance.
