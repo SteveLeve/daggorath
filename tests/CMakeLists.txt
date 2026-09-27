@@ -66,6 +66,12 @@ add_executable(touch_overlay_tests input/touch_overlay_tests.cpp)
 target_link_libraries(touch_overlay_tests PRIVATE daggorath::input)
 add_test(NAME touch_overlay_tests COMMAND touch_overlay_tests)
 
+add_executable(replay_equivalence_tests input/replay_equivalence_tests.cpp)
+target_link_libraries(replay_equivalence_tests PRIVATE daggorath::input)
+target_compile_definitions(replay_equivalence_tests
+  PRIVATE DAG_PHASE0B_TRACE_DIR="${CMAKE_SOURCE_DIR}/docs/archaeology/phase-0b/traces")
+add_test(NAME replay_equivalence_tests COMMAND replay_equivalence_tests)
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")

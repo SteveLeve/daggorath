@@ -243,6 +243,48 @@ module is deliberately headless so its layout math and gesture dispatch
 could still be built and tested; the SDL platform work is carried forward,
 recorded once rather than re-litigated at each PR.
 
-## Later sections (added by 8.5)
+## 11. Replay equivalence (8.5)
 
-- Replay-equivalence evidence (8.5).
+`tests/input/replay_equivalence_tests.cpp` closes the Phase 8 prompt's own
+requirement: "a replay of a touch session produces the same core trace as
+its keystroke transcript." Two checks:
+
+- **Against a committed, provenance-tracked trace.** `gesture_turn_right()`
+  ("T R") is exactly the command the committed
+  `docs/archaeology/phase-0b/traces/t3-burst-one-jiffy` fixture types as a
+  hand-authored, same-jiffy burst. Driving a fresh `Game` from
+  `GestureLine(gesture_turn_right(), 5)`'s own `KeyEvent`s for 200 jiffies
+  produces a trace byte-for-byte identical to that fixture (header line, the
+  full `TraceEvent` stream, and the `# final` player-state footer dcli
+  writes). The touch adapter and the scripted burst are, and must stay, the
+  same input to the core.
+- **Touch burst vs. typed pacing.** `gesture_move_forward()` ("M") delivered
+  as a touch burst at jiffy 5, and the same two bytes typed one jiffy apart
+  finishing (`CR`) on that same jiffy, produce identical traces. `PLAYER`
+  drains whatever the keyboard buffer holds when it next polls (`task_player`,
+  `game.cpp`), not when each byte individually arrived, so a line delivered
+  in one burst and the same line typed but complete by the same jiffy
+  dispatch identically. This is the case D-17 gives up (queue saturation,
+  the 32-byte overrun, mid-burst dispatch) staying reachable only when the
+  two delivery patterns genuinely diverge — a longer or interleaved
+  sequence than this test's two short commands — which typed input alone
+  still exercises (`t5-keyboard-overrun`).
+
+Together with the pause-invariance test (§8) and the crisp segment fixtures
+(§9), this closes the Phase 8 completion gate's test-output requirements.
+Section 6 already closes the coverage-table requirement. The remaining gate
+items — `make all` output and the README phase table — are recorded in
+`docs/archaeology/phase-8/reconciliation.md`.
+
+## Layouts evaluated and the chosen default (8.4, evidence)
+
+Two layouts were built and tested (§10): phone landscape (bottom-corner
+controls) and tablet 4:3 (edge-hugging 2-column grids, clear of the status
+band). Both are headless prototypes; **no on-screen evaluation was possible
+in this environment** (§10's recorded obstacle: no SDL3). Absent a real
+rendering to compare, this document does not choose a default between the
+two — that decision needs the manual evaluation the 8.4 gate calls for,
+which is deferred along with the SDL wiring. The design doc's own
+decision stands as the interim default: phone landscape for phones, tablet
+4:3 for tablets, selected by device form factor rather than by a
+this-project on-screen comparison.

@@ -23,7 +23,7 @@ are the eventual targets; neither is being built yet.
 | **Phase 6** | complete — logical draw list, core events, map and text; [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
 | **Phase 5b** | open — honest power-on `WINNER` playthrough: no `FUDGE`, real `ZSAVE`/`ZLOAD`; the playthrough ctest is disabled until then; [prompt](docs/prompts/phase-5b-honest-playthrough.md) |
 | **Phase 7** | complete — SDL3 desktop window when SDL3 is installed; [reconciliation](docs/archaeology/phase-7/reconciliation.md) |
-| **Phase 8** | planning — [plan](docs/planning/phase-8-plan.md), ADR-0009 (layering and shell pause), ADR-0010 (render styles) |
+| **Phase 8** | complete — touch input layer: coverage table, gesture adapters (D-17), a headless system-menu shell (D-16, ADR-0009), `crisp` render-style geometry (ADR-0010), a headless touch overlay prototype, and a replay-equivalence test; the SDL platform wiring and on-screen evaluation are open follow-up (no SDL3 in the build environment). [reconciliation](docs/archaeology/phase-8/reconciliation.md) |
 | **Phases 9–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
