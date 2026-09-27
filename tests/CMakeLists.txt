@@ -62,6 +62,10 @@ set(CRISP_FIXTURE ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-8/fixtures/crisp-se
 add_test(NAME crisp_segment_fixtures
   COMMAND sh -c "\"$<TARGET_FILE:crisp_fixture_gen>\" > \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" && cmp \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" \"${CRISP_FIXTURE}\"")
 
+add_executable(touch_overlay_tests input/touch_overlay_tests.cpp)
+target_link_libraries(touch_overlay_tests PRIVATE daggorath::input)
+add_test(NAME touch_overlay_tests COMMAND touch_overlay_tests)
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")

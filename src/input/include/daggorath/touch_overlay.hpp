@@ -1,0 +1,122 @@
+// Touch overlay prototype (Phase 8.4): pure layout and hit-testing, no SDL.
+//
+// This is this project's own design choice, not a source-derived claim: the
+// button positions come from docs/design/touch-controls/README.md's agreed
+// layout table. Mouse-as-touch means a click is treated exactly like a
+// touch tap — the same Rect/hit_test path serves both, so the desktop
+// prototype and a real touch device exercise identical logic.
+//
+// **Recorded obstacle (2026-09-27):** this sandbox has no SDL3 installed and
+// no network path to build it from source in this session, so the actual
+// on-screen rendering of these buttons in `src/platform/sdl_app.cpp`, and
+// wiring the shell's system-menu button (ADR-0009) and the `crisp` style
+// (ADR-0010) into it, are not built or tested here. That SDL platform work
+// stays open; this module is deliberately headless so its layout math and
+// gesture dispatch can be tested regardless.
+#pragma once
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "daggorath/gesture.hpp"
+
+namespace dag::input {
+
+// The two layouts evaluated (docs/design/touch-controls/README.md, decisions
+// 2026-09-27): a 19.5:9 phone in landscape, controls in the side margins and
+// bottom corners; a 4:3 tablet, controls floating over the left/right edges
+// of the game view, off the bottom (status/command lines stay clear).
+enum class OverlayLayout { PhoneLandscape, Tablet4x3 };
+
+enum class ButtonId {
+    AttackLeft,
+    AttackRight,
+    GetLeft,
+    GetRight,
+    PullLeft,
+    PullRight,
+    HandMenuLeft,
+    HandMenuRight,  // "≡": S D U R I, holding hand only
+    MoveForward,
+    MoveBack,
+    MoveLeft,
+    MoveRight,
+    TurnLeft,
+    TurnRight,
+    TurnAround,
+    Climb,  // offers C U / C D when available
+    Examine,
+    Look,
+    Keyboard,    // free command line
+    SystemMenu,  // the one control that pauses (ADR-0009)
+};
+
+struct Rect {
+    double x = 0, y = 0, w = 0, h = 0;
+    bool contains(double px, double py) const {
+        return px >= x && px < x + w && py >= y && py < y + h;
+    }
+};
+
+struct Button {
+    ButtonId id;
+    Rect rect;
+};
+
+// Which controls the design doc's "shown when" column makes conditional:
+// G/P show for an empty hand, the "≡" hand menu for a holding one; C U/D
+// only appears on a ladder or hole. Everything else in ButtonId is always
+// present.
+struct OverlayState {
+    bool left_hand_empty = true;
+    bool right_hand_empty = true;
+    bool climb_available = false;
+};
+
+// Computes every visible button's hit rectangle for one viewport and hand
+// state. Pure geometry: caller decides how (or whether) to draw it.
+std::vector<Button> layout_buttons(OverlayLayout layout, double viewport_w,
+                                   double viewport_h, const OverlayState& state);
+
+// Mouse-as-touch: which button, if any, a tap/click at (x, y) lands on.
+// Later entries in `buttons` win on overlap, matching draw order (topmost
+// last); `layout_buttons` never overlaps its own output.
+std::optional<ButtonId> hit_test(const std::vector<Button>& buttons, double x, double y);
+
+// The picker/menu state a tap on GetLeft/GetRight, PullLeft/PullRight, or a
+// HandMenu button opens, per the design doc's "sequential entry" rule: a tap
+// types its letters immediately (the partial line, e.g. "G L", is already
+// authoritative) and a picker/keyboard supplies the rest before the whole
+// gesture line is delivered as one jiffy-stamped burst (D-17).
+enum class PendingKind {
+    None,
+    FloorPicker,
+    PackPicker,
+    HandMenu,
+    IncantKeyboard,
+    ClimbChoice
+};
+
+struct TapOutcome {
+    // Set when the tap alone completed a whole command line ready to
+    // deliver (e.g. MoveForward, TurnLeft, Examine, Look, Climb's confirm).
+    std::optional<std::string> line;
+    // Set when the tap instead opened a picker/menu/keyboard that needs a
+    // second selection before a line is ready.
+    PendingKind pending = PendingKind::None;
+    bool right_hand = false;  // which hand `pending` refers to
+};
+
+// Resolves one button tap into either a finished command line or a pending
+// picker/menu, without touching SDL, the keyboard buffer, or a `Game`. The
+// caller feeds a finished `line` to a `GestureLine` (gesture.hpp) the same
+// way for every source.
+TapOutcome resolve_tap(ButtonId id, const OverlayState& state);
+
+// Finishes a pending picker: the floor/pack picker's chosen object name, or
+// the hand-menu's chosen verb letter ('S' stow, 'D' drop, 'U' use, 'R'
+// reveal — 'I' opens the incant keyboard instead of finishing here).
+std::optional<std::string> resolve_picker_choice(PendingKind pending, bool right_hand,
+                                                 const std::string& choice);
+
+}  // namespace dag::input

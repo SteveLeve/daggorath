@@ -205,8 +205,44 @@ caller (it emits source-256x192 coordinates only) — deferred to 8.4, which
 wires `crisp`/`pixel` into `src/platform`. Text stays on the existing bitmap
 path (`text.cpp`); ADR-0010 §6's all-vector-text option is not reopened.
 
-## Later sections (added by 8.4–8.5)
+## 10. Touch overlay prototype (8.4)
 
-- Layouts evaluated and the chosen default, with screenshots kept out of tree
-  (8.4).
+`src/input/touch_overlay.{hpp,cpp}`, headless (no SDL): pure layout, hit
+testing, and gesture dispatch, so the mouse-as-touch prototype's logic is
+tested without a display. Two layouts evaluated, per
+`docs/design/touch-controls/README.md`'s decisions:
+
+- **Phone landscape**: hand controls (`A`, then `G`/`P` or the hand menu) in
+  the top corners; movement and turn controls at bottom left; climb (when
+  offered)/examine/look/keyboard/system-menu at bottom right.
+- **Tablet 4:3**: the same hand-control corners, but movement/turn and the
+  climb/examine/look/keyboard/system-menu clusters run as compact 2-column
+  grids down the left and right edges instead of a bottom row, so the
+  status and command lines stay clear (`bottom_band` = the lower quarter of
+  the viewport; `tests/input/touch_overlay_tests.cpp`
+  `test_tablet_stays_clear_of_bottom_band` checks this by construction).
+
+`layout_buttons` computes every visible control's hit rectangle for a
+viewport and hand state (`OverlayState`: which hand is empty, whether a
+ladder/hole offers Climb); `hit_test` finds which rectangle a point falls in
+— the same function whether that point comes from a mouse click or a touch
+tap, which is what "mouse-as-touch" means here. `resolve_tap` turns a button
+press into either a finished command line (fed to `GestureLine`, 8.1) or a
+`PendingKind` (a floor/pack picker, the holding-hand `≡` menu, the climb
+`U`/`D` confirmation, or the incant keyboard) that `resolve_picker_choice`
+finishes once the player picks an object, a verb letter, or a direction.
+
+**Recorded obstacle (2026-09-27):** this sandbox has no SDL3 available and
+no path to build it from source in this session (not in the package
+manager; building from source needs the source tree and time this session
+does not have). The actual on-screen rendering of these buttons in
+`src/platform/sdl_app.cpp`, the manual landscape/tablet evaluation the 8.4
+gate calls for, and wiring the shell's system-menu button (ADR-0009) and
+`crisp` (ADR-0010) into that window are therefore not built here. This
+module is deliberately headless so its layout math and gesture dispatch
+could still be built and tested; the SDL platform work is carried forward,
+recorded once rather than re-litigated at each PR.
+
+## Later sections (added by 8.5)
+
 - Replay-equivalence evidence (8.5).
