@@ -691,8 +691,15 @@ struct Runner {
         }
         if (find_owned(game, kElvish) >= 0 && !holding_elvish) {
             const bool left_ring = charged_ring(hand_type(false));
-            empty_hand(!left_ring);
-            type({left_ring ? "PULL RIGHT ELVISH SWORD" : "PULL LEFT ELVISH SWORD"});
+            // A charged ring retained in the left hand needs the right hand
+            // cleared before the sword can be pulled there.
+            if (left_ring) {
+                empty_hand(true);
+                type({"PULL RIGHT ELVISH SWORD"});
+            } else {
+                empty_hand(false);
+                type({"PULL LEFT ELVISH SWORD"});
+            }
             reveal_held();
             return;
         }
@@ -1723,7 +1730,9 @@ struct Runner {
                     const int before = game.level_index();
                     if (before == 3) {
                         ensure_sword();
-                        ensure_mithril();
+                        // Keep the sword and charged ring across the descent;
+                        // a shield would displace one of the two usable hands.
+                        if (!holding_iron()) ensure_mithril();
                     }
                     if (before == 2 && clearable() > 0 && slot_of_type(game, 10) >= 0) {
                         // Image is not last: do not fight it. Climb up to farm
