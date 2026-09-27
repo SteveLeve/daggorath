@@ -46,38 +46,38 @@ then the rest.
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
 | HUPDAT.ASM:HUPD40 |  | gap-fixed | 3 | Wake-up fade-in climbs to the saved OLIGHT [SRC], 5 jiffies per step [ROM] C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
-| SOUNDS.ASM:SNOISE |  | unreviewed |  |  |
-| SOUNDS.ASM:SNOUT |  | unreviewed |  |  |
-| SOUNDS.ASM:SNWAIT |  | unreviewed |  |  |
-| SOUNDS.ASM:CSETUP |  | unreviewed |  |  |
-| SOUNDS.ASM:SNENV |  | unreviewed |  |  |
-| SOUNDS.ASM:SNENVA |  | unreviewed |  |  |
-| SOUNDS.ASM:SETNVA |  | unreviewed |  |  |
-| SOUNDS.ASM:SETNVD |  | unreviewed |  |  |
-| SOUNDS.ASM:WHOOSH |  | unreviewed |  |  |
-| SOUNDS.ASM:CHUCK |  | unreviewed |  |  |
-| SOUNDS.ASM:CLANK |  | unreviewed |  |  |
-| SOUNDS.ASM:KLANK |  | unreviewed |  |  |
-| SOUNDS.ASM:KKLANK |  | unreviewed |  |  |
-| SOUNDS.ASM:KLINK |  | unreviewed |  |  |
-| SOUNDS.ASM:CLANG |  | unreviewed |  |  |
-| SOUNDS.ASM:BANG |  | unreviewed |  |  |
-| SOUNDS.ASM:THUD |  | unreviewed |  |  |
-| SOUNDS.ASM:KABOOM |  | unreviewed |  |  |
-| SOUNDS.ASM:BOOMER |  | unreviewed |  |  |
-| SOUNDS.ASM:RATTLE |  | unreviewed |  |  |
-| SOUNDS.ASM:GROWL |  | unreviewed |  |  |
-| SOUNDS.ASM:GRAWL |  | unreviewed |  |  |
-| SOUNDS.ASM:SNARL |  | unreviewed |  |  |
-| SOUNDS.ASM:PSSST |  | unreviewed |  |  |
-| SOUNDS.ASM:PSSHT |  | unreviewed |  |  |
-| SOUNDS.ASM:SQUEAK |  | unreviewed |  |  |
-| SOUNDS.ASM:BEOOP |  | unreviewed |  |  |
-| SOUNDS.ASM:WHOOP |  | unreviewed |  |  |
-| SOUNDS.ASM:PHASER |  | unreviewed |  |  |
-| SOUNDS.ASM:GLUGLG |  | unreviewed |  |  |
-| SOUNDS.ASM:BDLBDL |  | unreviewed |  |  |
-| SOUNDS.ASM:MSQUEK |  | unreviewed |  |  |
+| SOUNDS.ASM:SNOISE | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SNOUT | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SNWAIT | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:CSETUP | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SNENV | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SNENVA | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SETNVA | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SETNVD | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:WHOOSH | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:CHUCK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:CLANK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:KLANK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:KKLANK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:KLINK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:CLANG | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:BANG | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:THUD | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:KABOOM | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:BOOMER | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:RATTLE | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:GROWL | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:GRAWL | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SNARL | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:PSSST | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:PSSHT | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:SQUEAK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:BEOOP | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:WHOOP | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:PHASER | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:GLUGLG | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:BDLBDL | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
+| SOUNDS.ASM:MSQUEK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
 | PINCAN.ASM:PINCAN | game.cpp cmd_incant, incant_hand | matches | 8 | ADJTAB + FULFLG, K.RING, P.OCXXX+1 match, OCBFIL, A$RING, CLR +1, T.RN15 goes to WINNER. The ROM tries the right hand even after the left incants (BSR, then fall-through), while the core stops after the left. That only differs if both hands hold a ring answering the same word [INF]; not changed. |
 | PINCAN.ASM:WINNER | game.cpp incant_hand WINNER | matches | 8 | WIZ2 fade-in, two OUTSTI, BRA *; test_winner. |
 | PTURN.ASM:PTURN |  | unreviewed |  |  |
@@ -118,3 +118,4 @@ then the rest.
 | 2026-09-27 | 10 | PGET (GET, DROP, STOW, PULL, COMUPD), PUSE | Logic matches; COMUPD, PUSE and PATT40 PUPDATs were uncharged | D-15 extended; fight baselines regenerated (one kill SYNC each); 3 tests; audited | Tests for GET, DROP and STOW individually — not added (the shared COMUPD path is covered by PULL) |
 | 2026-09-27 | 11 | PCLIMB, INIVU/PLOOK, HMAN10, endgames | Typing after a map never left map mode; CLIMB skipped INIVU; INIVU lacked CLRPRI, PLOOK and PUPDAT; the ring riddle wrongly stopped the heartbeat (a stray WIZIX CLR HBEATF); ENDGAM lacked WIZIX's CLR HBEATF | Fixed; tests for climb, map exit, riddle and ENDGAM (no LOAD90 test); no baseline moved; Q4 raised | GAME50 charge — not run: Q4 |
 | 2026-09-27 | 12 | PEXAM, EXAMIN, PRTOBJ, PREVEA, HUMAN | The PEXAM PUPDAT was uncharged; the rest match | PEXAM charge + test; no baseline moved | — |
+| 2026-09-27 | 13 | SOUNDS.ASM (all 31 routines) | SNDTAB cue order, SNDOBJ=12, every generator parameter match; no gaps | none | — |
