@@ -47,7 +47,7 @@ then the rest.
 | PATTK.ASM:PATTK | game.cpp cmd_attack | gap-fixed | 6 | Exertion (9-bit sum /8), SNDOBJ, ring auto-hit, darkness 25% gate, KLK2, !!! match. Spent ring was missing PREV00/OCBFIL, fixed on refinement/ring-charges (Q3). Kill path lacks the PUPDAT SYNC (Q2 class). |
 | PATTK.ASM:ATTACK | combat attack_hits | matches | 6 | Fixture-backed (combat fixtures). |
 | PATTK.ASM:DAMAGE | combat apply_damage | matches | 6 | SCAL16 magic then physical; fixture-backed. |
-| PATTK.ASM:ENDGAM | game.cpp endgame_image | gap-fixed | 11 | WIZIN (CLR HBEATF) and the closing INIVU added in run 11; messages, torch-only bag, weight 200, level 3, FNDCEL. |
+| PATTK.ASM:ENDGAM | game.cpp endgame_image, endgame_resume | gap-fixed | 11, 21 | WIZIN (CLR HBEATF) and the closing INIVU added in run 11; messages, torch-only bag, weight 200, level 3, FNDCEL. |
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
 | HUPDAT.ASM:HUPD40 |  | gap-fixed | 3 | Wake-up fade-in climbs to the saved OLIGHT [SRC], 5 jiffies per step [ROM] C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
@@ -113,6 +113,7 @@ then the rest.
 | NEWLVL.ASM:NEWLVX, NLVL30-44, NLVL50 | game.cpp build_level, population.cpp birth_creatures/attach_objects; raster.cpp apply_vdginv | matches | 18 | SYSTCB, DGNGEN, births from CTYPES-1 down, round-robin attach (no-live-creature hang is a quirk). NLVL50 polarity done runs 17-18. |
 | COMPLR.ASM:BURNER | game.cpp task_burner | gap-fixed | 20 | Timer, dead-torch at <=5, light clamps match. BURN99 DEC NEWLUK was missing (fixed; D-15 baselines regenerated, [ROM]-consistent with t1). |
 | COMPLR.ASM:LUKNEW | game.cpp task_luknew | matches | 20 | NEWLUK or map mode, CLR NEWLUK, PUPDAT, SCHED$ 3,Q.TEN. |
+| MISC.ASM:WIZIX, WIZOX, WIZZES, WAITX, PREPAX | game.cpp wizard_fade_in, endgame_image/endgame_resume | gap-fixed | 21 | ENDGAM's 1+81+16 SYNCs, both A$EXP1 and WIZIX0 CLRPRI were missing; NEWLVL 3 now uses the later SECOND. DEATH's 17-step fade stays D-14. Note: no test yet for DEATH's CLRPRI. PREPAX not yet traced to a caller. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -139,3 +140,4 @@ then the rest.
 | 2026-09-27 | 18 | NEWLVL; Q5 follow-up | NEWLVL matches; the VDGINV flip moved into a tested presentation helper | apply_vdginv + test | none |
 | 2026-09-27 | 19 | HUPDAT heart rate, HUPD90, DEATH | DEATH did not clear FAINT; the halt-instead-of-restart was unrecorded | CLR FAINT + test; D-16 added | none |
 | 2026-09-27 | 20 | COMPLR BURNER, LUKNEW | BURNER never set NEWLUK | NEWLUK at BURN99 + test; t1-t5 and phase-3 fight traces regenerated under Q2 | f53cf22 was pushed with a failing test: the gate chain used `grep`, which succeeded on the FAIL line. Fixed in the next commit. Gate on `make all`'s exit code, never on grep. |
+| 2026-09-27 | 21 | MISC wizard/WAIT routines, ENDGAM timing; audit of 66e2b6f | ENDGAM ran instantly: no WIZIN/WAIT/WIZOUT SYNCs, no A$EXP1, level 3 built ~1.4 s early (different SECOND) | Staged ENDGAM + timing test; no baseline moved | — |
