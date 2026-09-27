@@ -273,6 +273,22 @@ void test_examine_costs_a_sync() {
           "EXAMINE switches to the examine display and redraws once");
 }
 
+void test_turn_around_sweeps_twice() {
+    // PTURN.ASM: TURN AROUND runs RLTURN twice, a single turn once.
+    auto loops_for = [](const std::string& cmd) {
+        dag::Game game(1, 0);
+        game.set_frozen(true);
+        run(game, {cmd});
+        std::uint32_t loops = 0;
+        for (const auto& e : game.events())
+            if (e.kind == dag::CoreEventKind::Block && e.block == dag::BlockKind::TurnAnimation)
+                loops = e.loop_count;
+        return loops;
+    };
+    check(loops_for("TURN AROUND") == 16 && loops_for("TURN LEFT") == 8,
+          "TURN AROUND reports two RLTURN sweeps (16 loops), a single turn one (8)");
+}
+
 void test_image_ending() {
     dag::Game game(1, 0);
     game.set_frozen(true);
@@ -531,6 +547,7 @@ int main() {
     test_torch_use_redraws_twice_and_flask_not_at_all();
     test_inivu_returns_to_the_viewer();
     test_examine_costs_a_sync();
+    test_turn_around_sweeps_twice();
     test_image_ending();
     test_wizard_ending();
     test_winner();

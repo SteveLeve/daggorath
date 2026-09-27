@@ -36,13 +36,13 @@ then the rest.
 | COMCRE.ASM:CREGEN | game.cpp task_cregen, population.cpp cregen_increment | matches | 2 | 8-bit sum over 12 types, BHS 32, RANDOM&7+2, 5-minute reschedule. |
 | CRETUR.ASM:CMOVE | creature_move.cpp cmove, game.cpp task_cmove | gap-fixed | 4 | Logic matches: frozen before dead, scorpion/wizard skip pickup, pickup then CMOV90, player-cell attack with SHIELD, line-of-sight walk, MOVTAB preference, back-out. **Gap [SRC]:** CMOVE calls PUPDAT after every pickup (CRETUR CMOV10) and at CMOV90 when on the player's cell. PUPDAX redraws and waits on SYNC unless fainted (PUPDAT.ASM:3-8), which costs the foreground at least 1 jiffy. The core only emits a PUPDAT event and charges no time. Fixing it touches scheduler timing and traces, so measure first: C-19. |
 | CRETUR.ASM:SHIELD | creature_move.cpp apply_shield | matches | 4 | Class K.SHIE; the lower 16-bit (MGD<<8 or PHD) pair wins, BHS keeps the current one; $8080 default stored every attack. |
-| CRETUR.ASM:STEP |  | unreviewed |  |  |
+| CRETUR.ASM:STEP | creature_move.cpp step_ok | matches | 13 | STPTAB offsets N/E/S/W, then MAP32; reviewed with STEPOK in run 4. |
 | CRETUR.ASM:STEPOK | creature_move.cpp step_ok | matches | 4 | Border then $FF solid-wall test; used by both the line-of-sight walk and CWALK. |
 | CRETUR.ASM:CWALK | creature_move.cpp cwalk | matches | 5 | STEPOK+CFIND, big<=8/little<=2 window, RANDOM bit 0, volume ~(big*31); sets NEWLUK (see Q2). |
 | PATTK.ASM:PATTK | game.cpp cmd_attack | gap-fixed | 6 | Exertion (9-bit sum /8), SNDOBJ, ring auto-hit, darkness 25% gate, KLK2, !!! match. Spent ring was missing PREV00/OCBFIL, fixed on refinement/ring-charges (Q3). Kill path lacks the PUPDAT SYNC (Q2 class). |
 | PATTK.ASM:ATTACK | combat attack_hits | matches | 6 | Fixture-backed (combat fixtures). |
 | PATTK.ASM:DAMAGE | combat apply_damage | matches | 6 | SCAL16 magic then physical; fixture-backed. |
-| PATTK.ASM:ENDGAM |  | unreviewed |  |  |
+| PATTK.ASM:ENDGAM | game.cpp endgame_image | gap-fixed | 11 | WIZIN (CLR HBEATF) and the closing INIVU added in run 11; messages, torch-only bag, weight 200, level 3, FNDCEL. |
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
 | HUPDAT.ASM:HUPD40 |  | gap-fixed | 3 | Wake-up fade-in climbs to the saved OLIGHT [SRC], 5 jiffies per step [ROM] C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
@@ -80,7 +80,7 @@ then the rest.
 | SOUNDS.ASM:MSQUEK | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
 | PINCAN.ASM:PINCAN | game.cpp cmd_incant, incant_hand | matches | 8 | ADJTAB + FULFLG, K.RING, P.OCXXX+1 match, OCBFIL, A$RING, CLR +1, T.RN15 goes to WINNER. The ROM tries the right hand even after the left incants (BSR, then fall-through), while the core stops after the left. That only differs if both hands hold a ring answering the same word [INF]; not changed. |
 | PINCAN.ASM:WINNER | game.cpp incant_hand WINNER | matches | 8 | WIZ2 fade-in, two OUTSTI, BRA *; test_winner. |
-| PTURN.ASM:PTURN |  | unreviewed |  |  |
+| PTURN.ASM:PTURN | game.cpp cmd_turn; sdl_app wipe | gap-fixed | 13 | PREVU turns and SYNC match (D-4a [ROM]). TURN AROUND runs RLTURN twice; the core now reports 16 loops and the desktop draws two wipes. |
 | PTURN.ASM:PMOVE | game.cpp cmd_move; sdl_app half-step/wipe | deviation (gap fixed run 9) | 8 | Core: parse, PSTEP, PMOV90 exertion ((POBJWT asr 3)+3) on every path, SYNC; the half-step PUPDAT timing is D-4a [ROM]. **Presentation gap:** a forward or back MOVE draws the half-step view (HLFSTP/BAKSTP PUPDAT) before PSTEP, even when PSTEP then THUDs into a wall. The desktop used to show a half-step only when the position changed; since run 9 the MoveAnimation block carries the direction and a wall bump draws the lunge. A blocked sidestep correctly shows no wipe (BNE PMOV90). |
 | PTURN.ASM:PSTEP | game.cpp step_player | matches | 8 | STEPOK; on failure ISOUND A$THUD and the position is kept; PUPSUB redraws the backplane. |
 | PUPDAT.ASM:PUPDAX | game.cpp PUPDAX redraw | matches | 2 | HUPD32 clears KBDHDR/KBDTAL; the core leaves the buffer but PLAYER discards every char while fainted (HUMAN.ASM:21), and CLK50 stops polling, so the effect is the same [INF]. |
@@ -118,4 +118,4 @@ then the rest.
 | 2026-09-27 | 10 | PGET (GET, DROP, STOW, PULL, COMUPD), PUSE | Logic matches; COMUPD, PUSE and PATT40 PUPDATs were uncharged | D-15 extended; fight baselines regenerated (one kill SYNC each); 3 tests; audited | Tests for GET, DROP and STOW individually — not added (the shared COMUPD path is covered by PULL) |
 | 2026-09-27 | 11 | PCLIMB, INIVU/PLOOK, HMAN10, endgames | Typing after a map never left map mode; CLIMB skipped INIVU; INIVU lacked CLRPRI, PLOOK and PUPDAT; the ring riddle wrongly stopped the heartbeat (a stray WIZIX CLR HBEATF); ENDGAM lacked WIZIX's CLR HBEATF | Fixed; tests for climb, map exit, riddle and ENDGAM (no LOAD90 test); no baseline moved; Q4 raised | GAME50 charge — not run: Q4 |
 | 2026-09-27 | 12 | PEXAM, EXAMIN, PRTOBJ, PREVEA, HUMAN | The PEXAM PUPDAT was uncharged; the rest match | PEXAM charge + test; no baseline moved | — |
-| 2026-09-27 | 13 | SOUNDS.ASM (all 31 routines) | SNDTAB cue order, SNDOBJ=12, every generator parameter match; no gaps | none | — |
+| 2026-09-27 | 13 | SOUNDS.ASM (all 31 routines), PTURN, STEP, ENDGAM | SOUNDS matches in full; TURN AROUND's second RLTURN sweep was missing on the desktop | About-face wipe drawn twice (16 loops) + test | — |

@@ -609,7 +609,9 @@ void Game::cmd_turn(const std::string& line, std::size_t& pos) {
         return;
     }
     player_.dir = static_cast<Dir>(b & 3);   // PREVU: ANDB #3 / STB PDIR
-    block(BlockKind::TurnAnimation, 8, 0, false);  // PTURN.ASM LRTURN, D-4a
+    // PTURN.ASM LRTURN/RLTURN, D-4a: TURN AROUND runs RLTURN twice (PTUR20
+    // falls into PTUR22), so its sweep count doubles (source-proven).
+    block(BlockKind::TurnAnimation, d.type == kDirAround ? 16 : 8, 0, false);
     emit("TURN", "dir=" + dir_name(player_.dir));
     ++sync_pending_;
 }

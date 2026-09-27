@@ -306,6 +306,7 @@ int main(int argc, char** argv) {
         auto snap = dag::snapshot_from(game);
         bool stepped = false;
         bool turned = false;
+        std::uint32_t turn_loops = 0;
         int step_relative = -1;
         const auto& motion = game.events();
         while (seen_motion < motion.size()) {
@@ -315,7 +316,10 @@ int main(int argc, char** argv) {
                 stepped = true;
                 step_relative = ev.step_relative;
             }
-            if (ev.block == dag::BlockKind::TurnAnimation) turned = true;
+            if (ev.block == dag::BlockKind::TurnAnimation) {
+                turned = true;
+                turn_loops = ev.loop_count;
+            }
         }
         int half_scale = 0;
         int sidestep_bar = -1;
@@ -478,10 +482,15 @@ int main(int argc, char** argv) {
                 // Left sweeps in from x=8. Right and about-face start at x=248.
                 bar = delta == 3 ? 8 : 248;
             }
-            auto wipe = turn_wipe(bar);
-            dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message, command_override);
-            present_frame(renderer, texture, wipe);
-            SDL_Delay(12);
+            // TURN AROUND sweeps RLTURN twice (PTURN.ASM PTUR20 -> PTUR22).
+            const int sweeps = (sidestep_bar < 0 && turn_loops == 16) ? 2 : 1;
+            for (int sweep = 0; sweep < sweeps; ++sweep) {
+                auto wipe = turn_wipe(bar);
+                dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
+                                      command_override);
+                present_frame(renderer, texture, wipe);
+                SDL_Delay(12);
+            }
         }
         present_frame(renderer, texture, frame);
         shown_row = game.player().row;
