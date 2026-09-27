@@ -151,11 +151,18 @@ void test_burner_requests_redraw() {
     dag::Game game(1, 0);
     game.set_frozen(true);
     game.advance_jiffies(60);
-    bool at_first_luknew = false;
-    for (const auto& e : game.trace())
-        if (e.kind == "PUPDAT" && e.detail == "luknew" && e.jiffy == 19) at_first_luknew = true;
-    check(at_first_luknew,
-          "the opening BURNER's NEWLUK makes the first LUKNEW (jiffy 19) redraw");
+    // Find the first LUKNEW run after BURNER's opening run; it must redraw.
+    const auto& tr = game.trace();
+    bool burned = false, redrew = false;
+    for (std::size_t i = 0; i < tr.size(); ++i) {
+        if (tr[i].kind == "TASK" && tr[i].detail == "run BURNER") burned = true;
+        if (burned && tr[i].kind == "TASK" && tr[i].detail == "run LUKNEW") {
+            redrew = i + 1 < tr.size() && tr[i + 1].kind == "PUPDAT" &&
+                     tr[i + 1].detail == "luknew";
+            break;
+        }
+    }
+    check(redrew, "the first LUKNEW after BURNER redraws (BURN99 DEC NEWLUK)");
 }
 
 // HUPDAT.ASM:130-132 and :168: death is checked after a faint in the same
