@@ -4,7 +4,7 @@ Tracker for `refinement-loop.md`. Newest run last.
 
 ## Reported symptoms
 Steve adds hand-play observations here. The loop works these first.
-- Death animation still runs too fast after e5ac0ac. Check the fade and heart timing against the ENDGAM/death path.
+- ~~Death animation too fast~~ fixed by C-17 (2026-09-26). Hand-play check pending.
 
 ## Open questions
 
@@ -37,8 +37,8 @@ then the rest.
 | PATTK.ASM:ATTACK |  | unreviewed |  |  |
 | PATTK.ASM:DAMAGE |  | unreviewed |  |  |
 | PATTK.ASM:ENDGAM |  | unreviewed |  |  |
-| HUPDAT.ASM:HUPDAX |  | needs-human | 1 | Death/faint fade pacing: listing gives one redraw per SYNC; real speed depends on draw cost. See Q1, C-17. |
-| HUPDAT.ASM:HUPD30 |  | needs-human | 1 | Fade-out per-step delay (90 ms) is [INF]; see Q1. |
+| HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
+| HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
 | HUPDAT.ASM:HUPD40 |  | gap-open | 1 | Wake-up fade-in (HUPD42 raises lighting to OLIGHT) is not drawn; D-14 says no fade-in on waking. |
 | SOUNDS.ASM:SNOISE |  | unreviewed |  |  |
 | SOUNDS.ASM:SNOUT |  | unreviewed |  |  |
@@ -92,10 +92,11 @@ then the rest.
 | PEXAM.ASM:PRTOBJ |  | unreviewed |  |  |
 | HUMAN.ASM:PLAYER |  | unreviewed |  |  |
 | HUMAN.ASM:HUMAN |  | unreviewed |  |  |
-| MISC.ASM:WIZIX | src/platform/sdl_app.cpp (death block) | needs-human | 1 | 17 WIZZES steps, each ZFLOP+VCTLST+SYNC; 110 ms/step is [INF]; NOISEF 30 Hz buzz, with NOISEV set to the fade value, not reproduced. |
+| MISC.ASM:WIZIX | src/platform/sdl_app.cpp (death block) | gap-fixed | 1 | 18 jiffies per step [ROM], C-17; still open: NOISEF buzz. 17 WIZZES steps, each ZFLOP+VCTLST+SYNC; 110 ms/step is [INF]; NOISEF 30 Hz buzz, with NOISEV set to the fade value, not reproduced. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
 | Date | Loop | Targets | Findings | Fixes / commits | Not run |
 |---|---|---|---|---|---|
 | 2026-09-26 | 1 | Reported: death animation too fast (HUPDAT DEATH/HUPD30, MISC WIZIX) | Pacing unprovable from the listing (per-step draw cost); wake-up fade-in and fade-in buzz not reproduced | none; map seeded, Q1 raised, C-17 added | ROM capture — not run: MAME not extracted |
+| 2026-09-26 | 1b (manual) | C-17 capture | Wizard fade ~4.8 s on the ROM vs our 1.9 s; blank gap 33 ms vs our 400 ms | 9e8d66c, ab91dc7; audited | — |
