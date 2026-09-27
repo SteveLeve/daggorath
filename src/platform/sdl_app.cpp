@@ -2,22 +2,27 @@
 #include "daggorath/game.hpp"
 #include "daggorath/examine.hpp"
 #include "daggorath/mapper.hpp"
+#include "daggorath/overlay_bridge.hpp"
 #include "daggorath/raster.hpp"
+#include "daggorath/shell.hpp"
 #include "daggorath/snapshot.hpp"
 #include "daggorath/snoise.hpp"
 #include "daggorath/sound_mix.hpp"
 #include "daggorath/text.hpp"
 #include "daggorath/text_tables.hpp"
+#include "daggorath/touch_overlay.hpp"
 
 #include <SDL3/SDL.h>
 
 #include <array>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -138,9 +143,13 @@ std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int b
 }
 
 // Screen polarity follows VDGINV; see dag::apply_vdginv (NEWLVL.ASM NLVL50).
+// `overlay` draws on top of the blitted frame, before the flip -- the touch
+// overlay's buttons/picker (Phase 8.6.1) and, later, the shell's system menu
+// (8.6.2). Absent for the transitional animation frames (turn wipe, faint,
+// wizard fade), which do not draw it.
 void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
                    std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels,
-                   int level) {
+                   int level, const std::function<void(SDL_Renderer*)>& overlay = nullptr) {
     dag::apply_vdginv(pixels, level);
     constexpr int kScale = 3;
     const auto scaled = dag::scale_frame(pixels, kScale);
@@ -154,7 +163,117 @@ void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
     const int pitch = dag::kScreenWidth * kScale * 3;
     SDL_UpdateTexture(texture, nullptr, rgb.data(), pitch);
     SDL_RenderTexture(renderer, texture, nullptr, nullptr);
+    if (overlay) overlay(renderer);
     SDL_RenderPresent(renderer);
+}
+
+// Single-letter placeholder labels (Phase 8.6.1): the design doc
+// (docs/design/touch-controls/README.md) specifies arrow/icon glyphs the
+// original char generator's uppercase-only set (kSpcTab, text.cpp) cannot
+// draw; each button instead shows the first letter of the command it types,
+// which the coverage table (docs/architecture/touch-input.md §1) already
+// assigns uniquely per verb. Real icon art is a follow-up polish item, not
+// a correctness gap this validation pass needs to close.
+char button_label(dag::input::ButtonId id) {
+    using dag::input::ButtonId;
+    switch (id) {
+        case ButtonId::AttackLeft:
+        case ButtonId::AttackRight:
+            return 'A';
+        case ButtonId::GetLeft:
+        case ButtonId::GetRight:
+            return 'G';
+        case ButtonId::PullLeft:
+        case ButtonId::PullRight:
+            return 'P';
+        case ButtonId::HandMenuLeft:
+        case ButtonId::HandMenuRight:
+            return 'H';
+        case ButtonId::MoveForward:
+        case ButtonId::MoveBack:
+        case ButtonId::MoveLeft:
+        case ButtonId::MoveRight:
+            return 'M';
+        case ButtonId::TurnLeft:
+        case ButtonId::TurnRight:
+        case ButtonId::TurnAround:
+            return 'T';
+        case ButtonId::Climb:
+            return 'C';
+        case ButtonId::Examine:
+            return 'E';
+        case ButtonId::Look:
+            return 'L';
+        case ButtonId::Keyboard:
+            return 'K';
+        case ButtonId::SystemMenu:
+            return 'X';
+    }
+    return '?';
+}
+
+// glyph_rows takes the original char generator's own codes (text.cpp's
+// code_for: 'A'-'Z' -> 1-26, not ASCII 0x41-0x5A); every label here is
+// already an uppercase letter, so this is the only case that matters.
+std::uint8_t glyph_code(char label) {
+    if (label >= 'A' && label <= 'Z') return static_cast<std::uint8_t>(label - 'A' + 1);
+    return 0x1D;  // code_for's '?': anything unmapped shows as a question mark
+}
+
+void draw_glyph(SDL_Renderer* renderer, double center_x, double center_y, char label) {
+    std::uint8_t rows[7];
+    dag::glyph_rows(glyph_code(label), rows);
+    constexpr float kDot = 3.0f;
+    for (int row = 0; row < 7; ++row) {
+        for (int bit = 0; bit < 8; ++bit) {
+            if ((rows[row] & (0x80 >> bit)) == 0) continue;
+            const SDL_FRect px{static_cast<float>(center_x) - 4 * kDot + bit * kDot,
+                              static_cast<float>(center_y) - 3.5f * kDot + row * kDot, kDot, kDot};
+            SDL_RenderFillRect(renderer, &px);
+        }
+    }
+}
+
+void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char label) {
+    const SDL_FRect r{static_cast<float>(rect.x), static_cast<float>(rect.y),
+                      static_cast<float>(rect.w), static_cast<float>(rect.h)};
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderRect(renderer, &r);
+    draw_glyph(renderer, rect.x + rect.w / 2, rect.y + rect.h / 2, label);
+}
+
+// Picker/menu choices (Phase 8.6.1): the design doc's floor/pack pickers and
+// hand menu are simple choice lists, not yet checked against the listing for
+// which objects are actually visible (docs/architecture/touch-input.md §4,
+// carried into a later workstream). This lays out GENTAB's six generic
+// names, or the hand-menu/climb letters, as one evenly spaced row -- a
+// working tap path to the keystrokes (Phase 8's own scope), not a claim
+// about which objects the player can actually see.
+std::vector<std::pair<std::string, dag::input::Rect>> picker_choice_rects(
+    dag::input::PendingKind kind, double viewport_w, double viewport_h) {
+    std::vector<std::string> choices;
+    switch (kind) {
+        case dag::input::PendingKind::FloorPicker:
+        case dag::input::PendingKind::PackPicker:
+            choices = {"FLASK", "RING", "SCROLL", "SHIELD", "SWORD", "TORCH"};
+            break;
+        case dag::input::PendingKind::HandMenu:
+            choices = {"S", "D", "U", "R", "I"};
+            break;
+        case dag::input::PendingKind::ClimbChoice:
+            choices = {"U", "D"};
+            break;
+        case dag::input::PendingKind::IncantKeyboard:
+        case dag::input::PendingKind::None:
+            return {};
+    }
+    std::vector<std::pair<std::string, dag::input::Rect>> out;
+    const double w = viewport_w / static_cast<double>(choices.size());
+    const double h = 40;
+    const double y = viewport_h - h - 60;  // clear of the status/command bands
+    for (std::size_t i = 0; i < choices.size(); ++i)
+        out.push_back({choices[i], dag::input::Rect{i * w, y, w - 4, h}});
+    return out;
 }
 
 }  // namespace
@@ -174,8 +293,19 @@ int main(int argc, char** argv) {
                                              dag::kScreenHeight * kScale);
     if (renderer == nullptr || texture == nullptr) return 1;
 
+    // Tablet4x3 (docs/design/touch-controls/README.md): the fixed 4:3
+    // window natively matches that layout's assumption; PhoneLandscape
+    // needs a simulated letterboxed aspect to evaluate honestly (8.6.4).
+    dag::platform::OverlayBridge overlay(dag::input::OverlayLayout::Tablet4x3);
+    const double viewport_w = dag::kScreenWidth * kScale;
+    const double viewport_h = dag::kScreenHeight * kScale;
+
     std::optional<dag::Game> held;
     held.emplace();
+    // ADR-0009 (8.6.2): re-emplaced alongside `held` in restart_game() below,
+    // since Shell holds a Game& and must never outlive the Game it wraps.
+    std::optional<dag::shell::Shell> shell;
+    shell.emplace(*held);
     dag::SoundMix mix;
     std::string save_dir = "saved";
     if (char* pref = SDL_GetPrefPath("daggorath", "dod")) {
@@ -229,6 +359,7 @@ int main(int argc, char** argv) {
     };
     auto restart_game = [&]() {
         held.emplace();
+        shell.emplace(*held);
         reset_view();
     };
     auto resume_view = [&](dag::Game& game) {
@@ -248,9 +379,60 @@ int main(int argc, char** argv) {
         seen_motion = game.events().size();
     };
     while (running) {
+        // Computed before polling so a tap this frame hit-tests the same
+        // rects drawn last frame (one-frame lag on a hand-state change is
+        // harmless: GET/DROP/STOW/etc. are core-UNIMPLEMENTED today anyway,
+        // docs/architecture/touch-input.md §5).
+        const dag::input::OverlayState overlay_state{
+            held->player().left_hand < 0, held->player().right_hand < 0, false};
+        const auto& current_buttons = overlay.buttons(viewport_w, viewport_h, overlay_state);
+        const auto picker_rects = overlay.picker_open()
+                                       ? picker_choice_rects(overlay.pending(), viewport_w, viewport_h)
+                                       : std::vector<std::pair<std::string, dag::input::Rect>>{};
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
+            if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                event.button.button == SDL_BUTTON_LEFT && prompt == DeathPrompt::Playing) {
+                const double mx = event.button.x;
+                const double my = event.button.y;
+                // ADR-0009 §6: SystemMenu is the one control that pauses,
+                // checked ahead of the overlay bridge (which treats it as
+                // not its job, 8.6.1) so it works whether or not a picker
+                // is open, and toggles resume the same way.
+                if (dag::input::hit_test(current_buttons, mx, my) ==
+                    dag::input::ButtonId::SystemMenu) {
+                    if (shell->paused()) shell->resume();
+                    else shell->pause();
+                } else if (shell->paused()) {
+                    // The system menu owns the screen while paused (design
+                    // doc: "the only control that pauses"); a Save/Load/
+                    // Restart/Quit menu surface is not built in this pass
+                    // (8.6.2 scope note, reconciliation addendum) -- Esc or
+                    // the SystemMenu button is the only way back for now.
+                } else if (overlay.picker_open()) {
+                    for (const auto& [choice, rect] : picker_rects) {
+                        if (!rect.contains(mx, my)) continue;
+                        // HandMenu's "I" opens the in-game keyboard (design
+                        // doc: "I types I and opens an in-game keyboard").
+                        // No on-screen QWERTY grid is built here (8.6.1
+                        // scope); the physical keyboard finishes the line
+                        // the same way it always has, seeded with "I ".
+                        if (overlay.pending() == dag::input::PendingKind::HandMenu &&
+                            choice == "I") {
+                            overlay.cancel_picker();
+                            held->press('I');
+                            held->press(0x20);
+                        } else {
+                            overlay.resolve_choice(choice, *held);
+                        }
+                        break;
+                    }
+                } else {
+                    overlay.handle_tap(mx, my, *held);
+                }
+                continue;
+            }
             if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) continue;
             const SDL_Keycode key = event.key.key;
             if (prompt == DeathPrompt::Menu) {
@@ -292,6 +474,12 @@ int main(int argc, char** argv) {
                 }
                 continue;
             }
+            if (key == SDLK_ESCAPE) {
+                if (shell->paused()) shell->resume();
+                else shell->pause();
+                continue;
+            }
+            if (shell->paused()) continue;  // the system menu owns input while open
             // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
             if (key == SDLK_RETURN || key == SDLK_KP_ENTER) held->press(0x0D);
             else if (key == SDLK_SPACE) held->press(0x20);
@@ -304,8 +492,13 @@ int main(int argc, char** argv) {
         const std::uint64_t elapsed_us = now_ns > last_ns ? (now_ns - last_ns) / 1000 : 0;
         last_ns = now_ns;
         const int steps = dag::jiffies_due(elapsed_us, owed);
+        // shell->tick is a no-op while paused (D-16: no jiffy owed for
+        // paused wall time), replacing the direct advance_jiffies call --
+        // ADR-0009's pause-invariance test (tests/shell/shell_tests.cpp)
+        // already proves this substitution changes nothing about the core
+        // trace for an unpaused run.
         if (steps > 0 && prompt == DeathPrompt::Playing)
-            game.advance_jiffies(static_cast<std::uint64_t>(steps));
+            shell->tick(static_cast<std::uint64_t>(steps));
         persist_saves(game, traced, save_dir);
         if (prompt == DeathPrompt::Playing && game.player().dead) prompt = DeathPrompt::Menu;
         auto snap = dag::snapshot_from(game);
@@ -505,7 +698,26 @@ int main(int argc, char** argv) {
                 SDL_Delay(12);
             }
         }
-        present_frame(renderer, texture, frame, game.level_index());
+        present_frame(renderer, texture, frame, game.level_index(), [&](SDL_Renderer* r) {
+            if (prompt != DeathPrompt::Playing) return;  // death/load prompt owns the screen
+            if (shell->paused()) {
+                // 8.6.2 scope note: no Save/Load/Restart/Quit menu surface
+                // yet (reconciliation addendum) -- just the pause banner
+                // proving the clock is genuinely withheld (D-16), and the
+                // SystemMenu button stays drawn so the same tap resumes.
+                draw_button(r, dag::input::Rect{viewport_w / 2 - 90, 40, 180, 30}, 'P');
+                for (const auto& button : current_buttons)
+                    if (button.id == dag::input::ButtonId::SystemMenu)
+                        draw_button(r, button.rect, 'X');
+                return;
+            }
+            if (overlay.picker_open()) {
+                for (const auto& [choice, rect] : picker_rects) draw_button(r, rect, choice[0]);
+            } else {
+                for (const auto& button : current_buttons)
+                    draw_button(r, button.rect, button_label(button.id));
+            }
+        });
         shown_row = game.player().row;
         shown_col = game.player().col;
         shown_dir = static_cast<int>(game.player().dir);

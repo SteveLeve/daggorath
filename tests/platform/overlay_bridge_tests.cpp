@@ -1,0 +1,168 @@
+// Phase 8.6.1: OverlayBridge closes the gap touch_overlay.hpp's own header
+// comment names -- "the actual on-screen rendering... are not built or
+// tested here" -- for the tap-to-keystroke half (sdl_app.cpp's rendering is
+// verified separately, by screenshot). This proves a simulated tap sequence
+// (hit-testing the same rects sdl_app.cpp draws) presses the identical
+// characters, in the same order, that typing the equivalent command by hand
+// would -- via the same live `Game::press()` mechanism sdl_app.cpp's typed
+// keyboard path already uses (see overlay_bridge.hpp for why this bridge
+// does not use GestureLine's scripted same-jiffy burst).
+#include <iostream>
+#include <sstream>
+#include <string>
+
+#include "daggorath/game.hpp"
+#include "daggorath/overlay_bridge.hpp"
+
+namespace {
+
+int g_failures = 0;
+int g_checks = 0;
+
+void check(bool ok, const std::string& what, const std::string& detail = "") {
+    ++g_checks;
+    if (!ok) {
+        ++g_failures;
+        std::cout << "FAIL: " << what;
+        if (!detail.empty()) std::cout << "  [" << detail << "]";
+        std::cout << "\n";
+    }
+}
+
+std::string render_trace(const dag::Game& game) {
+    std::ostringstream os;
+    os << "# jiffy\tclock\tevent\tdetail\n";
+    for (const auto& e : game.trace()) os << e.to_line() << "\n";
+    os << "# final\trow=" << game.player().row << "\tcol=" << game.player().col
+       << "\tdir=" << static_cast<int>(game.player().dir)
+       << "\tdamage=" << game.player().damage << "\n";
+    return os.str();
+}
+
+// A fresh game with `line` typed by hand, one Game::press() per character
+// plus the terminating CR -- the same live mechanism sdl_app.cpp's typed
+// keyboard path already uses. This is the oracle every tap sequence below
+// must match: "a tap composes and delivers the same keystrokes typing the
+// command would."
+dag::Game typed_reference(const std::string& line, std::uint64_t jiffies) {
+    dag::Game game;
+    for (const char ch : line) game.press(static_cast<std::uint8_t>(ch));
+    game.press(0x0D);
+    game.advance_jiffies(jiffies);
+    return game;
+}
+
+// Center of the named button's hit rectangle, so tests tap wherever
+// layout_buttons() actually places a control rather than a hardcoded pixel
+// guess -- the same rects sdl_app.cpp will draw and hit-test against.
+std::pair<double, double> center_of(const std::vector<dag::input::Button>& buttons,
+                                   dag::input::ButtonId id) {
+    for (const auto& b : buttons) {
+        if (b.id == id) return {b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2};
+    }
+    return {-1, -1};
+}
+
+constexpr double kViewportW = 768.0;  // dod's fixed window: kScreenWidth * 3
+constexpr double kViewportH = 576.0;  // kScreenHeight * 3
+
+void test_move_forward_tap_matches_typed() {
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::MoveForward);
+    check(x >= 0, "MoveForward has a hit rectangle in the tablet layout");
+
+    dag::Game tapped;
+    check(bridge.handle_tap(x, y, tapped),
+          "tapping MoveForward's rect presses a finished line immediately");
+    check(!bridge.picker_open(), "MoveForward never opens a picker");
+    tapped.advance_jiffies(200);
+
+    check(render_trace(tapped) == render_trace(typed_reference("M", 200)),
+          "a MoveForward tap matches typing \"M\\r\" by hand, byte for byte");
+}
+
+void test_turn_right_tap_matches_typed() {
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::TurnRight);
+    check(x >= 0, "TurnRight has a hit rectangle in the tablet layout");
+
+    dag::Game tapped;
+    check(bridge.handle_tap(x, y, tapped), "tapping TurnRight presses a finished line");
+    tapped.advance_jiffies(200);
+
+    check(render_trace(tapped) == render_trace(typed_reference("T R", 200)),
+          "a TurnRight tap matches typing \"T R\\r\" by hand, byte for byte");
+}
+
+void test_examine_tap_matches_typed() {
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::Examine);
+    check(x >= 0, "Examine has a hit rectangle in the tablet layout");
+
+    dag::Game tapped;
+    check(bridge.handle_tap(x, y, tapped), "tapping Examine presses a finished line");
+    tapped.advance_jiffies(200);
+
+    check(render_trace(tapped) == render_trace(typed_reference("E", 200)),
+          "an Examine tap matches typing \"E\\r\" by hand, byte for byte");
+}
+
+void test_get_left_floor_picker_two_tap_sequence() {
+    // GetLeft alone only opens a picker (touch_overlay.hpp: resolve_tap
+    // returns pending, no line) -- the design doc's "sequential entry": the
+    // second tap (the chosen object) is what finishes the command line.
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::GetLeft);
+    check(x >= 0, "GetLeft has a hit rectangle when the left hand is empty");
+
+    dag::Game tapped;
+    const bool first_tap_finished = bridge.handle_tap(x, y, tapped);
+    check(!first_tap_finished, "GetLeft alone does not finish a command line");
+    check(bridge.picker_open() && bridge.pending() == dag::input::PendingKind::FloorPicker,
+          "GetLeft opens the floor picker");
+    check(!bridge.pending_right_hand(), "GetLeft's picker is for the left hand");
+
+    check(bridge.resolve_choice("TORCH", tapped),
+          "choosing TORCH from the floor picker finishes the command line");
+    check(!bridge.picker_open(), "resolving the picker closes it");
+    tapped.advance_jiffies(200);
+
+    check(render_trace(tapped) == render_trace(typed_reference("G L TORCH", 200)),
+          "GetLeft -> TORCH matches typing \"G L TORCH\\r\" by hand, byte for byte");
+}
+
+void test_miss_and_keyboard_and_system_menu_are_not_this_bridge() {
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
+    dag::Game game;
+    const std::string baseline = render_trace(game);
+    check(!bridge.handle_tap(-1000, -1000, game), "a tap off every button presses nothing");
+    check(render_trace(game) == baseline, "a missed tap leaves the trace unchanged");
+
+    const auto [kx, ky] = center_of(buttons, dag::input::ButtonId::Keyboard);
+    check(!bridge.handle_tap(kx, ky, game),
+          "Keyboard is the free command line, not this bridge's job");
+    const auto [mx, my] = center_of(buttons, dag::input::ButtonId::SystemMenu);
+    check(!bridge.handle_tap(mx, my, game),
+          "SystemMenu belongs to the shell (8.6.2), not this bridge");
+    check(!bridge.picker_open(), "neither Keyboard nor SystemMenu opens a picker here");
+    check(render_trace(game) == baseline,
+          "Keyboard/SystemMenu taps leave the trace unchanged (nothing pressed)");
+}
+
+}  // namespace
+
+int main() {
+    test_move_forward_tap_matches_typed();
+    test_turn_right_tap_matches_typed();
+    test_examine_tap_matches_typed();
+    test_get_left_floor_picker_two_tap_sequence();
+    test_miss_and_keyboard_and_system_menu_are_not_this_bridge();
+    std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
+              << g_failures << " failures\n";
+    return g_failures == 0 ? 0 : 1;
+}

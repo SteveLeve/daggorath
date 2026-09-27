@@ -178,6 +178,16 @@ The SDL menu UI (Esc key, the on-screen button, backgrounding hook) is
 deferred to 8.4, which wires this headless shell into `src/platform`;
 ADR-0009 is accepted on that basis (see its Resolution).
 
+**Addendum (2026-09-27, 8.6.2):** Esc and the `SystemMenu` overlay button
+now toggle `pause()`/`resume()` in `src/platform/sdl_app.cpp`. The unpaused
+window still runs and renders correctly (screenshot-confirmed); actually
+entering the paused state was not, for lack of click/keypress-automation
+tooling in this sandbox (`docs/archaeology/phase-8/reconciliation.md`'s
+addendum has the full account). Still
+not built: the Save/Load/Restart/Quit menu surface (Resume-by-toggle is the
+only way back from paused) and the OS-backgrounding hook — both real,
+recorded gaps, not design decisions.
+
 ## 9. Crisp render style (8.3, ADR-0010)
 
 `src/presentation/crisp.{hpp,cpp}`, headless (no SDL). `build_crisp_frame`
@@ -280,11 +290,21 @@ items — `make all` output and the README phase table — are recorded in
 
 Two layouts were built and tested (§10): phone landscape (bottom-corner
 controls) and tablet 4:3 (edge-hugging 2-column grids, clear of the status
-band). Both are headless prototypes; **no on-screen evaluation was possible
-in this environment** (§10's recorded obstacle: no SDL3). Absent a real
-rendering to compare, this document does not choose a default between the
-two — that decision needs the manual evaluation the 8.4 gate calls for,
-which is deferred along with the SDL wiring. The design doc's own
-decision stands as the interim default: phone landscape for phones, tablet
-4:3 for tablets, selected by device form factor rather than by a
-this-project on-screen comparison.
+band). Both were headless prototypes as of 2026-09-27.
+
+**Addendum (2026-09-27, workstream 8.6):** SDL3 became available in the
+build environment; `docs/archaeology/phase-8/reconciliation.md`'s addendum
+has the full account. `Tablet4x3` is now wired into `src/platform/sdl_app.cpp`
+and evaluated on screen — a real screenshot of the running `dod` window
+(kept outside the tree at
+`captures/phase-8-sdl-wiring/tablet4x3-buttons-2026-09-27.png`, gitignored)
+shows all 15 buttons at `layout_buttons()`'s computed positions, legible labels,
+chrome unaffected. It was the natural choice: the fixed 768x576 (4:3) desktop
+window matches that layout's own assumption without any letterboxing.
+`PhoneLandscape` is **still not evaluated on screen** — this fixed-aspect
+window has no simulated 19.5:9 letterboxed mode, and building one was out of
+that session's scope. The design doc's own decision therefore still stands
+as the interim default: phone landscape for phones, tablet 4:3 for tablets,
+selected by device form factor rather than by a this-project on-screen
+comparison of both. Closing this fully needs either a real phone-aspect
+device/window or a letterboxed simulation mode, neither built yet.

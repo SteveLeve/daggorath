@@ -88,3 +88,95 @@ forward).
 - [x] README phase table showing Phase 8 complete.
 - [x] This reconciliation note.
 - [x] PRs #25, #26, #27, #28, #29 merged to `main`, in that order (each rebased onto the previous merge and `main`'s own `refinement/playthrough-and-discovery` fix, PR #23, and re-verified before merging). #30 (this PR) is the last of the six.
+
+## Addendum (2026-09-27): the recorded obstacle is reopened
+
+The "no SDL3 in this environment" obstacle recorded above no longer holds.
+`pkg-config --modversion sdl3` now reports `3.2.31`, `SDL3_DIR` is cached in
+`build/CMakeCache.txt`, and `src/platform/CMakeLists.txt`'s `find_package(SDL3
+QUIET)` succeeds — the `dod` desktop target builds and runs in this sandbox
+today. This is left as-is above (a correct record of what was true on
+2026-09-27 at the time this reconciliation was written); this addendum
+records what changed and what workstream 8.6 (branch
+`phase-8/sdl-platform-wiring`) did about it, per this project's rule against
+regenerating a record instead of appending to it.
+
+Before 8.6, `src/platform/sdl_app.cpp` had **no** touch, shell, or `crisp`
+wiring at all, confirmed by grep — exactly the Phase 7 desktop window,
+unchanged. So none of §8-10's on-screen work had actually been built or
+evaluated; it existed only as the headless modules and their tests, plus the
+static HTML mockups under `docs/design/touch-controls/mockups/`.
+
+**8.6.1 (touch overlay rendering + input).** Added
+`src/platform/overlay_bridge.{hpp,cpp}` (`dag::platform::OverlayBridge`):
+links only `daggorath::input`, no SDL, so its tap/picker state machine is
+headless-testable (`tests/platform/overlay_bridge_tests.cpp`, 23 checks).
+Wired into `sdl_app.cpp`: mouse-down events hit-test the `Tablet4x3` layout
+(the fixed 768x576 desktop window matches that layout's 4:3 assumption
+natively) and press the resolved command line's keystrokes via `Game::press`
+— not `GestureLine`'s same-jiffy scripted burst, which needs
+`Game::load_script` and would risk dropping a live game's not-yet-consumed
+keystrokes; see the header comment for the full reasoning. Buttons render as
+outlined rects with single-letter placeholder labels (real icon art is a
+follow-up polish item, not a correctness gap): confirmed by a real screenshot
+of the running `build/src/platform/dod` window (`import -window`, this
+sandbox's `DISPLAY=:0`), all 15 buttons at the positions `layout_buttons()`
+computes, labels legible, chrome (status/command lines) unaffected. Kept
+outside the tree at `captures/phase-8-sdl-wiring/tablet4x3-buttons-2026-09-27.png`
+(gitignored, per this project's ROM-capture convention) as the record of
+what was actually looked at, rather than an unverifiable claim.
+
+**8.6.2 (shell system-menu wiring).** The running `Game` is now wrapped in a
+`dag::shell::Shell`; the per-frame `advance_jiffies` call became
+`shell->tick(steps)` (a no-op while paused, D-16 — the existing
+`shell_tests.cpp::test_pause_invariance` already proves this substitution
+changes nothing about an unpaused run's trace, so no new core-level test was
+added). Esc (desktop) and the `SystemMenu` overlay button both toggle
+`pause()`/`resume()`; while paused, gameplay input is withheld and a minimal
+pause banner plus the `SystemMenu` button are coded to render. **Not
+screenshot-confirmed**: this sandbox has no `xdotool`/`ydotool`/`wtype`, nor
+`XTest.h` headers to build one (checked; not present), so no click or
+keypress could be synthesized against the real window to actually enter the
+paused state and capture it — unlike 8.6.1's rendering, which needed no
+input, only a running window. What *is* confirmed for this half: the
+substitution of `shell->tick()` for `game.advance_jiffies()` changes nothing
+about an unpaused run (the existing pause-invariance test, above), and the
+code path compiles and the window still runs normally unpaused (screenshot
+`captures/phase-8-sdl-wiring/tablet4x3-shell-wired-2026-09-27.png`). Whether
+the paused banner actually appears and the viewport actually freezes is
+untested beyond code review — a real device, or a session with
+computer-use/desktop-control tooling, closes this gap. **Not built:** the
+Save/Load/Restart/Quit menu surface
+ADR-0009 §6 describes — Resume-by-toggle is the only way back from the
+paused state in this pass. This is a real, recorded gap, not a design
+decision; `Shell` already has everything `slots()`/`save_to_slot`/
+`load_from_slot`/`request_restart`/`request_quit` needs, only the on-screen
+list is missing.
+
+**8.6.3 (crisp render style toggle): not attempted this session** — flagged
+as a time-boxed stretch goal in the plan and deferred rather than half-wired.
+
+**8.6.4 (manual on-screen evaluation): partially closed.** `Tablet4x3` is
+now genuinely evaluated on screen (screenshots above). `PhoneLandscape` is
+not — this fixed-size window has no letterboxed-aspect simulation mode, and
+building one was out of this session's scope. The 8.4 gate's
+phone-vs-tablet default decision therefore still stands as the design doc's
+interim default (device form factor selects the layout), not a comparison
+made here.
+
+**Recorded obstacle: no input-automation tooling in this sandbox.** Verifying
+a tap or keypress actually *changes* the running window's behavior (not just
+that it renders) needs synthesizing mouse/keyboard events against a real X/
+Wayland window. This sandbox has no `xdotool`, `ydotool`, `wtype`, or
+`XTest.h` headers to build one, and installing packages or Python modules
+system-wide for this was not attempted without asking first. Interactive
+correctness is instead proven by `overlay_bridge_tests.cpp` (23 checks,
+tap-sequence-to-trace equivalence against typed input) and
+`shell_tests.cpp::test_pause_invariance`; on-screen verification in this pass
+is limited to *rendering* (screenshots), not *live interaction*. A real
+device, or a session with computer-use/desktop-control tooling, closes this
+gap.
+
+`make build && ctest --test-dir build` (fixtures/traces/verify unaffected —
+no fixture drift): 19/19 active tests passing, `playthrough_power_on_to_winner`
+still disabled per Phase 5b, `overlay_bridge_tests` new and passing.

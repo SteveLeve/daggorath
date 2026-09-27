@@ -37,6 +37,14 @@ only); they are deferred to 8.4, which wires `crisp`/`pixel` into
 `src/platform`. This Resolution settles the geometry source and the segment
 contract, not the on-screen rendering.
 
+**Addendum (2026-09-27):** SDL3 became available (see
+`docs/archaeology/phase-8/reconciliation.md`'s addendum) and workstream 8.6
+wired the touch overlay and shell into `src/platform/sdl_app.cpp`, but the
+`crisp`/`pixel` device-rendering toggle this Resolution defers to "8.4" was
+explicitly time-boxed out of that session (tracked as 8.6.3) and not
+attempted. `pixel` (the exact bitmap raster) remains the only on-screen
+render style; this Resolution's open items are all still open.
+
 ## Context
 
 The desktop window rasterises the viewer's vector draw list onto a 256×192
