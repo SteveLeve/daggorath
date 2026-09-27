@@ -1177,7 +1177,11 @@ struct Runner {
             }
         }
         if (here() >= 0) choices.push_back({attack_cmd(false)});
-        if (here() < 0) {
+        // Preserve the weapon carried through ENDGAM while clearing the new
+        // level.  Loot is handled after the population is gone; opportunistic
+        // GET would STOW the only retained sword, leaving clearing without a
+        // retrieval choice.
+        if (here() < 0 && !holding_iron()) {
             for (const auto& o : game.objects()) {
                 if (o.owner != 0 || o.level != game.level_index() ||
                     o.row != game.player().row ||
