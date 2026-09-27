@@ -10,6 +10,7 @@ Steve adds hand-play observations here. The loop works these first.
 - ~~Death animation too fast~~ fixed by C-17 (2026-09-26). Hand-play check pending.
 
 ## Open questions
+- **Q5 (2026-09-27, run 17): reverse-video band in a1df32c.** The listing inverts only the status line: NEWLVL.ASM:83-90 NLVL50 sets VDGINV and the P.TXINV flags of TXTPRI and TXTEXA to -(LEVEL&1), then stores the complement to TXTSTS (defaults COMDAT.ASM:96-106: TXTEXA 0, TXTSTS -1, TXTPRI 0). a1df32c inverts the command and message lines too, and the whole screen does not flip on odd levels. There is also no spec text or §13 entry for it. Options: (a) invert only the status line and model the odd-level VDGINV flip, or (b) keep the current look as a recorded deviation. Which?
 
 
 ## Answered
@@ -107,6 +108,7 @@ then the rest.
 | STATUS.ASM:STATUX, OBJNAM | presentation text.cpp project_text, object_name | matches | 14 | Left name at 0, right name flush to column 31 (STAT10: 33 minus length plus terminator), EMPTY name, adjective shown only when revealed. The core clips at 15 characters; no name exceeds 14 [INF]. |
 | MAPPER.ASM:MAPPER | presentation mapper.cpp project_map, rasterize_map; sdl_app | gap-fixed | 15 | The logic matched in project_map, but the window never drew the map; rasterize_map added. Text bands hidden in map mode [INF]. |
 | PEXAM.ASM:EXAMIN (window) | examine.cpp paint_examine; sdl_app | gap-fixed | 16 | TXTEXA page over the viewport, lit torch inverse; test_examine_page. |
+| PZTAPE.ASM:PZSAVE, PZLOAD, FILNAM; COMMON.ASM:SAVE, LOAD, LOAD90 | game.cpp cmd_zsave, cmd_zload, tape_operation | gap-fixed | 17 | FILNAM/GETTOK 8-character name matches; the ??? for a missing name is D-11. LOAD90's PROMPT was missing (fixed in a1df32c). |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -129,3 +131,4 @@ then the rest.
 | 2026-09-27 | 14 | Audit of run 13; STATUS.ASM | Run 13 audit clean; D-4a wording fixed (8 TURN10 iterations, 16 for an about-face, [INF] outside the viewer); STATUS matches | docs + a sturdier sweep count | — |
 | 2026-09-27 | 15 | MAPPER | The window showed a blank viewport in map mode | Map raster + test; examine screen still not drawn (gap-open) | Examine window drawing — next run |
 | 2026-09-27 | 16 | EXAMIN in the window | The window showed a blank viewport in examine mode | paint_examine + shared examine_snapshot_from + test | — |
+| 2026-09-27 | 17 | PZTAPE, COMMON SAVE/LOAD/LOAD90 | LOAD90 PROMPT missing after INIVU; the audit of a1df32c found its reverse-video band disagrees with NLVL50 (Q5) | Prompt fix + test (committed by Steve in a1df32c) | a1df32c audited; band left to Steve |
