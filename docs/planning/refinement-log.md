@@ -119,6 +119,7 @@ then the rest.
 | OBIRTH.ASM:OBIRTX, GENVAL | population.cpp make_object | matches | 24 | Specific OCBFIL, then for GENVAL classes (shield, sword, torch) a generic OCBFIL that keeps P.OCREV and P.OCTYP; special bytes kept when the generic type has no XXXTAB entry. |
 | OBIRTH.ASM:OCBFIX | population.cpp ocbfil, fill_ocb_specific | matches | 24 | ODBTAB copy of OD.LEN bytes; OFIL10 writes P.OCXXX only on an XXXTAB match (run 6 fix). |
 | TOKEN.ASM (all tables) | lexicon_tables.hpp (generated from tokens.json) | matches | 24 | Fixture-generated from the listing (EXPAND.ASM decode); `make fixtures` checks it. |
+| COMTXT.ASM:TXTXXX, TXTBS, TXTCR, TXTSCR; TXTSER.ASM:TXTCHR, TXTSTR, TXTSTI | game.cpp out_char, text; examine.cpp Pad | gap-fixed | 25 | Primary text matches (BS wrap to 127, CR, scroll after the char). The EXAMINE pad dropped lines past row 19 instead of scrolling (fixed); the tab-to-608 status-line spill is a recorded quirk, not reproduced. TXTDPB glyphs are fixture-backed (phase 6). |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -149,3 +150,4 @@ then the rest.
 | 2026-09-27 | 22 | PREPAR/PCLIMB build time; ENDGAM text | [ROM] CLIMB builds ~330 interrupts after the command, so level SECOND and creature placement differ (Q6, C-22). A test for WIZIN's CLRPRI showed DEATH's is unobservable (the faint's CLRPRI always runs first), and ENDGAM's staged text shows an unexplained extra dot row before its messages: likely the staged ENDGAM lets HMAN70's line handling run early (gap-open, next run). | none; edits reverted | ENDGAM text — not run: time |
 | 2026-09-27 | 23 | ENDGAM extra prompt line (from run 22) | Staged ENDGAM let HMAN70 prompt before its stages; INIVU then wiped it, leaving no prompt | HMAN70 deferred to ENDGAM's last stage + tests; audited | — |
 | 2026-09-27 | 24 | OBIRTH, TOKEN | Both match (TOKEN via fixtures) | log only | — |
+| 2026-09-27 | 25 | COMTXT, TXTSER | EXAMINE page never scrolled | Pad scroll + test; quirk recorded; audited | — |
