@@ -164,25 +164,7 @@ int main(int argc, char** argv) {
         std::cout << dag::project_map(snap).text;
     }
     if (present_text) {
-        dag::ExamineSnapshot exam;
-        exam.creature = false;
-        for (const auto& c : game.creatures()) {
-            if (c.in_use && c.row == game.player().row && c.col == game.player().col)
-                exam.creature = true;
-        }
-        for (const auto& o : game.objects()) {
-            if (o.owner == 0 && o.level == game.level_index() &&
-                o.row == game.player().row && o.col == game.player().col)
-                exam.floor.push_back(dag::object_name(o));
-        }
-        int bag_i = 0;
-        for (int i = game.player().bag_head; i >= 0;
-             i = game.objects()[static_cast<std::size_t>(i)].next) {
-            exam.bag.push_back(
-                dag::object_name(game.objects()[static_cast<std::size_t>(i)]));
-            if (i == game.player().torch) exam.torch_index = bag_i;
-            ++bag_i;
-        }
+        const dag::ExamineSnapshot exam = dag::examine_snapshot_from(game);
         dag::TextSnapshot text;
         const auto& p = game.player();
         if (p.left_hand >= 0)

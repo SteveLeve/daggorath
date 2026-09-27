@@ -19,6 +19,7 @@
 #include "daggorath/game.hpp"
 #include "daggorath/maze.hpp"
 #include "daggorath/parser.hpp"
+#include "daggorath/examine.hpp"
 #include "daggorath/mapper.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snoise.hpp"
@@ -1544,6 +1545,39 @@ void test_map_raster() {
     check(line1 == 0x3C && line2 == 0x24, "a vertical feature underfoot overdraws the player mark");
 }
 
+void test_examine_page() {
+    // PEXAM.ASM EXAM30: COM P.TXINV before the lit torch, PRTOBJ restores it
+    // after the name; EXAMIO paints TXTEXA over the viewport's 19 text rows.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    auto say = [&](const std::string& text) {
+        for (char ch : text) game.press(ch == ' ' ? 0x20 : static_cast<std::uint8_t>(ch));
+        game.press(0x0D);
+        game.advance_jiffies(static_cast<std::uint64_t>(text.size()) + 4);
+    };
+    say("PULL RIGHT TORCH");
+    say("USE RIGHT");
+    const auto exam = dag::examine_snapshot_from(game);
+    const auto page = dag::project_examine(exam);
+    int inverse_cells = 0;
+    for (int r = 0; r < 19; ++r)
+        for (int c = 0; c < 32; ++c)
+            if (page.inverse[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)]) ++inverse_cells;
+    const int torch_len = exam.torch_index >= 0
+                              ? static_cast<int>(exam.bag[static_cast<std::size_t>(exam.torch_index)].size())
+                              : -1;
+    check(exam.bag.size() > 1 && inverse_cells == torch_len,
+          "only the lit torch's name prints inverse on the examine page");
+    std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> px{};
+    dag::paint_examine(px.data(), dag::kScreenWidth, page);
+    bool filled = false;
+    for (int r = 0; r < 19 && !filled; ++r)
+        for (int c = 0; c < 32 && !filled; ++c)
+            if (page.inverse[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)])
+                filled = px[static_cast<std::size_t>((r * 8 + 7) * dag::kScreenWidth + c * 8)] == 1;
+    check(filled, "an inverse examine cell is painted filled");
+}
+
 void test_wizard_fade() {
     auto count = [](std::uint8_t fade) {
         std::size_t n = 0;
@@ -1577,6 +1611,7 @@ int main() {
     test_save_and_snapshot();
     test_projection();
     test_map_raster();
+    test_examine_page();
     test_wizard_fade();
     test_incant_fire_script();
     test_prepared_winner();

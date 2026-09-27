@@ -1,5 +1,8 @@
 #include "daggorath/examine.hpp"
+#include "daggorath/text.hpp"
 #include "daggorath/text_tables.hpp"
+
+#include <algorithm>
 
 #include <array>
 #include <string>
@@ -10,11 +13,15 @@ namespace {
 
 struct Pad {
     std::array<std::array<char, 32>, 19> grid{};
+    std::array<std::array<char, 32>, 19> real{};
+    std::array<std::array<bool, 32>, 19> inv{};
     int cur = 0;
     bool inverse_next = false;
+    bool inverse_run = false;
 
     Pad() {
         for (auto& row : grid) row.fill(' ');
+        for (auto& row : real) row.fill(' ');
     }
 
     void put(char ch) {
@@ -27,6 +34,8 @@ struct Pad {
         if (r >= 0 && r < kExamineRows && c >= 0 && c < kExamineCols) {
             grid[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)] =
                 inverse_next ? '*' : ch;
+            real[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)] = ch;
+            inv[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)] = inverse_run;
         }
         ++cur;
         inverse_next = false;
@@ -60,8 +69,9 @@ struct Pad {
 void print_names(Pad& pad, const std::vector<std::string>& names, int torch, bool close_line) {
     bool newline = false;
     for (int i = 0; i < static_cast<int>(names.size()); ++i) {
-        if (i == torch) pad.inverse_next = true;
+        if (i == torch) pad.inverse_next = pad.inverse_run = true;
         pad.write(names[static_cast<std::size_t>(i)]);
+        pad.inverse_run = false;   // PRTOBJ: LDA VDGINV / STA P.TXINV
         newline = !newline;
         if (newline) pad.cur = (pad.cur + 16) & ~15;
         else pad.put('\n');
@@ -90,7 +100,37 @@ ExamineProjection project_examine(const ExamineSnapshot& snap) {
     print_names(pad, snap.bag, snap.torch_index, false);
     ExamineProjection out;
     out.text = pad.to_text();
+    out.cells = pad.real;
+    out.inverse = pad.inv;
     return out;
+}
+
+void paint_examine(std::uint8_t* pixels, int width, const ExamineProjection& page) {
+    for (int y = 0; y < kExamineRows * 8; ++y)
+        std::fill(pixels + static_cast<std::size_t>(y * width),
+                  pixels + static_cast<std::size_t>(y * width + 256), 0);
+    for (int row = 0; row < kExamineRows; ++row)
+        for (int col = 0; col < kExamineCols; ++col)
+            plot_cell(pixels, width, col, row * 8,
+                      page.cells[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)],
+                      page.inverse[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)]);
+}
+
+ExamineSnapshot examine_snapshot_from(const Game& game) {
+    ExamineSnapshot exam;
+    for (const auto& c : game.creatures())
+        if (c.in_use && c.row == game.player().row && c.col == game.player().col) exam.creature = true;
+    for (const auto& o : game.objects())
+        if (o.owner == 0 && o.level == game.level_index() && o.row == game.player().row &&
+            o.col == game.player().col)
+            exam.floor.push_back(object_name(o));
+    int bag_i = 0;
+    for (int i = game.player().bag_head; i >= 0; i = game.objects()[static_cast<std::size_t>(i)].next) {
+        exam.bag.push_back(object_name(game.objects()[static_cast<std::size_t>(i)]));
+        if (i == game.player().torch) exam.torch_index = bag_i;
+        ++bag_i;
+    }
+    return exam;
 }
 
 }  // namespace dag

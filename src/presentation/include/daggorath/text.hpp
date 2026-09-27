@@ -36,6 +36,10 @@ TextProjection project_text(const TextSnapshot& snap);
 // rows, shifted left twice). Codes $20+ are SPCTAB rows already positioned.
 void glyph_rows(std::uint8_t code, std::uint8_t rows[7]);
 
+// One 8 x 8 character cell at text column `col`, top scanline `y`. Inverse
+// fills the cell and clears the glyph (TXINV $FF) [INF: the whole 8-line cell].
+void plot_cell(std::uint8_t* pixels, int width, int col, int y, char ch, bool inverse);
+
 // Paint the status band and the command band over `pixels`. The viewer
 // occupies scanlines 0–151; these bands are 152–191.
 // `command_override`, when non-empty, replaces the ".line_" command row.

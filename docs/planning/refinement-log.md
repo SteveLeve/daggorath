@@ -102,7 +102,7 @@ then the rest.
 | COMPLR.ASM:HSLOW | game.cpp task_hslow | matches | 3 | ASRD6 of -PDAM, signed BGT floor at 0, reschedule HEARTR on Q.JIF; the core's delay-0 guard needs D > P, which is already death [INF]. C-18 shows healing continuing while fainted. |
 | STATUS.ASM:STATUX, OBJNAM | presentation text.cpp project_text, object_name | matches | 14 | Left name at 0, right name flush to column 31 (STAT10: 33 minus length plus terminator), EMPTY name, adjective shown only when revealed. The core clips at 15 characters; no name exceeds 14 [INF]. |
 | MAPPER.ASM:MAPPER | presentation mapper.cpp project_map, rasterize_map; sdl_app | gap-fixed | 15 | The logic matched in project_map, but the window never drew the map; rasterize_map added. Text bands hidden in map mode [INF]. |
-| PEXAM.ASM:EXAMIN (window) | sdl_app | gap-open | 15 | The window does not draw the examine screen; project_examine only reaches dcli. |
+| PEXAM.ASM:EXAMIN (window) | examine.cpp paint_examine; sdl_app | gap-fixed | 16 | TXTEXA page over the viewport, lit torch inverse; test_examine_page. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -124,3 +124,4 @@ then the rest.
 | 2026-09-27 | 13 | SOUNDS.ASM (all 31 routines), PTURN, STEP, ENDGAM | SOUNDS matches in full; TURN AROUND's second RLTURN sweep was missing on the desktop | About-face wipe drawn twice (16 loops) + test | — |
 | 2026-09-27 | 14 | Audit of run 13; STATUS.ASM | Run 13 audit clean; D-4a wording fixed (8 TURN10 iterations, 16 for an about-face, [INF] outside the viewer); STATUS matches | docs + a sturdier sweep count | — |
 | 2026-09-27 | 15 | MAPPER | The window showed a blank viewport in map mode | Map raster + test; examine screen still not drawn (gap-open) | Examine window drawing — next run |
+| 2026-09-27 | 16 | EXAMIN in the window | The window showed a blank viewport in examine mode | paint_examine + shared examine_snapshot_from + test | — |

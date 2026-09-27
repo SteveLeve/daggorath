@@ -1,5 +1,6 @@
 // Present when SDL3 is available. The core is advanced one jiffy at a time.
 #include "daggorath/game.hpp"
+#include "daggorath/examine.hpp"
 #include "daggorath/mapper.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/snapshot.hpp"
@@ -348,6 +349,9 @@ int main(int argc, char** argv) {
         // inferred (phase-7 reconciliation; capture C-20).
         const bool map_up = game.display_mode() == dag::DisplayMode::Mapper;
         auto frame = map_up ? dag::rasterize_map(dag::map_snapshot_from(game)) : dag::rasterize(snap);
+        if (game.display_mode() == dag::DisplayMode::Examine)   // PEXAM.ASM EXAMIN over the viewport
+            dag::paint_examine(frame.data(), dag::kScreenWidth,
+                               dag::project_examine(dag::examine_snapshot_from(game)));
         dag::TextSnapshot chrome;
         auto hand = [&](int index) -> std::optional<dag::Ocb> {
             if (index < 0 || static_cast<std::size_t>(index) >= game.objects().size()) return {};

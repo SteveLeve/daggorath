@@ -104,6 +104,23 @@ void glyph_rows(std::uint8_t code, std::uint8_t rows[7]) {
     }
 }
 
+void plot_cell(std::uint8_t* pixels, int width, int col, int y, char ch, bool inverse) {
+    if (col < 0 || col >= 32 || y < 0) return;
+    if (inverse) {
+        for (int py = y; py < y + 8 && py < kScreenHeight; ++py)
+            std::fill(pixels + static_cast<std::size_t>(py * width + col * 8),
+                      pixels + static_cast<std::size_t>(py * width + col * 8 + 8), 1);
+        std::uint8_t rows[7] = {};
+        glyph_rows(code_for(ch), rows);
+        for (int row = 0; row < 7; ++row)
+            for (int bit = 0; bit < 8; ++bit)
+                if ((rows[row] & (0x80 >> bit)) != 0 && y + row < kScreenHeight)
+                    pixels[static_cast<std::size_t>((y + row) * width + col * 8 + bit)] = 0;
+        return;
+    }
+    plot(pixels, width, col, y, code_for(ch));
+}
+
 void paint_text_bands(std::uint8_t* pixels, int width,
                       const TextSnapshot& snap, std::string_view message,
                       std::string_view command_override) {
