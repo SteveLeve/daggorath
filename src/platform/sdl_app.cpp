@@ -373,7 +373,7 @@ int main(int argc, char** argv) {
             // HUPDAT HUPD30: each SYNC lowers MLIGHT and RLIGHT and redraws until
             // RLIGHT reaches -8, then ZFLOP blanks the screen. Presentation-only
             // pacing (D-14); the core spends no simulated time here. C-17 on the
-            // ROM: 5 jiffies per step, and WIZIX follows 2 jiffies after the blank.
+            // ROM: 5 jiffies per step, and WIZIX starts 2 jiffies after the last step.
             auto dark = chrome;
             dark.has_page = true;
             dark.page = {};

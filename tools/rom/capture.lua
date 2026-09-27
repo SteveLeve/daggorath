@@ -288,11 +288,12 @@ local function on_clock()
             local a = sym(pk.name)
             local base, sign, n = pk.raw:match("^(%a%w*)([%+%-])(%d+)$")
             if base then
-                local b = mem:read_u16(sym(base))
+                local b = pk.width == 2 and mem:read_u16(sym(base)) or mem:read_u8(sym(base))
                 pk.value = (sign == "+") and (b + tonumber(n)) or (b - tonumber(n))
             else
                 pk.value = tonumber(pk.raw)
             end
+            pk.value = pk.value & (pk.width == 2 and 0xFFFF or 0xFF)
             if pk.width == 2 then mem:write_u16(a, pk.value) else mem:write_u8(a, pk.value) end
             trace:write(string.format("# harness-modified %s=%d written at isr %d\n", pk.name, pk.value, isr))
         end
