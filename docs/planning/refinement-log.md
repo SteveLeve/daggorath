@@ -21,17 +21,17 @@ then the rest.
 
 | ASM file:label | Our counterpart | Status | Loop | Note |
 |---|---|---|---|---|
-| COMCRE.ASM:OFIND |  | unreviewed |  |  |
-| COMCRE.ASM:FNDOBJ |  | unreviewed |  |  |
-| COMCRE.ASM:CFIND |  | unreviewed |  |  |
-| COMCRE.ASM:FNDCEL |  | unreviewed |  |  |
-| COMCRE.ASM:CBIRTH |  | unreviewed |  |  |
-| COMCRE.ASM:VFIND |  | unreviewed |  |  |
+| COMCRE.ASM:OFIND | creature_move.cpp find_unowned | matches | 4 | Level, row/col, owner==0; callers start with OFINDF cleared. |
+| COMCRE.ASM:FNDOBJ | (inlined in OFIND/attach_objects scans) | matches | 4 | Linear scan of the OCBs on LEVEL. |
+| COMCRE.ASM:CFIND | population.cpp occupied, creature_move.cpp cell_occupied | matches | 4 | Dead CCBs are skipped by the P.CCUSE test. |
+| COMCRE.ASM:FNDCEL | population.cpp birth_creatures | matches | 4 | RNDCEL column then row, retry on $FF. Does not exclude the player's cell, in the original too. |
+| COMCRE.ASM:CBIRTH | population.cpp birth_creatures | matches | 4 | First free CCB, CDB copy, FNDCEL+CFIND retry; C-02 [ROM]. |
+| COMCRE.ASM:VFIND | population.cpp vfind | matches | 4 | Miss returns -126 on the ROM and -1 in the core; both callers (PCLIMB, VIEWER) test only BMI. |
 | COMCRE.ASM:CREGEN | game.cpp task_cregen, population.cpp cregen_increment | matches | 2 | 8-bit sum over 12 types, BHS 32, RANDOM&7+2, 5-minute reschedule. |
-| CRETUR.ASM:CMOVE |  | unreviewed |  |  |
-| CRETUR.ASM:SHIELD |  | unreviewed |  |  |
+| CRETUR.ASM:CMOVE | creature_move.cpp cmove, game.cpp task_cmove | gap-open | 4 | Logic matches: frozen before dead, scorpion/wizard skip pickup, pickup then CMOV90, player-cell attack with SHIELD, line-of-sight walk, MOVTAB preference, back-out. **Gap [SRC]:** CMOVE calls PUPDAT after every pickup (CRETUR CMOV10) and at CMOV90 when on the player's cell. PUPDAX redraws and waits on SYNC unless fainted (PUPDAT.ASM:3-8), which costs the foreground at least 1 jiffy. The core only emits a PUPDAT event and charges no time. Fixing it touches scheduler timing and traces, so measure first: C-19. |
+| CRETUR.ASM:SHIELD | creature_move.cpp apply_shield | matches | 4 | Class K.SHIE; the lower 16-bit (MGD<<8 or PHD) pair wins, BHS keeps the current one; $8080 default stored every attack. |
 | CRETUR.ASM:STEP |  | unreviewed |  |  |
-| CRETUR.ASM:STEPOK |  | unreviewed |  |  |
+| CRETUR.ASM:STEPOK | creature_move.cpp step_ok | matches | 4 | Border then $FF solid-wall test; used by both the line-of-sight walk and CWALK. |
 | CRETUR.ASM:CWALK |  | unreviewed |  |  |
 | PATTK.ASM:PATTK |  | unreviewed |  |  |
 | PATTK.ASM:ATTACK |  | unreviewed |  |  |
@@ -103,3 +103,4 @@ then the rest.
 | 2026-09-26 | 1b (manual) | C-17 capture | Wizard fade ~4.8 s on the ROM vs our 1.9 s; blank gap 33 ms vs our 400 ms | 9e8d66c, ab91dc7; audited | — |
 | 2026-09-26 | 2 | HUPD40/HUPD42, PUPDAX, PUPSUB, CREGEN | Wake-up fade missing; desktop fade-out drew one step early; PUPSUB, keyboard flush and CREGEN match | Wake fade-in to saved OLIGHT, fade-out order fixed; C-18 added; audited | Revival capture — not run: C-18 next |
 | 2026-09-26 | 3 | C-18 revival capture, HSLOW | Wake fade 5 jiffies/step confirms 83 ms; the 400 ms faint hold was invented (ROM: 1 jiffy); HSLOW matches | Faint hold 33 ms, wake pacing [ROM]; audited | — |
+| 2026-09-26 | 4 | COMCRE (OFIND, FNDOBJ, CFIND, FNDCEL, CBIRTH, VFIND), CRETUR (CMOVE, SHIELD, STEPOK) | All match except the CMOVE PUPDAT SYNC time, which is not charged | none; CMOVE gap-open, C-19 added | Fix — deferred until C-19 measures the cost |
