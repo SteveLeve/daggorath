@@ -1154,6 +1154,154 @@ struct Runner {
         return owned_by_player(game, find_obj(game, obj_type));
     }
 
+    // Faithful scratch experiments only: candidate state is never restored.
+    // Predict one legal action plus an eight-jiffy advisory horizon, then
+    // execute only that action through the candidate's normal three-jiffy
+    // timestamped-key path. The scratch horizon never supplies game state.
+    void survival_search_tick() {
+        const auto state = game.snapshot();
+        const auto now = game.counters().total_jiffies;
+        std::vector<std::vector<std::string>> choices{{}};
+        const char* moves[] = {"MOVE", "MOVE RIGHT", "MOVE BACK", "MOVE LEFT"};
+        for (int rel = 0; rel < 4; ++rel) {
+            if (!dest_ok(rel)) continue;
+            choices.push_back({moves[rel]});
+            if (here() >= 0) {
+                choices.push_back({attack_cmd(false), moves[rel]});
+                if (ring_ready() && ring_safe() &&
+                    game.creatures()[static_cast<std::size_t>(here())].type >= 8)
+                    choices.push_back({attack_cmd(true), moves[rel]});
+            }
+        }
+        if (here() >= 0) choices.push_back({attack_cmd(false)});
+        if (here() < 0) {
+            for (const auto& o : game.objects()) {
+                if (o.owner != 0 || o.level != game.level_index() ||
+                    o.row != game.player().row ||
+                    o.col != game.player().col) continue;
+                const char* name = o.type == kElvish ? "ELVISH SWORD" :
+                    o.type == kJoule ? "JOULE RING" :
+                    o.type == kMithril ? "MITHRIL SHIELD" :
+                    o.type == kThews ? "THEWS FLASK" : nullptr;
+                if (name) choices.push_back({"STOW RIGHT", std::string("GET RIGHT ") + name});
+            }
+            if (hand_type(true) == kThews) choices.push_back({"USE RIGHT"});
+            if (hand_type(true) == kElvish || hand_type(false) == kElvish)
+                choices.push_back({hand_type(true) == kElvish ? "REVEAL RIGHT" : "REVEAL LEFT"});
+        }
+        // Direct exploration toward the equipment carrier rather than merely
+        // orbiting the safest corner when no creature is immediately present.
+        int tr = -1, tc = -1;
+        for (int t : {kElvish, kJoule}) {
+            if (find_owned(game, t) >= 0) continue;
+            const int obj = find_obj(game, t);
+            if (obj >= 0 && object_cell(obj, tr, tc) != -2) break;
+            tr = tc = -1;
+        }
+        if (tr < 0) {
+            int nearest = 9999;
+            for (const auto& c : game.creatures()) {
+                if (!c.in_use) continue;
+                int d = std::abs(c.row - game.player().row) + std::abs(c.col - game.player().col);
+                if (d < nearest) { nearest = d; tr = c.row; tc = c.col; }
+            }
+        }
+        std::array<int, 1024> distance;
+        distance.fill(1000);
+        if (tr >= 0) {
+            std::queue<int> q;
+            distance[tr * 32 + tc] = 0; q.push(tr * 32 + tc);
+            while (!q.empty()) {
+                int cell = q.front(); q.pop();
+                for (int d = 0; d < 4; ++d) {
+                    int nr = 0, nc = 0;
+                    if (!dag::step_ok(game.maze(), cell / 32, cell % 32,
+                                     static_cast<dag::Dir>(d), nr, nc)) continue;
+                    if (distance[nr * 32 + nc] <= distance[cell] + 1) continue;
+                    distance[nr * 32 + nc] = distance[cell] + 1; q.push(nr * 32 + nc);
+                }
+            }
+        }
+        double best = -1e100;
+        std::size_t selected = 0;
+        for (std::size_t ci = 0; ci < choices.size(); ++ci) {
+            dag::Game scratch;
+            scratch.restore_snapshot(state);
+            std::vector<dag::KeyEvent> keys;
+            std::uint64_t j = now;
+            std::size_t used = 0;
+            for (const auto& cmd : choices[ci]) {
+                if (used + cmd.size() + 1 > 31) { ++j; used = 0; }
+                for (char c : cmd) keys.push_back({j, encode(c)});
+                keys.push_back({j, 0x0D}); used += cmd.size() + 1;
+            }
+            scratch.load_script(keys);
+            scratch.advance_jiffies(8);
+            // Predict an escape continuation if an idle horizon is dangerous.
+            // This scratch rollout is advisory; execute only the first choice.
+            for (int depth = 0; depth < 4 && !scratch.player().dead; ++depth) {
+                const auto prefix = scratch.snapshot();
+                double best_escape = -1e100;
+                std::string next_state;
+                for (int rel = -1; rel < 4; ++rel) {
+                    dag::Game probe;
+                    probe.restore_snapshot(prefix);
+                    std::vector<dag::KeyEvent> next_keys;
+                    if (rel >= 0) {
+                        int nr = 0, nc = 0;
+                        auto d = static_cast<dag::Dir>((static_cast<int>(probe.player().dir) + rel) & 3);
+                        if (!dag::step_ok(probe.maze(), probe.player().row, probe.player().col, d, nr, nc) ||
+                            creature_at(probe, nr, nc) >= 0) continue;
+                        for (char ch : std::string(moves[rel]))
+                            next_keys.push_back({probe.counters().total_jiffies, encode(ch)});
+                        next_keys.push_back({probe.counters().total_jiffies, 0x0D});
+                    }
+                    probe.load_script(next_keys);
+                    probe.advance_jiffies(8);
+                    double value = -static_cast<double>(probe.player().damage);
+                    if (probe.player().dead) value -= 1e9;
+                    if (probe.player().fainted) value -= 1e6;
+                    for (const auto& cr : probe.creatures()) {
+                        if (!cr.in_use) continue;
+                        int d = std::abs(cr.row - probe.player().row) + std::abs(cr.col - probe.player().col);
+                        value -= 100.0 / (d + 1);
+                    }
+                    if (value > best_escape) { best_escape = value; next_state = probe.snapshot(); }
+                }
+                if (next_state.empty()) break;
+                scratch.restore_snapshot(next_state);
+            }
+            double score = -1000.0 * scratch.player().damage / scratch.player().power;
+            if (scratch.player().dead) score -= 1e8;
+            if (scratch.player().fainted) score -= 10000;
+            score += (scratch.player().power - game.player().power) * 10;
+            for (int sl = 0; sl < dag::kCcbSlots; ++sl) {
+                const auto& before = game.creatures()[static_cast<std::size_t>(sl)];
+                const auto& after = scratch.creatures()[static_cast<std::size_t>(sl)];
+                if (!before.in_use) continue;
+                if (!after.in_use) score += 1500;
+                else score += 2500.0 * (static_cast<int>(after.damage) - before.damage) / before.power;
+            }
+            for (int t : {kElvish, kJoule, kMithril, kThews}) {
+                if (find_owned(scratch, t) >= 0 && find_owned(game, t) < 0) score += 2000;
+            }
+            const int elv = find_owned(scratch, kElvish);
+            if (elv >= 0 && scratch.objects()[static_cast<std::size_t>(elv)].reveal == 0 &&
+                game.objects()[static_cast<std::size_t>(elv)].reveal != 0) score += 1500;
+            score -= 8.0 * distance[scratch.player().row * 32 + scratch.player().col];
+            // Prefer separation from fast creatures when immediate outcomes tie.
+            for (const auto& c : scratch.creatures()) {
+                if (!c.in_use) continue;
+                const int d = std::abs(c.row - scratch.player().row) +
+                              std::abs(c.col - scratch.player().col);
+                score -= 20.0 / (d + 1);
+            }
+            if (score > best) { best = score; selected = ci; }
+        }
+        if (choices[selected].empty()) idle(8);
+        else type(choices[selected], 3);
+    }
+
     int play(std::uint64_t max_jiffies) {
         jiffy_limit = max_jiffies;
         int ticks = 0;
@@ -1198,6 +1346,27 @@ struct Runner {
                     hold_since = game.counters().total_jiffies;
                     phase = DarkHold;
                 }
+            }
+            if (phase == Survive3 && game.level_index() == 3 && mobs() > 0) {
+                survival_search_tick();
+                continue;
+            }
+            if (phase == Clear && game.level_index() >= 4 && mobs() > 0) {
+                if (hand_type(false) != kElvish && find_owned(game, kElvish) >= 0) {
+                    ensure_sword();
+                    continue;
+                }
+                if (find_owned(game, kMithril) >= 0 &&
+                    hand_type(false) != kMithril && hand_type(true) != kMithril) {
+                    ensure_mithril();
+                    continue;
+                }
+                if (!torch_live()) {
+                    relight();
+                    continue;
+                }
+                survival_search_tick();
+                continue;
             }
             if (occupy_tick()) continue;
 

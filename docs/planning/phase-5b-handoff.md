@@ -133,3 +133,25 @@ The planner reviewer found startup budget/diagnostic gaps; fixed by clamping all
 advance calls to the requested budget and including latest save in failures.
 13 enabled ctests pass. Winner remains disabled; baseline untouched. Next slice:
 faithful scratch lookahead for fourth-floor survival and independent verifier.
+
+## Implementation progress — scratch search and independent acceptance
+
+The planner's scratch lookahead is now restricted to separate `Game` instances.
+It restores only scratch snapshots, simulates a legal command plus advisory
+escape horizon, then sends only the selected first command through the candidate
+key path. It does not restore, import, or mutate candidate state. Candidate m
+cleared level 3, reached 7310 power, saved `FLOORD` at jiffy 171069, and entered
+level 4; its twelve bounded recoveries then failed against the level-4 population.
+The next candidate uses that search after equipping the Elvish sword and Mithril
+shield on level 4. This is a search result, not a qualified candidate.
+
+`tools/verify_playthrough.py` independently runs two fresh default `dcli`
+processes. It accepts only uppercase key scripts and validates the full trace:
+default Original Mode INIT, valid clocks and event vocabulary, unique successful
+saves, every ordered DEATH → RESTART → latest ZLOAD, one post-recovery WINNER,
+no gameplay after victory, equal traces, and optionally the recorded SHA-256.
+`tools/test_verify_playthrough.py` supplies negative cases for malformed or
+forbidden scripts/traces, missing output, process errors/timeouts, incomplete
+recovery, stale loads, trace mismatch, and hash mismatch. CTest runs these
+negative tests. No candidate has qualified yet; the legacy winner baseline
+remains untouched.

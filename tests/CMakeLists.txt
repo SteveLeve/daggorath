@@ -71,3 +71,7 @@ add_test(NAME playthrough_power_on_to_winner
 # the fire ring's charge wrap, which the ring-charge fix removed. Re-enable
 # once dplan is reworked and the script re-authored.
 set_tests_properties(playthrough_power_on_to_winner PROPERTIES TIMEOUT 120 DISABLED TRUE)
+
+# Independent replay acceptance must reject incomplete or bypassed candidates.
+add_test(NAME playthrough_verifier_negatives
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/test_verify_playthrough.py)
