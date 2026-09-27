@@ -202,6 +202,8 @@ int main(int argc, char** argv) {
     int shown_dir = 0;
     bool have_shown = false;
     bool was_fainted = false;
+    int faint_light = 0;   // OLIGHT: RLIGHT saved when HUPD30 starts
+    int faint_magic = 0;   // MLIGHT at the same moment
     bool was_dead = false;
     std::size_t seen_motion = 0;
     auto reset_view = [&]() {
@@ -379,14 +381,18 @@ int main(int argc, char** argv) {
             dark.page = {};
             dark.line.clear();
             auto fading = snap;
-            while (fading.regular_light > -8) {
-                --fading.regular_light;
+            faint_light = snap.regular_light;
+            faint_magic = snap.magic_light;
+            // HUPD30 lowers MLIGHT, draws, then lowers RLIGHT and loops while
+            // RLIGHT > -8.
+            do {
                 --fading.magic_light;
                 auto step = dag::rasterize(fading);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
                 present_frame(renderer, texture, step);
                 SDL_Delay(83);
-            }
+                --fading.regular_light;
+            } while (fading.regular_light > -8);
             SDL_Delay(game.player().dead ? 33 : 400);
         }
         if (game.player().dead && !was_dead) {
@@ -408,6 +414,30 @@ int main(int argc, char** argv) {
                 dag::start_dac(effect_carry, dag::samples_for_cue(
                     static_cast<std::uint8_t>(dag::SoundCue::EXP1), 0xFF, noise));
             }
+        }
+        if (!faint_now && was_fainted) {
+            // HUPD42: on waking, redraw and raise MLIGHT and RLIGHT one step per
+            // pass from -8 back up to the level saved in OLIGHT. Presentation
+            // only (D-14); paced like the HUPD30 fade-out [INF].
+            auto dark = chrome;
+            dark.has_page = true;
+            dark.page = {};
+            dark.line.clear();
+            auto rising = snap;
+            // HUPD30 leaves RLIGHT at -8 (lower if it started there) and MLIGHT
+            // down by the same count; HUPD42 draws, raises both, and loops while
+            // RLIGHT <= OLIGHT, so it always draws at least one frame.
+            const int down = faint_light > -8 ? faint_light + 8 : 1;
+            rising.regular_light = faint_light - down;
+            rising.magic_light = faint_magic - down;
+            do {
+                auto step = dag::rasterize(rising);
+                dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
+                present_frame(renderer, texture, step);
+                SDL_Delay(83);
+                ++rising.magic_light;
+                ++rising.regular_light;
+            } while (rising.regular_light <= faint_light);
         }
         was_fainted = faint_now;
         was_dead = game.player().dead;

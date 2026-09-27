@@ -27,7 +27,7 @@ then the rest.
 | COMCRE.ASM:FNDCEL |  | unreviewed |  |  |
 | COMCRE.ASM:CBIRTH |  | unreviewed |  |  |
 | COMCRE.ASM:VFIND |  | unreviewed |  |  |
-| COMCRE.ASM:CREGEN |  | unreviewed |  |  |
+| COMCRE.ASM:CREGEN | game.cpp task_cregen, population.cpp cregen_increment | matches | 2 | 8-bit sum over 12 types, BHS 32, RANDOM&7+2, 5-minute reschedule. |
 | CRETUR.ASM:CMOVE |  | unreviewed |  |  |
 | CRETUR.ASM:SHIELD |  | unreviewed |  |  |
 | CRETUR.ASM:STEP |  | unreviewed |  |  |
@@ -39,7 +39,7 @@ then the rest.
 | PATTK.ASM:ENDGAM |  | unreviewed |  |  |
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
-| HUPDAT.ASM:HUPD40 |  | gap-open | 1 | Wake-up fade-in (HUPD42 raises lighting to OLIGHT) is not drawn; D-14 says no fade-in on waking. |
+| HUPDAT.ASM:HUPD40 |  | gap-fixed (pacing inferred) | 2 | Wake-up fade-in climbs to the saved OLIGHT [SRC], at the fade-out rate [INF]; revival capture is C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
 | SOUNDS.ASM:SNOISE |  | unreviewed |  |  |
 | SOUNDS.ASM:SNOUT |  | unreviewed |  |  |
 | SOUNDS.ASM:SNWAIT |  | unreviewed |  |  |
@@ -77,8 +77,8 @@ then the rest.
 | PTURN.ASM:PTURN |  | unreviewed |  |  |
 | PTURN.ASM:PMOVE |  | unreviewed |  |  |
 | PTURN.ASM:PSTEP |  | unreviewed |  |  |
-| PUPDAT.ASM:PUPDAX |  | unreviewed |  |  |
-| PUPDAT.ASM:PUPSUB |  | unreviewed |  |  |
+| PUPDAT.ASM:PUPDAX | game.cpp PUPDAX redraw | matches | 2 | HUPD32 clears KBDHDR/KBDTAL; the core leaves the buffer but PLAYER discards every char while fainted (HUMAN.ASM:21), and CLK50 stops polling, so the effect is the same [INF]. |
+| PUPDAT.ASM:PUPSUB | game.cpp refresh_light | matches | 2 | PRLITE is non-zero only after ENDGAM (PATTK:158), when there is no torch; the core writes 7/$13 directly and refresh_light cannot run then. |
 | PGET.ASM:PGET |  | unreviewed |  |  |
 | PGET.ASM:PDROP |  | unreviewed |  |  |
 | PGET.ASM:PSTOW |  | unreviewed |  |  |
@@ -100,3 +100,4 @@ then the rest.
 |---|---|---|---|---|---|
 | 2026-09-26 | 1 | Reported: death animation too fast (HUPDAT DEATH/HUPD30, MISC WIZIX) | Pacing unprovable from the listing (per-step draw cost); wake-up fade-in and fade-in buzz not reproduced | none; map seeded, Q1 raised, C-17 added | ROM capture — not run: MAME not extracted |
 | 2026-09-26 | 1b (manual) | C-17 capture | Wizard fade ~4.8 s on the ROM vs our 1.9 s; blank gap 33 ms vs our 400 ms | 9e8d66c, ab91dc7; audited | — |
+| 2026-09-26 | 2 | HUPD40/HUPD42, PUPDAX, PUPSUB, CREGEN | Wake-up fade missing; desktop fade-out drew one step early; PUPSUB, keyboard flush and CREGEN match | Wake fade-in to saved OLIGHT, fade-out order fixed; C-18 added; audited | Revival capture — not run: C-18 next |
