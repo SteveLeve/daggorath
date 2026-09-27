@@ -148,6 +148,15 @@ report player ownership. The planner now retains and reveals the iron weapon
 that survives the Image instead of trying to pull unreachable Elvish or Mithril
 objects on level 4. This is a search result, not a qualified candidate.
 
+Candidate v exposed two further planner issues. Its level-4 occupancy fallback
+still tried to relight a dead torch, stowing a weapon and ring; all shared-cell
+darkness guards now allow the legal attack-and-leave path on level 4. The trace
+also showed a reachable THEWS flask on the rebuilt level-3 floor, which the
+planner now collects and uses when power is below 7000. Candidate v reduced the
+level-4 population from 31 to 25 and reached 6506 power before exhausting twelve
+real FLOORD reloads. Candidate w is measuring the updated route. These are
+planner experiments, not qualification evidence.
+
 `tools/verify_playthrough.py` independently runs two fresh default `dcli`
 processes. It accepts only uppercase key scripts and validates the full trace:
 default Original Mode INIT, valid clocks and event vocabulary, unique successful

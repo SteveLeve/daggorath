@@ -995,7 +995,7 @@ struct Runner {
             type({leave_cmd()});
             return true;
         }
-        if (!torch_live() && !wimp(c) && !wizard(c)) {
+        if (!torch_live() && game.level_index() < 4 && !wimp(c) && !wizard(c)) {
             relight();
             if (!torch_live() && c.type >= 2) {
                 hit_run(false);
@@ -1013,7 +1013,7 @@ struct Runner {
         if (scorpion(c)) {
             // Do not PULL on this cell: that burns jiffies before the swing.
             // ATTACK has no SYNC, so ATTACK+MOVE leaves before CMOVE.
-            if (!torch_live()) {
+            if (!torch_live() && game.level_index() < 4) {
                 type({leave_cmd()});
                 return true;
             }
@@ -1039,7 +1039,7 @@ struct Runner {
             idle(20);
             return true;
         }
-        if (!torch_live() && !wimp(c)) {
+        if (!torch_live() && game.level_index() < 4 && !wimp(c)) {
             type({leave_cmd()});
             return true;
         }
@@ -1053,7 +1053,7 @@ struct Runner {
                     type({leave_cmd()}, 3);
                     return true;
                 }
-                if (!torch_live() && !wimp(c)) {
+                if (!torch_live() && game.level_index() < 4 && !wimp(c)) {
                     type({leave_cmd()});
                     return true;
                 }
@@ -1691,6 +1691,22 @@ struct Runner {
                         break;
                     }
                     if (game.level_index() == 3) {
+                        // ENDGAM's rebuilt floor can contain a THEWS flask.
+                        // Take its source-backed +1000 power before committing
+                        // to the much denser final population.
+                        const int thews = find_obj(game, kThews);
+                        if (game.player().power < 7000 && thews >= 0 &&
+                            game.objects()[static_cast<std::size_t>(thews)].level == 3) {
+                            if (find_owned(game, kThews) < 0) {
+                                collect(kThews, "THEWS FLASK");
+                                break;
+                            }
+                            empty_hand(true);
+                            type({"PULL RIGHT THEWS FLASK"});
+                            if (hand_type(true) != kThews) type({"GET RIGHT THEWS FLASK"});
+                            if (hand_type(true) == kThews) type({"USE RIGHT"});
+                            break;
+                        }
                         if (find_owned(game, kJoule) < 0 && find_owned(game, kEnergy) < 0) {
                             collect(kJoule, "JOULE RING");
                             break;
