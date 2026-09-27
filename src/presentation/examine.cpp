@@ -25,9 +25,28 @@ struct Pad {
         for (auto& row : real) row.fill(' ');
     }
 
+    // TXTSER.ASM:40-42 TCHR10: after each character, a cursor at or past
+    // P.TXCNT (32 * 19, COMDAT.ASM:94) scrolls the page up one line and homes
+    // to the last line (source-proven, COMTXT.ASM:63-88). TSCR20 fills the new
+    // line with P.TXINV. A scroll only follows a CR or a full row, after
+    // PRTOBJ has restored P.TXINV, so in practice that line is never inverse.
+    void scroll_if_needed() {
+        if (cur < kExamineRows * 32) return;
+        for (int r = 0; r + 1 < kExamineRows; ++r) {
+            grid[static_cast<std::size_t>(r)] = grid[static_cast<std::size_t>(r + 1)];
+            real[static_cast<std::size_t>(r)] = real[static_cast<std::size_t>(r + 1)];
+            inv[static_cast<std::size_t>(r)] = inv[static_cast<std::size_t>(r + 1)];
+        }
+        grid[kExamineRows - 1].fill(' ');
+        real[kExamineRows - 1].fill(' ');
+        inv[kExamineRows - 1].fill(inverse_run);
+        cur = (kExamineRows - 1) * 32;
+    }
+
     void put(char ch) {
         if (ch == '\n') {
             cur = (cur + 32) & ~31;
+            scroll_if_needed();
             return;
         }
         const int r = cur >> 5;
@@ -38,8 +57,15 @@ struct Pad {
             real[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)] = ch;
             inv[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)] = inverse_run;
         }
+        // Quirk (quirks.md): PRTOBJ's tab (PEXAM.ASM:154-157) can leave the
+        // cursor at 608. TXTEXA's base is D0$BAS and TXTSTS's is D0$BAS+256*19
+        // (COMDAT.ASM:93, 98), so the original draws that character at column 0
+        // of the status line, and the 18-line scroll leaves it there
+        // (source-proven). This pad deliberately drops it; whether the player
+        // sees it before the status line is redrawn is [INF].
         ++cur;
         inverse_next = false;
+        scroll_if_needed();
     }
 
     void write(std::string_view s) {
