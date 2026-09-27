@@ -241,7 +241,8 @@ private:
     void text(const std::string& s);                        // OUTSTI
     void set_mode(DisplayMode mode);                        // STX DSPMOD
     void block(BlockKind kind, std::uint32_t loops, std::uint32_t jiffies, bool known);
-    void inivu();                                           // PLOOK.ASM INIVUX
+    // PLOOK.ASM INIVUX. `charge` is false only for GAME50 (see D-15).
+    void inivu(bool charge = true);
     void wizard_fade_in();                                  // MISC.ASM WIZIX
     void heartbeat_interrupt();                             // COMMON.ASM CLK30
     TaskResult task_cregen();

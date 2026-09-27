@@ -7,6 +7,7 @@ Steve adds hand-play observations here. The loop works these first.
 - ~~Death animation too fast~~ fixed by C-17 (2026-09-26). Hand-play check pending.
 
 ## Open questions
+- **Q4 (loop 11): charge the GAME50 start-up INIVU?** `INIVU` now runs its whole `INIVUX`/`PLOOK` body: CLRPRI, viewer mode and the D-15 `PUPDAT` charge. The start-up call in `GAME50` is left uncharged, because the capture harness defines jiffy 0 as the first interrupt after `GAME50` is fetched. Charging it would shift every baseline by one jiffy at the start, and the alignment is already [INF]. Leave it, or charge it and regenerate every baseline?
 
 
 ## Answered
@@ -90,7 +91,7 @@ then the rest.
 | PGET.ASM:PPULL | game.cpp | gap-fixed | 10 | Bag unlink, PTORCH cleared if pulled; COMUPD. |
 | PGET.ASM:COMUPD | game.cpp | gap-fixed | 10 | STATUS + PUPDAT, now charged (D-15). |
 | PUSE.ASM:PUSE | game.cpp cmd_use | gap-fixed | 10 | Torch (two PUPDATs), flasks (no OCBFIL, type goes to T.FLA4, reveal 0, no redraw) and scrolls match; the missing PUPDAT charges are added. Quirk: USC100/200 store MAPFLG before the reveal test, so an unrevealed scroll still sets MAPFLG; no visible effect, because every map display runs through a scroll that resets it [INF]. |
-| PCLIMB.ASM:PCLIMB |  | unreviewed |  |  |
+| PCLIMB.ASM:PCLIMB | game.cpp cmd_climb | gap-fixed | 11 | VFIND/DIRTAB/VF codes match. The INIVU after NEWLVL was missing, so a climb left the text area uncleared, skipped the heart resets and charged no redraw; added. |
 | PREVEA.ASM:PREVEA |  | unreviewed |  |  |
 | PEXAM.ASM:PEXAM |  | unreviewed |  |  |
 | PEXAM.ASM:EXAMIN |  | unreviewed |  |  |
@@ -115,3 +116,4 @@ then the rest.
 | 2026-09-27 | 8 | PINCAN, WINNER, PMOVE, PSTEP | All match; PMOVE's wall-bump half-step view is missing in the desktop (gap-open) | log only | Wall-bump fix — not run: needs an event-schema change, next run |
 | 2026-09-27 | 9 | PMOVE wall bump | The desktop now draws the half-step before the THUD; the MoveAnimation block carries step_relative; test added | this commit | — |
 | 2026-09-27 | 10 | PGET (GET, DROP, STOW, PULL, COMUPD), PUSE | Logic matches; COMUPD, PUSE and PATT40 PUPDATs were uncharged | D-15 extended; fight baselines regenerated (one kill SYNC each); 3 tests; audited | Tests for GET, DROP and STOW individually — not added (the shared COMUPD path is covered by PULL) |
+| 2026-09-27 | 11 | PCLIMB, INIVU/PLOOK, HMAN10, endgames | Typing after a map never left map mode; CLIMB skipped INIVU; INIVU lacked CLRPRI, PLOOK and PUPDAT; the ring riddle wrongly stopped the heartbeat (a stray WIZIX CLR HBEATF); ENDGAM lacked WIZIX's CLR HBEATF | Fixed; tests for climb, map exit, riddle and ENDGAM (no LOAD90 test); no baseline moved; Q4 raised | GAME50 charge — not run: Q4 |

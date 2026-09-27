@@ -232,6 +232,37 @@ void test_torch_use_redraws_twice_and_flask_not_at_all() {
           "USE of a flask does not redraw (UFL900)");
 }
 
+void test_inivu_returns_to_the_viewer() {
+    // PLOOK.ASM INIVUX falls into PLOOK: DSPMOD = VIEWER, PUPDAT. HUMAN.ASM
+    // HMAN10 runs INIVU on the first key after a map; PCLIMB.ASM PCLI20 runs it
+    // after NEWLVL.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    int scroll = -1;
+    for (int i = 0; i < static_cast<int>(game.objects().size()); ++i)
+        if (game.objects()[static_cast<std::size_t>(i)].cls == 2) { scroll = i; break; }
+    check(scroll >= 0, "a scroll object exists");
+    if (scroll < 0) return;
+    game.hold(false, scroll);
+    game.set_player_power(10000);
+    run(game, {"REVEAL LEFT", "USE LEFT"});
+    check(game.display_mode() == dag::DisplayMode::Mapper, "USE of a revealed scroll shows the map");
+    run(game, {"LOOK"});
+    run(game, {"USE LEFT", "T"});
+    check(game.display_mode() == dag::DisplayMode::Viewer,
+          "the first key after the map runs INIVU and returns to the viewer");
+
+    dag::Game climb(1, 0);
+    climb.set_frozen(true);
+    climb.place_player(0, 23);   // level 0 ladder down (VFTTAB)
+    const std::size_t from = climb.trace().size();
+    run(climb, {"CLIMB DOWN"});
+    bool inivu = false;
+    for (std::size_t i = from; i < climb.trace().size(); ++i)
+        if (climb.trace()[i].kind == "PUPDAT" && climb.trace()[i].detail == "inivu") inivu = true;
+    check(climb.level_index() == 1 && inivu, "CLIMB runs INIVU after NEWLVL");
+}
+
 void test_image_ending() {
     dag::Game game(1, 0);
     game.set_frozen(true);
@@ -251,6 +282,8 @@ void test_image_ending() {
         if (lines[i] != "!!!") hits_marked = false;
     check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
+    check(game.display_mode() == dag::DisplayMode::Viewer && game.heart().hbeatf == 0xFF,
+          "ENDGAM's WIZIN clears HBEATF and its closing INIVU sets it to $FF, in the viewer");
     check(game.player().carried_weight == 200, "ENDGAM sets POBJWT to 200");
     check(game.player().bag_head == torch &&
               game.objects()[static_cast<std::size_t>(torch)].next == -1,
@@ -275,6 +308,7 @@ void test_wizard_ending() {
               game.player().left_hand < 0 && game.player().right_hand < 0,
           "bag, torch, and both hands are cleared");
     check(!game.player().dead && !game.player().won, "the riddle does not end the game");
+    check(game.heart().hbeatf != 0, "the riddle's INIVU leaves the audio heartbeat on (no WIZIN)");
 }
 
 void test_winner() {
@@ -485,6 +519,7 @@ int main() {
     test_blocked_move_still_reports_its_half_step();
     test_pull_costs_a_sync();
     test_torch_use_redraws_twice_and_flask_not_at_all();
+    test_inivu_returns_to_the_viewer();
     test_image_ending();
     test_wizard_ending();
     test_winner();

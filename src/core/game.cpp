@@ -94,7 +94,7 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
         emit(msg.substr(0, sp), msg.substr(sp + 1));
     });
     sched_.set_irq_hook([this] { heartbeat_interrupt(); });
-    inivu();   // ONCE.ASM GAME50: SWI INIVU
+    inivu(false);   // ONCE.ASM GAME50: SWI INIVU; its SYNC precedes jiffy 0 [INF]
     prompt();  // GAME50: SWI PROMPT
     emit("INIT", "level=" + std::to_string(level) + " row=" +
                      std::to_string(player_.row) + " col=" +
@@ -300,12 +300,18 @@ void Game::block(BlockKind kind, std::uint32_t loops, std::uint32_t jiffies, boo
     e.duration_known = known;
 }
 
-void Game::inivu() {
-    // PLOOK.ASM INIVUX: HUPDAT, INC HEARTC, DEC HEARTF, DEC HBEATF.
+void Game::inivu(bool charge) {
+    // PLOOK.ASM:7-23 INIVUX (source-proven): CLRSTS, CLRPRI, HUPDAT, INC HEARTC,
+    // DEC HEARTF, DEC HBEATF, STATUS, then falls into PLOOK: DSPMOD = VIEWER
+    // and PUPDAT. CLRSTS and STATUS only redraw the status line, which the
+    // core does not model.
+    clear_primary_text();
     update_heart_rate();
     heart_.heartc = static_cast<std::uint8_t>(heart_.heartc + 1);
     heart_.heartf = static_cast<std::uint8_t>(heart_.heartf - 1);
     heart_.hbeatf = static_cast<std::uint8_t>(heart_.hbeatf - 1);
+    if (mode_ != DisplayMode::Viewer) set_mode(DisplayMode::Viewer);
+    if (charge) pupdat("inivu");
 }
 
 void Game::wizard_fade_in() {
@@ -950,6 +956,7 @@ void Game::cmd_climb(const std::string& line, std::size_t& pos) {
     }
     emit("CLIMB", "level=" + std::to_string(next));
     enter_level(next);
+    inivu();   // PCLIMB.ASM PCLI20: NEWLVL then SWI INIVU
 }
 
 int Game::find_creature(int row, int col) const {
@@ -1001,6 +1008,7 @@ void Game::endgame_image() {
     // torch's link cleared. PLHAND, PRHAND, and PTORCH are kept. Weight becomes
     // 200, level 3 is rebuilt, and FNDCEL relocates.
     emit("ENDGAM", "image");
+    wizard_fade_in();   // PATTK.ASM:193-195 ENDGAM: WIZIN, whose WIZIX clears HBEATF
     emit("DIALOGUE", "^ ENOUGH! I TIRE OF THIS PLAY...");   // PATTK.ASM:198
     emit("DIALOGUE", "   PREPARE TO MEET THY DOOM!!!");     // PATTK.ASM:222
     player_.bag_head = -1;
@@ -1019,6 +1027,7 @@ void Game::endgame_image() {
         break;
     }
     emit("RELOCATE", "row=" + std::to_string(player_.row) + " col=" + std::to_string(player_.col));
+    inivu();   // PATTK.ASM ENDGAM: WIZOUT, then SWI INIVU
 }
 
 void Game::endgame_wizard() {
@@ -1030,7 +1039,7 @@ void Game::endgame_wizard() {
     player_.left_hand = -1;
     player_.right_hand = -1;
     emit("ENDGAM", "wizard");
-    wizard_fade_in();
+    inivu();   // PATTK.ASM ring riddle: SWI INIVU, then PATT99 HUPDAT. No WIZIN here.
 }
 
 std::string Game::filename_token(const std::string& line, std::size_t& pos) const {
