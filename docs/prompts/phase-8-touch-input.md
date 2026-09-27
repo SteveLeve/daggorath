@@ -24,7 +24,9 @@ Work in this order.
    whether a gesture emits the whole line at once (and what that does to the
    32-byte buffer quirk) or paces keystrokes; record the choice as a deviation
    if it differs from a typist.
-3. **Prototype on desktop** with mouse-as-touch; evaluate portrait and landscape
+3. **Prototype on desktop** following the agreed direction in
+   `docs/design/touch-controls/README.md` (landscape overlay, square letter
+   buttons, sequential command entry), with mouse-as-touch; evaluate landscape
    layouts; optional visible command trace.
 4. **Tests**: each gesture's keystroke output as fixtures; a replay of a touch
    session produces the same core trace as its keystroke transcript.
