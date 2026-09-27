@@ -51,6 +51,7 @@ then the rest.
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
 | HUPDAT.ASM:HUPD40 |  | gap-fixed | 3 | Wake-up fade-in climbs to the saved OLIGHT [SRC], 5 jiffies per step [ROM] C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
+| HUPDAT.ASM:HUPD00-20, HUPD90, DEATH | game.cpp update_heart_rate | gap-fixed | 19 | 24-bit division, signed faint (<=3) and wake (>4) tests and BLO death match. DEATH's CLR FAINT was missing (fixed); the AUTFLG restart is D-16, Phase 5b. |
 | SOUNDS.ASM:SNOISE | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
 | SOUNDS.ASM:SNOUT | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
 | SOUNDS.ASM:SNWAIT | presentation snoise.cpp | matches | 13 | SNDTAB mapping and parameters checked; samples fixture-backed (sounds.json); foreground time is D-4b. |
@@ -134,3 +135,4 @@ then the rest.
 | 2026-09-27 | 16 | EXAMIN in the window | The window showed a blank viewport in examine mode | paint_examine + shared examine_snapshot_from + test | — |
 | 2026-09-27 | 17 | PZTAPE, COMMON SAVE/LOAD/LOAD90 | LOAD90 PROMPT missing after INIVU; the audit of a1df32c found its reverse-video band disagrees with NLVL50 (Q5) | Prompt fix + test (committed by Steve in a1df32c) | a1df32c audited; band left to Steve |
 | 2026-09-27 | 18 | NEWLVL; Q5 follow-up | NEWLVL matches; the VDGINV flip moved into a tested presentation helper | apply_vdginv + test | none |
+| 2026-09-27 | 19 | HUPDAT heart rate, HUPD90, DEATH | DEATH did not clear FAINT; the halt-instead-of-restart was unrecorded | CLR FAINT + test; D-16 added | none |
