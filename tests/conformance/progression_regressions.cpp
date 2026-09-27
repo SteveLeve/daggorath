@@ -145,6 +145,38 @@ void test_luknew_pupdat_costs_a_sync() {
     check(each_followed, "each LUKNEW PUPDAT gives up the next jiffy to SYNC");
 }
 
+// COMPLR.ASM:43 BURN99: BURNER ends in DEC NEWLUK on every run, torch or not,
+// so LUKNEW redraws even with the creatures frozen and no torch lit.
+void test_burner_requests_redraw() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    game.advance_jiffies(60);
+    // Find the first LUKNEW run after BURNER's opening run; it must redraw.
+    const auto& tr = game.trace();
+    bool burned = false, redrew = false;
+    for (std::size_t i = 0; i < tr.size(); ++i) {
+        if (tr[i].kind == "TASK" && tr[i].detail == "run BURNER") burned = true;
+        if (burned && tr[i].kind == "TASK" && tr[i].detail == "run LUKNEW") {
+            redrew = i + 1 < tr.size() && tr[i + 1].kind == "PUPDAT" &&
+                     tr[i + 1].detail == "luknew";
+            break;
+        }
+    }
+    check(redrew, "the first LUKNEW after BURNER redraws (BURN99 DEC NEWLUK)");
+}
+
+// HUPDAT.ASM:130-132 and :168: death is checked after a faint in the same
+// HUPDAT, and DEATH does CLR FAINT.
+void test_death_clears_faint() {
+    dag::Game game(1, 0);
+    game.set_player_damage(156);   // PPOW 160: heart rate 3, a faint and not a death
+    for (int j = 0; j < 400 && !game.player().fainted; ++j) game.advance_jiffies(1);
+    check(game.player().fainted, "near-fatal damage faints");
+    game.set_player_damage(static_cast<std::uint16_t>(game.player().power + 1));
+    game.advance_jiffies(200);
+    check(game.player().dead && !game.player().fainted, "DEATH clears FAINT");
+}
+
 void test_no_pupdat_while_fainted() {
     // PUPDAT.ASM PUPDAX: TST FAINT / BNE PUPD99 - no redraw and no SYNC.
     dag::Game game(1, 0);
@@ -307,6 +339,19 @@ void test_image_ending() {
     for (std::size_t i = 0; i + 2 < lines.size(); ++i)
         if (lines[i] != "!!!") hits_marked = false;
     check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
+    game.advance_jiffies(200);
+    // PATTK.ASM ENDGAM / MISC.ASM: WIZIN's one WIZZES SYNC and WAITX's 81 SYNCs
+    // come before NEWLVL; WIZOUT's 16 WIZZES SYNCs come before INIVU.
+    std::uint64_t start = 0, relocate = 0, inivu_at = 0;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "KILL") start = e.jiffy;
+        if (e.kind == "RELOCATE") relocate = e.jiffy;
+        if (e.kind == "PUPDAT" && e.detail == "inivu" && relocate != 0 && inivu_at == 0)
+            inivu_at = e.jiffy;
+    }
+    // From the kill: PATT40's PUPDAT SYNC, WIZIN's WIZZES SYNC, WAITX's 81.
+    check(relocate - start == 83, "NEWLVL 3 waits for PATT40's, WIZIN's and WAITX's SYNCs");
+    check(inivu_at - relocate == 16, "INIVU waits for WIZOUT's 16 WIZZES SYNCs");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
     check(game.display_mode() == dag::DisplayMode::Viewer && game.heart().hbeatf == 0xFF,
           "ENDGAM's WIZIN clears HBEATF and its closing INIVU sets it to $FF, in the viewer");
@@ -350,6 +395,19 @@ void test_winner() {
     const std::uint64_t at = game.counters().total_jiffies;
     game.advance_jiffies(100);
     check(game.counters().total_jiffies == at, "WINNER ends in BRA *");
+}
+
+// COMMON.ASM:136-141 LOAD90: after INIVU clears the text area, PROMPT prints
+// I.CR, I.DOT (MISC.ASM M$PROM1), so a save or load leaves a "." prompt.
+void test_tape_prompts_after_inivu() {
+    for (const char* command : {"ZSAVE QUEST", "ZLOAD QUEST"}) {
+        dag::Game game(1, 0);
+        game.load_script(keys_for(10, {"ZSAVE QUEST", command}));
+        game.advance_jiffies(200);
+        const auto& text = game.primary_text();
+        check(std::count(text.begin(), text.end(), std::uint8_t{0x1E}) == 1,
+              std::string("LOAD90 prompts after ") + command);
+    }
 }
 
 void test_death_load_resumes() {
@@ -541,6 +599,8 @@ void test_fudge_harness_is_not_source_behaviour() {
 int main() {
     test_spent_ring_becomes_a_plain_gold_ring();
     test_luknew_pupdat_costs_a_sync();
+    test_burner_requests_redraw();
+    test_death_clears_faint();
     test_no_pupdat_while_fainted();
     test_blocked_move_still_reports_its_half_step();
     test_pull_costs_a_sync();
@@ -552,6 +612,7 @@ int main() {
     test_wizard_ending();
     test_winner();
     test_death_line();
+    test_tape_prompts_after_inivu();
     test_death_load_resumes();
     test_save_load_resumes_at_the_save();
     test_ram_image_is_the_whole_state();

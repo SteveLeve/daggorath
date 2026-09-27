@@ -159,6 +159,36 @@ bool cell_matches(const std::uint8_t* pixels, int col, int y, const std::uint8_t
     return true;
 }
 
+// The status line is reverse video (STATUS.ASM:7-9), so a glyph cell there
+// is white background with the glyph's bits cleared.
+bool cell_matches_inverse(const std::uint8_t* pixels, int col, int y, const std::uint8_t rows[7]) {
+    for (int row = 0; row < 7; ++row) {
+        for (int bit = 0; bit < 8; ++bit) {
+            const int off = (rows[row] & (0x80 >> bit)) != 0 ? 0 : 1;
+            const std::uint8_t pixel =
+                pixels[static_cast<std::size_t>((y + row) * dag::kScreenWidth + col * 8 + bit)];
+            if (pixel != off) return false;
+        }
+    }
+    return true;
+}
+
+// STATUS.ASM:7-9 and COMDAT.ASM:96-106 TXTSTS/TXTPRI defaults: at VDGINV 0 only the
+// status line is inverse; the command line shares the viewport's polarity.
+void test_band_polarity() {
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(dag::kScreenWidth * dag::kScreenHeight));
+    dag::TextSnapshot snap;
+    snap.line = "A";
+    dag::paint_text_bands(pixels.data(), dag::kScreenWidth, snap, "");
+    std::uint8_t blank[7] = {};
+    std::uint8_t letter[7] = {};
+    dag::glyph_rows(1, letter);
+    check(cell_matches_inverse(pixels.data(), 20, dag::kViewportScanlineEnd, blank),
+          "an empty status cell is inverse (TXTSTS.TXINV = COM VDGINV)");
+    check(cell_matches(pixels.data(), 1, dag::kStatusScanlineEnd, letter),
+          "the command line is drawn with TXTPRI.TXINV = VDGINV, not inverse");
+}
+
 void test_heart_raster() {
     std::vector<std::uint8_t> pixels(static_cast<std::size_t>(dag::kScreenWidth * dag::kScreenHeight));
     dag::TextSnapshot snap;
@@ -170,18 +200,18 @@ void test_heart_raster() {
     dag::glyph_rows(0x20, left);
     dag::glyph_rows(0x21, right);
     dag::glyph_rows(static_cast<std::uint8_t>('S' - 'A' + 1), letter);
-    check(cell_matches(pixels.data(), 15, dag::kViewportScanlineEnd, left),
+    check(cell_matches_inverse(pixels.data(), 15, dag::kViewportScanlineEnd, left),
           "the small heart's left cell is SPCTAB $20");
-    check(cell_matches(pixels.data(), 16, dag::kViewportScanlineEnd, right),
+    check(cell_matches_inverse(pixels.data(), 16, dag::kViewportScanlineEnd, right),
           "the small heart's right cell is SPCTAB $21");
-    check(!cell_matches(pixels.data(), 15, dag::kViewportScanlineEnd, letter),
+    check(!cell_matches_inverse(pixels.data(), 15, dag::kViewportScanlineEnd, letter),
           "the small heart is not the letter S");
     snap.heart = dag::HeartGlyph::Large;
     dag::paint_text_bands(pixels.data(), dag::kScreenWidth, snap, "");
     dag::glyph_rows(0x22, left);
     dag::glyph_rows(0x23, right);
-    check(cell_matches(pixels.data(), 15, dag::kViewportScanlineEnd, left) &&
-              cell_matches(pixels.data(), 16, dag::kViewportScanlineEnd, right),
+    check(cell_matches_inverse(pixels.data(), 15, dag::kViewportScanlineEnd, left) &&
+              cell_matches_inverse(pixels.data(), 16, dag::kViewportScanlineEnd, right),
           "the large heart is SPCTAB $22 and $23");
 }
 
@@ -196,6 +226,7 @@ void test_glyph_a() {
 
 int main() {
     test_glyph_a();
+    test_band_polarity();
     test_heart_raster();
     test_regions();
     test_names();
