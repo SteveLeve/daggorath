@@ -9,7 +9,8 @@ Goal: find where `src/` is missing or getting wrong behaviour of the original li
 
 Working branch: `refinement/discovery-2`. PR #21 (runs 1–16) and PR #23 (runs 17–22,
 `refinement/playthrough-and-discovery`) were merged to `main` on 2026-09-27. Phase 8 work lands
-on `main` from other branches: pull it in with a merge, never a rebase.
+on `main` from other branches. Steve pulls it in by rebasing this branch onto `main`
+(then `git push --force-with-lease`); a run never rebases on its own.
 
 ## 1. Orient (under 2 minutes)
 - Run `git status`. If the tree has uncommitted changes that this loop did not make,
@@ -93,7 +94,8 @@ For each target:
 - Commit each fix separately, plus one commit for the log. Commit messages are one
   sentence in the repo's style.
 - `git push origin refinement/discovery-2`. If the branch has no open PR
-  yet, open one as a draft against `main`. No force-push, no rebase.
+  yet, open one as a draft against `main`. A run does not rebase or force-push; only a
+  rebase Steve asks for, pushed with `--force-with-lease`.
 
 ## 8. Ping Steve (PushNotification) when
 - a question blocks progress,
