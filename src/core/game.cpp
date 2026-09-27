@@ -1072,7 +1072,7 @@ void Game::cmd_attack(const std::string& line, std::size_t& pos) {
         if (held->spec[0] == 0) {
             // PATT10: STA P.OCTYP then JSR PREV00, which is OCBFIL for T.RN20,
             // CLR P.OCREV and a status update. The gold ring takes its own
-            // offense (0/5), not the spent ring's 255/255.
+            // offense (0/5), not the spent ring's 255/255. Source-proven: PATTK.ASM:44-54, PREVEA.ASM:34-38.
             held->type = kTypeRingGold;
             fill_ocb_specific(*held);
             held->reveal = 0;
