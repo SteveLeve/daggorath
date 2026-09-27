@@ -185,6 +185,53 @@ void test_blocked_move_still_reports_its_half_step() {
     check(found, "some facing at the level-0 start has a wall ahead");
 }
 
+void test_pull_costs_a_sync() {
+    // PGET.ASM PPULL ends in COMUPD: STATUS then PUPDAT, whose SYNC costs the
+    // next jiffy's pass (D-15).
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    run(game, {"PULL RIGHT TORCH"});
+    bool pupdat = false, sync_next = false;
+    std::uint64_t at = 0;
+    for (const auto& e : game.trace()) {
+        if (e.kind == "PUPDAT" && e.detail == "comupd" && !pupdat) { pupdat = true; at = e.jiffy; }
+        if (pupdat && e.kind == "SYNC" && e.jiffy == at + 1) sync_next = true;
+    }
+    check(has(game, "PULL") && pupdat && sync_next, "PULL's COMUPD redraw costs a SYNC jiffy");
+}
+
+int count_pupdat(const dag::Game& game, std::size_t from, const std::string& why) {
+    int n = 0;
+    for (std::size_t i = from; i < game.trace().size(); ++i)
+        if (game.trace()[i].kind == "PUPDAT" && game.trace()[i].detail == why) ++n;
+    return n;
+}
+
+void test_torch_use_redraws_twice_and_flask_not_at_all() {
+    // PUSE.ASM PUSE12: PSTOW0 ends in COMUPD's PUPDAT, then A$TORC, then a
+    // second PUPDAT. UFL900 (flasks) has ISOUND, STATUS and HUPDAT only.
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    run(game, {"PULL RIGHT TORCH"});
+    std::size_t from = game.trace().size();
+    run(game, {"USE RIGHT"});
+    check(count_pupdat(game, from, "comupd") == 1 && count_pupdat(game, from, "puse") == 1,
+          "USE of a torch redraws twice: PSTOW0's COMUPD, then PUSE12");
+    dag::Game flask(1, 0);
+    flask.set_frozen(true);
+    int index = -1;
+    for (int i = 0; i < static_cast<int>(flask.objects().size()); ++i)
+        if (flask.objects()[static_cast<std::size_t>(i)].cls == 0) { index = i; break; }
+    check(index >= 0, "a flask object exists");
+    if (index < 0) return;
+    flask.hold(false, index);
+    from = flask.trace().size();
+    run(flask, {"USE LEFT"});
+    check(has(flask, "USE") && count_pupdat(flask, from, "puse") == 0 &&
+              count_pupdat(flask, from, "comupd") == 0,
+          "USE of a flask does not redraw (UFL900)");
+}
+
 void test_image_ending() {
     dag::Game game(1, 0);
     game.set_frozen(true);
@@ -436,6 +483,8 @@ int main() {
     test_luknew_pupdat_costs_a_sync();
     test_no_pupdat_while_fainted();
     test_blocked_move_still_reports_its_half_step();
+    test_pull_costs_a_sync();
+    test_torch_use_redraws_twice_and_flask_not_at_all();
     test_image_ending();
     test_wizard_ending();
     test_winner();

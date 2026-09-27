@@ -76,3 +76,8 @@ Baselines that change, and why:
 | `traces/fight-to-death.trace` | 28 × the same; the CMOV90 `PUPDAT` line gains a `cmov90` tag; at one point `TASK run PLAYER` now comes before `TASK run HSLOW`, because the `SYNC` jiffy took the lap that used to run `PLAYER` first | same cause. The kill, final cell and damage are unchanged |
 
 Decided by the project owner on 2026-09-27 (refinement log Q2).
+
+### Addendum 2026-09-27 (refinement run 10): the other PUPDAT callers
+
+**[SRC]** `PGET`, `PDROP`, `PSTOW` and `PPULL` end in `COMUPD` (`STATUS`, `PUPDAT`; `PGET.ASM:174-178`). A torch `USE` runs `PSTOW0` and then a second `PUPDAT` after `A$TORC` (`PUSE.ASM:21-29` PUSE12). A scroll `USE` does `PUPDAT` at USC210. A kill does `PUPDAT` at `PATT40` (`PATTK.ASM:119-124`), before `A$EXP0`. A scroll's USC210 is at `PUSE.ASM:123-130`. Flask `USE` does not redraw. These now charge D-15's jiffy through the same `pupdat()`, traced as `PUPDAT comupd`, `puse` or `pattk`. Baselines that change: `fight-to-kill.trace` and `fight-to-death.trace` each gain one `PUPDAT pattk` and a `SYNC` jiffy right after their `KILL`, in place of a `PLAYER` run. In `fight-to-kill` the next `TASK run LUKNEW` moves one jiffy later, from 10.2.0 to 10.2.1, for the same reason. Kills, final cells and damage are unchanged. This is the same change the owner accepted in Q2.
+

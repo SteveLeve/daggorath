@@ -197,6 +197,7 @@ private:
     void prompt();                         // MISC.ASM PROMPT
     void clear_primary_text();             // CLRPRI
     void pupdat();                         // PUPDAX: redraw + SYNC unless fainted
+    void pupdat(const std::string& why);   // the same, traced as PUPDAT <why>
     TaskResult task_luknew();
     void cmd_move(const std::string& line, std::size_t& pos);
     void cmd_turn(const std::string& line, std::size_t& pos);

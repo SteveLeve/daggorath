@@ -464,6 +464,11 @@ void Game::pupdat() {
     ++sync_pending_;
 }
 
+void Game::pupdat(const std::string& why) {
+    emit("PUPDAT", why);
+    pupdat();
+}
+
 // COMPLR.ASM LUKNEW: redraw when a creature asked for it or the map is up
 // (source-proven).
 TaskResult Game::task_luknew() {
@@ -687,6 +692,7 @@ void Game::stow_index(bool right, int index) {
     if (right) player_.right_hand = -1;
     else player_.left_hand = -1;
     emit("STOW", "object=" + std::to_string(index));
+    pupdat("comupd");   // PGET.ASM PSTOW0 -> COMUPD: STATUS, PUPDAT
 }
 
 void Game::refresh_light() {
@@ -752,6 +758,7 @@ void Game::cmd_get(const std::string& line, std::size_t& pos) {
     else player_.left_hand = found;
     add_weight(kClassWeight[object.cls]);
     emit("GET", "object=" + std::to_string(found));
+    pupdat("comupd");   // PGET.ASM WUPDAT -> COMUPD: STATUS, PUPDAT
 }
 
 void Game::cmd_drop(const std::string& line, std::size_t& pos) {
@@ -772,6 +779,7 @@ void Game::cmd_drop(const std::string& line, std::size_t& pos) {
     const int weight = kClassWeight[object.cls];
     add_weight(-weight);
     emit("DROP", "object=" + std::to_string(held));
+    pupdat("comupd");   // PGET.ASM PDROP -> WUPDAT -> COMUPD
 }
 
 void Game::cmd_stow(const std::string& line, std::size_t& pos) {
@@ -812,6 +820,7 @@ void Game::cmd_pull(const std::string& line, std::size_t& pos) {
                 refresh_light();
             }
             emit("PULL", "object=" + std::to_string(current));
+            pupdat("comupd");   // PGET.ASM PPULL -> COMUPD
             return;
         }
         previous = current;
@@ -832,6 +841,7 @@ void Game::cmd_use(const std::string& line, std::size_t& pos) {
         stow_index(right, held);
         emit("SOUND", "A$TORC");
         sound(SoundCue::TORC);
+        pupdat("puse");     // PUSE.ASM PUSE12: a second PUPDAT after A$TORC
         return;
     }
     if (object.type == kTypeFlaskThews) {
@@ -847,6 +857,7 @@ void Game::cmd_use(const std::string& line, std::size_t& pos) {
         sound(SoundCue::SCRO);   // PUSE.ASM USC210 ISOUND A$SCRO; no extra trace line
         set_mode(DisplayMode::Mapper);
         emit("MAP", player_.map_features ? "features=1" : "features=0");
+        pupdat("puse");     // PUSE.ASM USC210 PUPDAT
         return;
     } else {
         return;
@@ -969,6 +980,7 @@ void Game::kill_creature(int slot) {
     creature.in_use = 0;
     emit("KILL", "slot=" + std::to_string(slot) + " type=" + std::to_string(type) +
                      " matrix=" + std::to_string(row[type]));
+    pupdat("pattk");    // PATTK.ASM PATT40 PUPDAT, before A$EXP0
     emit("SOUND", "A$EXP0");   // PATTK.ASM PATT40 ISOUND A$EXP0
     sound(SoundCue::EXP0);
     const std::int16_t eighth = static_cast<std::int16_t>(creature.power) >> 3;

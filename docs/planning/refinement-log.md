@@ -84,12 +84,12 @@ then the rest.
 | PTURN.ASM:PSTEP | game.cpp step_player | matches | 8 | STEPOK; on failure ISOUND A$THUD and the position is kept; PUPSUB redraws the backplane. |
 | PUPDAT.ASM:PUPDAX | game.cpp PUPDAX redraw | matches | 2 | HUPD32 clears KBDHDR/KBDTAL; the core leaves the buffer but PLAYER discards every char while fainted (HUMAN.ASM:21), and CLK50 stops polling, so the effect is the same [INF]. |
 | PUPDAT.ASM:PUPSUB | game.cpp refresh_light | matches | 2 | PRLITE is non-zero only after ENDGAM (PATTK:158), when there is no torch; the core writes 7/$13 directly and refresh_light cannot run then. |
-| PGET.ASM:PGET |  | unreviewed |  |  |
-| PGET.ASM:PDROP |  | unreviewed |  |  |
-| PGET.ASM:PSTOW |  | unreviewed |  |  |
-| PGET.ASM:PPULL |  | unreviewed |  |  |
-| PGET.ASM:COMUPD |  | unreviewed |  |  |
-| PUSE.ASM:PUSE |  | unreviewed |  |  |
+| PGET.ASM:PGET | game.cpp | gap-fixed | 10 | GET: OFIND at PROW, generic or specific, owner++, OBJWGT, HUPDAT, COMUPD. |
+| PGET.ASM:PDROP | game.cpp | gap-fixed | 10 | Owner cleared; row, col and level set; negative weight; COMUPD. |
+| PGET.ASM:PSTOW | game.cpp | gap-fixed | 10 | Bag push; COMUPD. |
+| PGET.ASM:PPULL | game.cpp | gap-fixed | 10 | Bag unlink, PTORCH cleared if pulled; COMUPD. |
+| PGET.ASM:COMUPD | game.cpp | gap-fixed | 10 | STATUS + PUPDAT, now charged (D-15). |
+| PUSE.ASM:PUSE | game.cpp cmd_use | gap-fixed | 10 | Torch (two PUPDATs), flasks (no OCBFIL, type goes to T.FLA4, reveal 0, no redraw) and scrolls match; the missing PUPDAT charges are added. Quirk: USC100/200 store MAPFLG before the reveal test, so an unrevealed scroll still sets MAPFLG; no visible effect, because every map display runs through a scroll that resets it [INF]. |
 | PCLIMB.ASM:PCLIMB |  | unreviewed |  |  |
 | PREVEA.ASM:PREVEA |  | unreviewed |  |  |
 | PEXAM.ASM:PEXAM |  | unreviewed |  |  |
@@ -114,3 +114,4 @@ then the rest.
 | 2026-09-27 | 7 | Q2/Q3 follow-through | Merged both fixes; phase-3 and phase-0b baselines regenerated with reasons recorded; D-15 added; playthrough disabled; two regression tests; audited | this commit | No regression test yet for the CMOV90 NEWLUK clear or the two-SYNC pickup on the player's cell |
 | 2026-09-27 | 8 | PINCAN, WINNER, PMOVE, PSTEP | All match; PMOVE's wall-bump half-step view is missing in the desktop (gap-open) | log only | Wall-bump fix — not run: needs an event-schema change, next run |
 | 2026-09-27 | 9 | PMOVE wall bump | The desktop now draws the half-step before the THUD; the MoveAnimation block carries step_relative; test added | this commit | — |
+| 2026-09-27 | 10 | PGET (GET, DROP, STOW, PULL, COMUPD), PUSE | Logic matches; COMUPD, PUSE and PATT40 PUPDATs were uncharged | D-15 extended; fight baselines regenerated (one kill SYNC each); 3 tests; audited | Tests for GET, DROP and STOW individually — not added (the shared COMUPD path is covered by PULL) |
