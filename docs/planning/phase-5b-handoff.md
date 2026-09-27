@@ -142,8 +142,11 @@ escape horizon, then sends only the selected first command through the candidate
 key path. It does not restore, import, or mutate candidate state. Candidate m
 cleared level 3, reached 7310 power, saved `FLOORD` at jiffy 171069, and entered
 level 4; its twelve bounded recoveries then failed against the level-4 population.
-The next candidate uses that search after equipping the Elvish sword and Mithril
-shield on level 4. This is a search result, not a qualified candidate.
+Candidate q then exposed ENDGAM's source-backed inventory boundary: it preserves
+both hands but clears the reachable bag chain, while discarded objects still
+report player ownership. The planner now retains and reveals the iron weapon
+that survives the Image instead of trying to pull unreachable Elvish or Mithril
+objects on level 4. This is a search result, not a qualified candidate.
 
 `tools/verify_playthrough.py` independently runs two fresh default `dcli`
 processes. It accepts only uppercase key scripts and validates the full trace:

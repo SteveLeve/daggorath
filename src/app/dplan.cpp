@@ -682,14 +682,17 @@ struct Runner {
     // survives the swing and its 4-tenth sting connects.
     void ensure_sword() {
         const bool holding_elvish = hand_type(false) == kElvish || hand_type(true) == kElvish;
+        // ENDGAM preserves both hands but drops the reachable bag chain.  Its
+        // discarded objects retain owner=player, so do not try to PULL one in
+        // preference to an iron weapon that survived in a hand.
+        if (holding_iron()) {
+            reveal_held();
+            return;
+        }
         if (find_owned(game, kElvish) >= 0 && !holding_elvish) {
             const bool left_ring = charged_ring(hand_type(false));
             empty_hand(!left_ring);
             type({left_ring ? "PULL RIGHT ELVISH SWORD" : "PULL LEFT ELVISH SWORD"});
-            reveal_held();
-            return;
-        }
-        if (holding_iron()) {
             reveal_held();
             return;
         }
@@ -1352,13 +1355,8 @@ struct Runner {
                 continue;
             }
             if (phase == Clear && game.level_index() >= 4 && mobs() > 0) {
-                if (hand_type(false) != kElvish && find_owned(game, kElvish) >= 0) {
+                if (!holding_iron()) {
                     ensure_sword();
-                    continue;
-                }
-                if (find_owned(game, kMithril) >= 0 &&
-                    hand_type(false) != kMithril && hand_type(true) != kMithril) {
-                    ensure_mithril();
                     continue;
                 }
                 if (!torch_live()) {
