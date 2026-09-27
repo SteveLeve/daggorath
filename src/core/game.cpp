@@ -621,6 +621,7 @@ void Game::cmd_move(const std::string& line, std::size_t& pos) {
     step_player(relative);
     movement_exertion();
     block(BlockKind::MoveAnimation, 8, 0, false);  // PTURN.ASM PMOVE, D-4a
+    events_.back().step_relative = relative;
     ++sync_pending_;
 }
 

@@ -55,7 +55,8 @@ std::string CoreEvent::to_line() const {
         case CoreEventKind::Block:
             return head + "BLOCK\t" + std::string(block_name(block)) +
                    " jiffies=" + duration(*this) +
-                   " loops=" + std::to_string(loop_count);
+                   " loops=" + std::to_string(loop_count) +
+                   (step_relative >= 0 ? " step=" + std::to_string(step_relative) : "");
         case CoreEventKind::Heartbeat:
             return head + "HEART\taudio=" + (audio_level ? "1" : "0") +
                    " visual=" + (visual ? (large ? "large" : "small") : "off");

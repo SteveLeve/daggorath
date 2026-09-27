@@ -306,11 +306,15 @@ int main(int argc, char** argv) {
         auto snap = dag::snapshot_from(game);
         bool stepped = false;
         bool turned = false;
+        int step_relative = -1;
         const auto& motion = game.events();
         while (seen_motion < motion.size()) {
             const dag::CoreEvent& ev = motion[seen_motion++];
             if (ev.kind != dag::CoreEventKind::Block) continue;
-            if (ev.block == dag::BlockKind::MoveAnimation) stepped = true;
+            if (ev.block == dag::BlockKind::MoveAnimation) {
+                stepped = true;
+                step_relative = ev.step_relative;
+            }
             if (ev.block == dag::BlockKind::TurnAnimation) turned = true;
         }
         int half_scale = 0;
@@ -328,6 +332,11 @@ int main(int argc, char** argv) {
                 sidestep_bar = 8;    // MOVE LEFT then LRTURN
             else if (dr == forward_row[(facing + 1) & 3] && dc == forward_col[(facing + 1) & 3])
                 sidestep_bar = 248;  // MOVE RIGHT then RLTURN
+            else if (dr == 0 && dc == 0 && (step_relative == 0 || step_relative == 2))
+                // PMOVE draws the HLFSTP/BAKSTP view before PSTEP, so a step
+                // into a wall still shows the half-step, then THUD and the
+                // standing view (PTURN.ASM:156-172, source-proven).
+                half_scale = step_relative == 0 ? 1 : 2;
         }
         auto frame = dag::rasterize(snap);
         dag::TextSnapshot chrome;

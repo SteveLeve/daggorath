@@ -164,6 +164,27 @@ void test_no_pupdat_while_fainted() {
     check(!charged, "no PUPDAT or SYNC is charged while fainted");
 }
 
+void test_blocked_move_still_reports_its_half_step() {
+    // PTURN.ASM PMOVE: HLFSTP/BAKSTP PUPDAT runs before PSTEP, so a step into
+    // a wall still has a forward (or back) half-step to draw, then THUD.
+    bool found = false;
+    for (int turns = 0; turns < 4 && !found; ++turns) {
+        dag::Game game(1, 0);
+        game.set_frozen(true);
+        std::vector<std::string> cmds(static_cast<std::size_t>(turns), "TURN RIGHT");
+        cmds.push_back("MOVE");
+        run(game, cmds);
+        if (!has(game, "SOUND", "A$THUD")) continue;
+        found = true;
+        int step = -99;
+        for (const auto& e : game.events())
+            if (e.kind == dag::CoreEventKind::Block && e.block == dag::BlockKind::MoveAnimation)
+                step = e.step_relative;
+        check(step == 0, "a blocked forward MOVE carries step=0 on its MoveAnimation block");
+    }
+    check(found, "some facing at the level-0 start has a wall ahead");
+}
+
 void test_image_ending() {
     dag::Game game(1, 0);
     game.set_frozen(true);
@@ -414,6 +435,7 @@ int main() {
     test_spent_ring_becomes_a_plain_gold_ring();
     test_luknew_pupdat_costs_a_sync();
     test_no_pupdat_while_fainted();
+    test_blocked_move_still_reports_its_half_step();
     test_image_ending();
     test_wizard_ending();
     test_winner();
