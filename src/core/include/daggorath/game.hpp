@@ -196,6 +196,8 @@ private:
     void out_char(std::uint8_t code);      // TXTCHR / TXTXXX
     void prompt();                         // MISC.ASM PROMPT
     void clear_primary_text();             // CLRPRI
+    void pupdat();                         // PUPDAX: redraw + SYNC unless fainted
+    TaskResult task_luknew();
     void cmd_move(const std::string& line, std::size_t& pos);
     void cmd_turn(const std::string& line, std::size_t& pos);
     void cmd_look();
@@ -274,8 +276,11 @@ private:
     // ZFLAG: +1 save, -1 load, with the TOKEN filename.
     int zflag_ = 0;
     std::string tape_name_;
-    // A command that ends in DEC UPDATE / SYNC blocks until the next interrupt.
-    bool sync_pending_ = false;
+    // DEC UPDATE / SYNC blocks the foreground until the next interrupt; each
+    // pending SYNC gives up one jiffy's scheduler pass.
+    int sync_pending_ = 0;
+    // NEWLUK: a creature moved within view range (CWALK CWLK90); LUKNEW redraws.
+    bool newluk_ = false;
     int incoming_damage_percent_ = 100;
     std::vector<HarnessEvent> harness_;
     std::size_t harness_pos_ = 0;
