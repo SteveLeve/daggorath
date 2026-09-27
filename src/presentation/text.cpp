@@ -85,6 +85,36 @@ void plot_string(std::uint8_t* pixels, int width, int col, int y, std::string_vi
     }
 }
 
+void plot_code_cell(std::uint8_t* pixels, int width, int col, int y, std::uint8_t code,
+                     bool inverse) {
+    if (col < 0 || col >= 32 || y < 0) return;
+    if (!inverse) {
+        plot(pixels, width, col, y, code);
+        return;
+    }
+    for (int py = y; py < y + 8 && py < kScreenHeight; ++py)
+        std::fill(pixels + static_cast<std::size_t>(py * width + col * 8),
+                  pixels + static_cast<std::size_t>(py * width + col * 8 + 8), 1);
+    std::uint8_t rows[7] = {};
+    glyph_rows(code, rows);
+    for (int row = 0; row < 7; ++row)
+        for (int bit = 0; bit < 8; ++bit)
+            if ((rows[row] & (0x80 >> bit)) != 0 && y + row < kScreenHeight)
+                pixels[static_cast<std::size_t>((y + row) * width + col * 8 + bit)] = 0;
+}
+
+// The status line is reverse video relative to the rest of the screen
+// (source-proven: STATUS.ASM:7-9 stores COM VDGINV to TXTSTS.TXINV; COMDAT.ASM:96-106
+// defaults TXTSTS -1, TXTPRI 0). Each cell is repainted whole, so unused
+// columns are white too.
+void plot_string_inverse(std::uint8_t* pixels, int width, int col, int y, std::string_view text) {
+    for (char ch : text) {
+        if (col >= 32) break;
+        plot_code_cell(pixels, width, col, y, code_for(ch), true);
+        ++col;
+    }
+}
+
 }  // namespace
 
 void glyph_rows(std::uint8_t code, std::uint8_t rows[7]) {
@@ -105,41 +135,33 @@ void glyph_rows(std::uint8_t code, std::uint8_t rows[7]) {
 }
 
 void plot_cell(std::uint8_t* pixels, int width, int col, int y, char ch, bool inverse) {
-    if (col < 0 || col >= 32 || y < 0) return;
-    if (inverse) {
-        for (int py = y; py < y + 8 && py < kScreenHeight; ++py)
-            std::fill(pixels + static_cast<std::size_t>(py * width + col * 8),
-                      pixels + static_cast<std::size_t>(py * width + col * 8 + 8), 1);
-        std::uint8_t rows[7] = {};
-        glyph_rows(code_for(ch), rows);
-        for (int row = 0; row < 7; ++row)
-            for (int bit = 0; bit < 8; ++bit)
-                if ((rows[row] & (0x80 >> bit)) != 0 && y + row < kScreenHeight)
-                    pixels[static_cast<std::size_t>((y + row) * width + col * 8 + bit)] = 0;
-        return;
-    }
-    plot(pixels, width, col, y, code_for(ch));
+    plot_code_cell(pixels, width, col, y, code_for(ch), inverse);
 }
 
 void paint_text_bands(std::uint8_t* pixels, int width,
                       const TextSnapshot& snap, std::string_view message,
                       std::string_view command_override) {
+    // Drawn in even-level polarity (VDGINV 0): TXTPRI shares the viewport's
+    // black background and only the status line is inverse. Odd levels flip
+    // the whole screen when the frame is presented (NEWLVL.ASM:83-90).
     for (int y = kViewportScanlineEnd; y < kScreenHeight; ++y) {
         std::fill(pixels + static_cast<std::size_t>(y * width),
                   pixels + static_cast<std::size_t>(y * width + kScreenWidth), 0);
     }
     std::string status = project_text(snap).text.substr(7, 32);
+    status.resize(32, ' ');
     // project_text marks the heart with s/L for the text dump. Those letters
     // are not SPCTAB. CLK30 deposits the heart glyphs into a blank pair of cells.
     if (snap.heart == HeartGlyph::Small || snap.heart == HeartGlyph::Large) {
         status[15] = ' ';
         status[16] = ' ';
     }
-    plot_string(pixels, width, 0, kViewportScanlineEnd, status);
+    plot_string_inverse(pixels, width, 0, kViewportScanlineEnd, status);
     if (snap.heart == HeartGlyph::Small || snap.heart == HeartGlyph::Large) {
         const std::uint8_t base = snap.heart == HeartGlyph::Large ? 0x22 : 0x20;
-        plot(pixels, width, 15, kViewportScanlineEnd, base);
-        plot(pixels, width, 16, kViewportScanlineEnd, static_cast<std::uint8_t>(base + 1));
+        plot_code_cell(pixels, width, 15, kViewportScanlineEnd, base, true);
+        plot_code_cell(pixels, width, 16, kViewportScanlineEnd,
+                       static_cast<std::uint8_t>(base + 1), true);
     }
     if (snap.has_page) {
         for (int row = 0; row < 4; ++row) {

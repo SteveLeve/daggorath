@@ -42,6 +42,16 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnaps
 // MISC.ASM WIZZES: the crescent wizard (WIZ1) at scale $80 with VCTFAD = `fade`.
 std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(std::uint8_t fade);
 
+// NEWLVL.ASM:83-90 NLVL50 (source-proven): VDGINV = -(LEVEL & 1), $00 on even
+// levels and $FF on odd ones, with LEVEL counted from 0 (ONCE.ASM GAME10: CLRA, start on level 0).
+std::uint8_t vdginv(int level);
+
+// Frames are composed in even-level polarity. On an odd level every dot flips:
+// CLEAR fills with VDGINV (CLEAR.ASM ZFLIPX), VECTOR clears bits instead of
+// setting them (VECTOR.ASM:201-206), and the text buffers take VDGINV or its
+// complement (NLVL50, STATUS.ASM:7-9). [INF] the map screen follows the same rule.
+void apply_vdginv(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int level);
+
 // Integer scale. Each source dot becomes a factor-by-factor block. Factor 1 copies.
 std::vector<std::uint8_t> scale_frame(
     const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int factor);

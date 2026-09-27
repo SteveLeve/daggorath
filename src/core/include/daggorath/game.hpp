@@ -283,6 +283,11 @@ private:
     int sync_pending_ = 0;
     // NEWLUK: a creature moved within view range (CWALK CWLK90); LUKNEW redraws.
     bool newluk_ = false;
+    // ENDGAM's foreground runs across its WIZIN, WAIT and WIZOUT SYNCs. The
+    // stage to resume once sync_pending_ is spent: 0 none, 1 after WIZIN's
+    // draw, 2 after WAIT (NEWLVL 3), 3 after WIZOUT (INIVU).
+    int endgame_stage_ = 0;
+    void endgame_resume();
     int incoming_damage_percent_ = 100;
     std::vector<HarnessEvent> harness_;
     std::size_t harness_pos_ = 0;
