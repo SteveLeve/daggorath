@@ -2,6 +2,33 @@
 
 **Status:** Proposed, 2026-09-27. Settled when Phase 8 workstream 8.2 lands.
 
+**Resolution (2026-09-27, Phase 8.2):** Accepted as written. `src/shell`
+(`shell.hpp`/`shell.cpp`) implements rule 1's layering and headless testability,
+rule 3 (pause withholds/resumes jiffy delivery only, no core change), rule 4
+(the pause-invariance test, below), and the Save/Load/Restart/Quit part of
+rule 6: five save/load slots plus a hidden slot with the shared
+`Game::snapshot()`/`restore_snapshot()` suspend format, slot-overwrite and
+Restart/Quit confirmation, and the `PAUSE`/`RESUME` shell trace lines kept
+out of `Game::trace()`. The pause-invariance test
+(`tests/shell/shell_tests.cpp`) confirms rule 4 by comparing a paused and an
+unpaused run's core traces.
+
+Not yet built, and not claimed here: rule 2's "change presentation and input
+options" and "deliver keystrokes, like any input adapter" bullets (no
+option-setting or keystroke-delivery method exists in `src/shell` yet); rule
+6's Video and Controls menu entries (no code touches presentation/input
+settings); rule 7 (settings storage); and the SDL menu UI wiring in
+`src/platform` (Esc key, the on-screen button, backgrounding). All of these
+are deferred to 8.4, which is presentation/UI work, not this ADR's
+architecture question — this Resolution settles the shell's boundary and its
+pause/snapshot behaviour, not the full menu surface.
+
+ADR-0007 rule 5 is narrowed as the Consequences section says: shell pause is
+no longer enhanced-mode-only. The "in-play overlays stay enhanced-mode-only"
+carve-out is design intent for later workstreams, not a runtime-enforced
+invariant: no code path currently connects any overlay to `Shell::tick()`,
+so nothing yet needs to enforce it.
+
 ## Context
 
 The core (Phases 0–7) is a conformance-tested recreation of the 1983 program.
