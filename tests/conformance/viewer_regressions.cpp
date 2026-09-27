@@ -2,11 +2,13 @@
 // Expected text comes from tools/viewer_ref.py, which is an independent
 // transliteration of VIEWER.ASM / VCTLST.ASM. The C++ projection must match
 // those files; it must not be compared only to itself.
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 
+#include "daggorath/raster.hpp"
 #include "daggorath/game.hpp"
 #include "daggorath/render_state.hpp"
 #include "daggorath/snapshot.hpp"
@@ -83,7 +85,22 @@ void test_decode_still_independent() {
 
 }  // namespace
 
+// NEWLVL.ASM:83-90 NLVL50 (source-proven): VDGINV = -(LEVEL & 1), so odd levels invert every dot.
+void test_vdginv_polarity() {
+    check(dag::vdginv(0) == 0x00 && dag::vdginv(2) == 0x00, "even levels are VDGINV $00");
+    check(dag::vdginv(1) == 0xFF && dag::vdginv(3) == 0xFF, "odd levels are VDGINV $FF");
+    std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> frame{};
+    frame[5] = 1;
+    auto even = frame;
+    dag::apply_vdginv(even, 4);
+    check(even == frame, "an even level leaves the frame as composed");
+    auto odd = frame;
+    dag::apply_vdginv(odd, 1);
+    check(odd[5] == 0 && odd[6] == 1 && odd.back() == 1, "an odd level inverts every dot");
+}
+
 int main() {
+    test_vdginv_polarity();
     test_draw_lists();
     test_half_step_scale();
     test_decode_still_independent();
