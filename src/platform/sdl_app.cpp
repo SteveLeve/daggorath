@@ -483,7 +483,7 @@ int main(int argc, char** argv) {
                 bar = delta == 3 ? 8 : 248;
             }
             // TURN AROUND sweeps RLTURN twice (PTURN.ASM PTUR20 -> PTUR22).
-            const int sweeps = (sidestep_bar < 0 && turn_loops == 16) ? 2 : 1;
+            const int sweeps = sidestep_bar < 0 && turn_loops >= 8 ? static_cast<int>(turn_loops / 8) : 1;
             for (int sweep = 0; sweep < sweeps; ++sweep) {
                 auto wipe = turn_wipe(bar);
                 dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
