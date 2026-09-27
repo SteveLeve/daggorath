@@ -145,6 +145,18 @@ void test_luknew_pupdat_costs_a_sync() {
     check(each_followed, "each LUKNEW PUPDAT gives up the next jiffy to SYNC");
 }
 
+// HUPDAT.ASM:130-132 and :168: death is checked after a faint in the same
+// HUPDAT, and DEATH does CLR FAINT.
+void test_death_clears_faint() {
+    dag::Game game(1, 0);
+    game.set_player_damage(156);   // PPOW 160: heart rate 3, a faint and not a death
+    for (int j = 0; j < 400 && !game.player().fainted; ++j) game.advance_jiffies(1);
+    check(game.player().fainted, "near-fatal damage faints");
+    game.set_player_damage(static_cast<std::uint16_t>(game.player().power + 1));
+    game.advance_jiffies(200);
+    check(game.player().dead && !game.player().fainted, "DEATH clears FAINT");
+}
+
 void test_no_pupdat_while_fainted() {
     // PUPDAT.ASM PUPDAX: TST FAINT / BNE PUPD99 - no redraw and no SYNC.
     dag::Game game(1, 0);
@@ -567,6 +579,7 @@ void test_fudge_harness_is_not_source_behaviour() {
 int main() {
     test_spent_ring_becomes_a_plain_gold_ring();
     test_luknew_pupdat_costs_a_sync();
+    test_death_clears_faint();
     test_no_pupdat_while_fainted();
     test_blocked_move_still_reports_its_half_step();
     test_pull_costs_a_sync();
