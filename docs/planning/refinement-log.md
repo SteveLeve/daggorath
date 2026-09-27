@@ -10,6 +10,7 @@ Steve adds hand-play observations here. The loop works these first.
 - ~~Death animation too fast~~ fixed by C-17 (2026-09-26). Hand-play check pending.
 
 ## Open questions
+- **Q6 (2026-09-27, run 22): charge the level-build time on CLIMB?** [ROM] `descend-early`: `C D` is read at isr 1775, the level-1 spin reads `SECOND` at isr 2103 (41), `NEWLVL` exits at 2121 and `PLAYER` resumes at 2130. `C U` at 2280, spin at 2642 (`SECOND` 50). So the foreground is blocked about 330-360 interrupts while `PREPAR` shows "PREPARE!" and `DGNGEN` carves. The core builds instantly with `SECOND` 35, so level 1's creatures land elsewhere (ROM `0:5@28,1 1:5@20,31`, core `0:5@9,13 1:5@4,10`) and the return to level 0 differs too. Carving should be constant per level (fixed seed per level); the spin costs about 0.1 interrupt per draw. Proposal: block the foreground for a measured per-level pre-spin count, read `SECOND` then, and show PREPARE! in the window meanwhile; levels 0 and 1 are measured, levels 2-4 need capture C-22. This moves every climb baseline and the playthrough. Approve, and should C-22 be captured first?
 
 
 ## Answered
@@ -114,6 +115,7 @@ then the rest.
 | COMPLR.ASM:BURNER | game.cpp task_burner | gap-fixed | 20 | Timer, dead-torch at <=5, light clamps match. BURN99 DEC NEWLUK was missing (fixed; D-15 baselines regenerated, [ROM]-consistent with t1). |
 | COMPLR.ASM:LUKNEW | game.cpp task_luknew | matches | 20 | NEWLUK or map mode, CLR NEWLUK, PUPDAT, SCHED$ 3,Q.TEN. |
 | MISC.ASM:WIZIX, WIZOX, WIZZES, WAITX, PREPAX | game.cpp wizard_fade_in, endgame_image/endgame_resume | gap-fixed | 21 | ENDGAM's 1+81+16 SYNCs, both A$EXP1 and WIZIX0 CLRPRI were missing; NEWLVL 3 now uses the later SECOND. DEATH's 17-step fade stays D-14. Note: no test yet for DEATH's CLRPRI. PREPAX not yet traced to a caller. |
+| PCLIMB.ASM:PCLI20 + MISC.ASM:PREPAX | game.cpp cmd_climb | needs-human | 22 | PREPAR's PREPARE! and the NEWLVL build time are not modelled; the core generates at the command's SECOND (ROM: ~330 interrupts later). Q6, C-22. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -141,3 +143,4 @@ then the rest.
 | 2026-09-27 | 19 | HUPDAT heart rate, HUPD90, DEATH | DEATH did not clear FAINT; the halt-instead-of-restart was unrecorded | CLR FAINT + test; D-16 added | none |
 | 2026-09-27 | 20 | COMPLR BURNER, LUKNEW | BURNER never set NEWLUK | NEWLUK at BURN99 + test; t1-t5 and phase-3 fight traces regenerated under Q2 | f53cf22 was pushed with a failing test: the gate chain used `grep`, which succeeded on the FAIL line. Fixed in the next commit. Gate on `make all`'s exit code, never on grep. |
 | 2026-09-27 | 21 | MISC wizard/WAIT routines, ENDGAM timing; audit of 66e2b6f | ENDGAM ran instantly: no WIZIN/WAIT/WIZOUT SYNCs, no A$EXP1, level 3 built ~1.4 s early (different SECOND) | Staged ENDGAM + timing test; no baseline moved | — |
+| 2026-09-27 | 22 | PREPAR/PCLIMB build time; ENDGAM text | [ROM] CLIMB builds ~330 interrupts after the command, so level SECOND and creature placement differ (Q6, C-22). A test for WIZIN's CLRPRI showed DEATH's is unobservable (the faint's CLRPRI always runs first), and ENDGAM's staged text shows an unexplained extra dot row before its messages: likely the staged ENDGAM lets HMAN70's line handling run early (gap-open, next run). | none; edits reverted | ENDGAM text — not run: time |
