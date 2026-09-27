@@ -145,6 +145,19 @@ void test_luknew_pupdat_costs_a_sync() {
     check(each_followed, "each LUKNEW PUPDAT gives up the next jiffy to SYNC");
 }
 
+// COMPLR.ASM:43 BURN99: BURNER ends in DEC NEWLUK on every run, torch or not,
+// so LUKNEW redraws even with the creatures frozen and no torch lit.
+void test_burner_requests_redraw() {
+    dag::Game game(1, 0);
+    game.set_frozen(true);
+    game.advance_jiffies(60);
+    bool at_first_luknew = false;
+    for (const auto& e : game.trace())
+        if (e.kind == "PUPDAT" && e.detail == "luknew" && e.jiffy == 19) at_first_luknew = true;
+    check(at_first_luknew,
+          "the opening BURNER's NEWLUK makes the first LUKNEW (jiffy 19) redraw");
+}
+
 // HUPDAT.ASM:130-132 and :168: death is checked after a faint in the same
 // HUPDAT, and DEATH does CLR FAINT.
 void test_death_clears_faint() {
@@ -579,6 +592,7 @@ void test_fudge_harness_is_not_source_behaviour() {
 int main() {
     test_spent_ring_becomes_a_plain_gold_ring();
     test_luknew_pupdat_costs_a_sync();
+    test_burner_requests_redraw();
     test_death_clears_faint();
     test_no_pupdat_while_fainted();
     test_blocked_move_still_reports_its_half_step();
