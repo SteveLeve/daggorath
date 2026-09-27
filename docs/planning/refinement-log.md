@@ -2,6 +2,9 @@
 
 Tracker for `refinement-loop.md`. Newest run last.
 
+## Working branch
+`refinement/playthrough-and-discovery`, from `main` after PR #21 (runs 1–16) was merged on 2026-09-27. The playthrough rework is `docs/prompts/phase-5b-honest-playthrough.md`.
+
 ## Reported symptoms
 Steve adds hand-play observations here. The loop works these first.
 - ~~Death animation too fast~~ fixed by C-17 (2026-09-26). Hand-play check pending.

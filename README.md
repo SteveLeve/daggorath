@@ -21,6 +21,7 @@ are the eventual targets; neither is being built yet.
 | **Phase 4** | complete — object commands, torches, incant, climb; [reconciliation](docs/archaeology/phase-4/reconciliation.md) |
 | **Phase 5** | complete — endings, save, and a power-on `WINNER` script; [reconciliation](docs/archaeology/phase-5/reconciliation.md) |
 | **Phase 6** | complete — logical draw list, core events, map and text; [reconciliation](docs/archaeology/phase-6/reconciliation.md) |
+| **Phase 5b** | open — honest power-on `WINNER` playthrough: no `FUDGE`, real `ZSAVE`/`ZLOAD`; the playthrough ctest is disabled until then; [prompt](docs/prompts/phase-5b-honest-playthrough.md) |
 | **Phase 7** | complete — SDL3 desktop window when SDL3 is installed; [reconciliation](docs/archaeology/phase-7/reconciliation.md) |
 | **Phases 8–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
