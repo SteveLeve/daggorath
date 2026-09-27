@@ -165,7 +165,8 @@ which blocks the whole foreground **[SRC]**:
   `WIZZES`, one `SYNC`) and sounds `A$EXP1`,
   then the two messages and `WAIT` (81 `SYNC`s), then `NEWLVL 3` with the
   `SECOND` current at that point, then `WIZOUT` (`CLRPRI`, `A$EXP1`, 16 `WIZZES` `SYNC`s)
-  and `INIVU`. **[SRC]** The core runs these as stages resumed when the pending
+  and `INIVU`; `ENDGAM`'s `RTS` then returns into `HUMAN`, whose `HMAN70` prompts
+  (`HUMAN.ASM:181-188`). **[SRC]** The core runs these as stages resumed when the pending
   `SYNC`s are spent. **[INF]** each `SYNC` is charged as one lost scheduler pass,
   like D-15; the stage is not in the RAM image, which is safe because `PLAYER`
   cannot reach `ZSAVE` while it is blocked.
