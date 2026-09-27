@@ -137,20 +137,16 @@ std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int b
     return pixels;
 }
 
-// NEWLVL.ASM:83-90 NLVL50 (source-proven): VDGINV = -(LEVEL & 1), so every
-// odd level draws the whole screen in inverse video. CLEAR fills with VDGINV
-// (CLEAR.ASM ZFLIPX), VECTOR clears bits instead of setting them
-// (VECTOR.ASM:201-206), and the text buffers take VDGINV or its complement
-// (NLVL50, STATUS.ASM:7-9). Frames are composed in even-level polarity and
-// inverted here in one place. [INF] the map screen follows the same rule.
+// Screen polarity follows VDGINV; see dag::apply_vdginv (NEWLVL.ASM NLVL50).
 void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
-                   const std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight>& pixels,
-                   bool vdginv) {
+                   std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels,
+                   int level) {
+    dag::apply_vdginv(pixels, level);
     constexpr int kScale = 3;
     const auto scaled = dag::scale_frame(pixels, kScale);
     std::vector<std::uint8_t> rgb(scaled.size() * 3);
     for (std::size_t i = 0; i < scaled.size(); ++i) {
-        const std::uint8_t value = (scaled[i] != 0) != vdginv ? 255 : 0;
+        const std::uint8_t value = scaled[i] ? 255 : 0;
         rgb[i * 3] = value;
         rgb[i * 3 + 1] = value;
         rgb[i * 3 + 2] = value;
@@ -419,7 +415,7 @@ int main(int argc, char** argv) {
                 --fading.magic_light;
                 auto step = dag::rasterize(fading);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step, (game.level_index() & 1) != 0);
+                present_frame(renderer, texture, step, game.level_index());
                 SDL_Delay(83);
                 --fading.regular_light;
             } while (fading.regular_light > -8);
@@ -437,7 +433,7 @@ int main(int argc, char** argv) {
                 for (int fade = 32; fade >= 0; fade -= 2) {
                     auto step = dag::rasterize_wizard(static_cast<std::uint8_t>(fade));
                     dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                    present_frame(renderer, texture, step, (game.level_index() & 1) != 0);
+                    present_frame(renderer, texture, step, game.level_index());
                     SDL_Delay(300);
                 }
                 std::uint16_t noise = 1;
@@ -463,7 +459,7 @@ int main(int argc, char** argv) {
             do {
                 auto step = dag::rasterize(rising);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step, (game.level_index() & 1) != 0);
+                present_frame(renderer, texture, step, game.level_index());
                 SDL_Delay(83);
                 ++rising.magic_light;
                 ++rising.regular_light;
@@ -488,7 +484,7 @@ int main(int argc, char** argv) {
             leaving.scale = half_scale;
             auto midway = dag::rasterize(leaving);
             dag::paint_text_bands(midway.data(), dag::kScreenWidth, chrome, message, command_override);
-            present_frame(renderer, texture, midway, (game.level_index() & 1) != 0);
+            present_frame(renderer, texture, midway, game.level_index());
             SDL_Delay(12);
         } else if (sidestep_bar >= 0 ||
                    (turned && have_shown && snap.mode == 0 &&
@@ -505,11 +501,11 @@ int main(int argc, char** argv) {
                 auto wipe = turn_wipe(bar);
                 dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
                                       command_override);
-                present_frame(renderer, texture, wipe, (game.level_index() & 1) != 0);
+                present_frame(renderer, texture, wipe, game.level_index());
                 SDL_Delay(12);
             }
         }
-        present_frame(renderer, texture, frame, (game.level_index() & 1) != 0);
+        present_frame(renderer, texture, frame, game.level_index());
         shown_row = game.player().row;
         shown_col = game.player().col;
         shown_dir = static_cast<int>(game.player().dir);
