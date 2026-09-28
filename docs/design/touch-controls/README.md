@@ -53,3 +53,30 @@ These are hypotheses to implement and evaluate, not evidence about the original.
   cell now (none in the dark), and pack names as the EXAMINE page gives them.
   To be checked against the listing in 8.0.
 
+## Addendum (2026-09-27, workstream 8.6): on-screen evaluation, partial
+
+`Tablet4x3` is now built and evaluated on screen, in `src/platform/sdl_app.cpp`
+(SDL3 became available in the build environment; see
+`docs/archaeology/phase-8/reconciliation.md`'s addendum) — it was the natural
+fit, since the fixed 768x576 desktop window is already 4:3, matching this
+layout's own assumption without letterboxing. Real screenshots (kept outside
+the tree at `captures/phase-8-sdl-wiring/`, gitignored) confirm all
+15 buttons at their computed positions. `PhoneLandscape` is still not
+evaluated on screen (no letterboxed-aspect simulation built); the interim
+default above (device form factor selects the layout) still stands. Button
+labels in this pass are single ASCII letters (the char generator's uppercase-
+only set cannot draw the icons/arrows above) — real icon art remains a
+follow-up. The floor/pack pickers show GENTAB's six generic names
+unconditionally (not filtered by visibility) — a working tap path to the
+keystrokes, not the visibility-filtering decision this section still defers.
+
+## Addendum (2026-09-27, workstream 8.6.5, follow-up session): on-screen evaluation, now complete
+
+`PhoneLandscape` is now also evaluated: `--layout=phone` opens a letterboxed
+19.5:9 window; screenshots
+(`captures/phase-8-sdl-wiring/phonelandscape-buttons-2026-09-27.png`,
+gitignored) confirm the corner/edge buttons sit in the black side margins as
+intended. With both layouts now evaluated, the decision in the addendum
+above stands unchanged: device form factor selects the layout, not a single
+project-wide default.
+

@@ -1,11 +1,13 @@
 // The system-menu shell (ADR-0009): pause/resume, five save/load slots plus
 // one hidden slot, confirmations, and PAUSE/RESUME trace markers.
 //
-// Headless by design (module-boundaries.md: "its own target `src/shell` once
-// it has non-SDL logic worth testing headlessly"): this module links only
+// Headless by design (ADR-0009's architecture table,
+// docs/adr/0009-layering-and-shell.md: "its own target `src/shell` once it
+// has non-SDL logic worth testing headlessly"): this module links only
 // daggorath::core, so the pause-invariance test and slot round-trip run
 // without SDL3. The SDL desktop window (`src/platform/sdl_app.cpp`) wires
-// this to the Esc key and the menu UI in a later Phase 8 workstream.
+// this to the Esc key and on-screen SystemMenu button (8.6.2); the
+// backgrounding hook and full menu surface remain a later workstream.
 //
 // What the shell may do to a running game (ADR-0009 §2) — nothing else:
 // withhold/resume jiffy delivery; take/restore a suspend snapshot through

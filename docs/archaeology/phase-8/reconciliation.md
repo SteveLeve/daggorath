@@ -88,3 +88,235 @@ forward).
 - [x] README phase table showing Phase 8 complete.
 - [x] This reconciliation note.
 - [x] PRs #25, #26, #27, #28, #29 merged to `main`, in that order (each rebased onto the previous merge and `main`'s own `refinement/playthrough-and-discovery` fix, PR #23, and re-verified before merging). #30 (this PR) is the last of the six.
+
+## Addendum (2026-09-27): the recorded obstacle is reopened
+
+The "no SDL3 in this environment" obstacle recorded above no longer holds.
+`pkg-config --modversion sdl3` now reports `3.2.31`, `SDL3_DIR` is cached in
+`build/CMakeCache.txt`, and `src/platform/CMakeLists.txt`'s `find_package(SDL3
+QUIET)` succeeds — the `dod` desktop target builds and runs in this sandbox
+today. This is left as-is above (a correct record of what was true on
+2026-09-27 at the time this reconciliation was written); this addendum
+records what changed and what workstream 8.6 (branch
+`phase-8/sdl-platform-wiring`) did about it, per this project's rule against
+regenerating a record instead of appending to it.
+
+Before 8.6, `src/platform/sdl_app.cpp` had **no** touch, shell, or `crisp`
+wiring at all, confirmed by grep — exactly the Phase 7 desktop window,
+unchanged. So none of §8-10's on-screen work had actually been built or
+evaluated; it existed only as the headless modules and their tests, plus the
+static HTML mockups under `docs/design/touch-controls/mockups/`.
+
+**8.6.1 (touch overlay rendering + input).** Added
+`src/platform/overlay_bridge.{hpp,cpp}` (`dag::platform::OverlayBridge`):
+links only `daggorath::input`, no SDL, so its tap/picker state machine is
+headless-testable (`tests/platform/overlay_bridge_tests.cpp`, 23 checks).
+Wired into `sdl_app.cpp`: mouse-down events hit-test the `Tablet4x3` layout
+(the fixed 768x576 desktop window matches that layout's 4:3 assumption
+natively) and press the resolved command line's keystrokes via `Game::press`
+— not `GestureLine`'s same-jiffy scripted burst, which needs
+`Game::load_script` and would risk dropping a live game's not-yet-consumed
+keystrokes; see the header comment for the full reasoning. Buttons render as
+outlined rects with single-letter placeholder labels (real icon art is a
+follow-up polish item, not a correctness gap): confirmed by a real screenshot
+of the running `build/src/platform/dod` window (`import -window`, this
+sandbox's `DISPLAY=:0`), all 15 buttons at the positions `layout_buttons()`
+computes, labels legible, chrome (status/command lines) unaffected. Kept
+outside the tree at `captures/phase-8-sdl-wiring/tablet4x3-buttons-2026-09-27.png`
+(gitignored, per this project's ROM-capture convention) as the record of
+what was actually looked at, rather than an unverifiable claim.
+
+**8.6.2 (shell system-menu wiring).** The running `Game` is now wrapped in a
+`dag::shell::Shell`; the per-frame `advance_jiffies` call became
+`shell->tick(steps)` (a no-op while paused, D-16 — the existing
+`shell_tests.cpp::test_pause_invariance` already proves this substitution
+changes nothing about an unpaused run's trace, so no new core-level test was
+added). Esc (desktop) and the `SystemMenu` overlay button both toggle
+`pause()`/`resume()`; while paused, gameplay input is withheld and a minimal
+pause banner plus the `SystemMenu` button are coded to render. **Not
+screenshot-confirmed**: this sandbox has no `xdotool`/`ydotool`/`wtype`, nor
+`XTest.h` headers to build one (checked; not present), so no click or
+keypress could be synthesized against the real window to actually enter the
+paused state and capture it — unlike 8.6.1's rendering, which needed no
+input, only a running window. What *is* confirmed for this half: the
+substitution of `shell->tick()` for `game.advance_jiffies()` changes nothing
+about an unpaused run (the existing pause-invariance test, above), and the
+code path compiles and the window still runs normally unpaused (screenshot
+`captures/phase-8-sdl-wiring/tablet4x3-shell-wired-2026-09-27.png`). Whether
+the paused banner actually appears and the viewport actually freezes is
+untested beyond code review — a real device, or a session with
+computer-use/desktop-control tooling, closes this gap. **Not built:** the
+Save/Load/Restart/Quit menu surface
+ADR-0009 §6 describes — Resume-by-toggle is the only way back from the
+paused state in this pass. This is a real, recorded gap, not a design
+decision; `Shell` already has everything `slots()`/`save_to_slot`/
+`load_from_slot`/`request_restart`/`request_quit` needs, only the on-screen
+list is missing.
+
+**8.6.3 (crisp render style toggle): not attempted this session** — flagged
+as a time-boxed stretch goal in the plan and deferred rather than half-wired.
+
+**Addendum (2026-09-27, workstream 8.6.3, follow-up session):** built after
+all. F1 toggles `present_frame`'s overlay between the unchanged `pixel`
+texture blit (default) and `draw_crisp_view`/`draw_crisp_map`, drawing
+`dag::project(snap)` via `build_crisp_frame`/`build_crisp_map` with
+`SDL_RenderLine`/`SDL_RenderFillRect` at the same `kScale` `pixel` uses — no
+second geometry source. Verified with a temporary, removed-before-commit
+light-forcing hook (the real power-on view is dark until a torch is lit,
+which no implemented command reaches yet): screenshots of both styles at the
+same forced light show identical corridor geometry
+(`captures/phase-8-sdl-wiring/{crisp,pixel}-corridor-2026-09-27.png`,
+gitignored; see ADR-0010's addendum for the full account). Golden-image
+tests untouched, still passing; line thickness/smoothing remain unbuilt
+(ADR-0010 §"Open for Phase 8").
+
+**8.6.4 (manual on-screen evaluation): partially closed.** `Tablet4x3` is
+now genuinely evaluated on screen (screenshots above). `PhoneLandscape` is
+not — this fixed-size window has no letterboxed-aspect simulation mode, and
+building one was out of this session's scope. The 8.4 gate's
+phone-vs-tablet default decision therefore still stands as the design doc's
+interim default (device form factor selects the layout), not a comparison
+made here.
+
+**Addendum (2026-09-27, workstream 8.6.4, follow-up session):**
+`PhoneLandscape` is now also evaluated, closing this fully — see 8.6.5 below.
+
+**8.6.5 (PhoneLandscape on-screen evaluation): built in a follow-up
+session.** `sdl_app.cpp` now takes `--layout=phone`, opening a 1248x576
+(19.5:9) window with `present_frame`'s texture blit centered and letterboxed
+(`game_x`/`kGameW`/`kGameH`, `SDL_RenderClear` keeping the margins black
+every frame) instead of filling the whole renderer. `layout_buttons` is
+computed against the full window size, so `PhoneLandscape`'s corner/edge
+buttons naturally land in the margins without special-casing; picker rows
+and crisp's vector overdraw stay bound to the game's own 768x576 rect via
+the same offset. Screenshot
+(`captures/phase-8-sdl-wiring/phonelandscape-buttons-2026-09-27.png`,
+gitignored) confirms this; `--layout=tablet` (default) is unchanged and
+re-confirmed by a fresh screenshot, no regression. With both layouts now
+genuinely evaluated on screen, the 8.4 gate's phone-vs-tablet decision
+stands as originally written: device form factor selects the layout, not a
+single project-wide default (see `docs/design/touch-controls/README.md`'s
+addendum).
+
+**8.6.6 (Save/Load/Restart/Quit menu surface): built in a follow-up
+session.** `sdl_app.cpp` gained a `MenuMode` (Top/ChooseSave/ChooseLoad)
+alongside `Shell::pending()`'s own confirmation state: `S`/`L`/`X`/`Q` (Save/
+Load/Restart/Quit) at the top screen, `1`-`5` to pick a slot, `Y`/`N` to
+answer a Restart/Quit/overwrite confirmation, Esc backing out one level at a
+time before finally resuming. Discovered along the way: `draw_glyph`
+(the original char generator's `glyph_rows`, reused from 8.6.1 for the touch
+overlay's single-letter button labels) cannot draw digits or slot names —
+its `code >= 0x20` branch indexes `kSpcTab`, which is only 28 bytes (4
+glyphs: the heart icon, `paint_text_bands`'s own use), not a general ASCII
+font, confirmed blank on screen when tried first. This menu is this
+project's own new UI, not a projection of the original's display, so it now
+uses SDL3's built-in `SDL_RenderDebugText` instead, which draws the full
+ASCII line correctly (digits, colons, spaces). Screenshots
+(`captures/phase-8-sdl-wiring/menu-{top,save-slots,restart-confirm}-2026-09-27.png`,
+gitignored, taken with the same temporary since-removed force-pause hook
+8.6.3 used) confirm all three screens render legibly, including an occupied
+slot's `Shell::auto_name` ("1 L0 00:00"). As with 8.6.2, the actual key
+sequence was not exercised on the running window — no
+click/keypress-automation tooling in this sandbox (below) — so this is
+verified by code review plus static-state screenshots, not a live
+interaction trace. `make all`'s test count is unchanged: this is UI glue
+over `Shell`'s already-tested API, not new core-adjacent behaviour needing
+its own headless test.
+
+**Recorded obstacle: no input-automation tooling in this sandbox.** Verifying
+a tap or keypress actually *changes* the running window's behavior (not just
+that it renders) needs synthesizing mouse/keyboard events against a real X/
+Wayland window. This sandbox has no `xdotool`, `ydotool`, `wtype`, or
+`XTest.h` headers to build one, and installing packages or Python modules
+system-wide for this was not attempted without asking first. Interactive
+correctness is instead proven by `overlay_bridge_tests.cpp` (23 checks,
+tap-sequence-to-trace equivalence against typed input) and
+`shell_tests.cpp::test_pause_invariance`; on-screen verification in this pass
+is limited to *rendering* (screenshots), not *live interaction*. A real
+device, or a session with computer-use/desktop-control tooling, closes this
+gap.
+
+`make build && ctest --test-dir build` (fixtures/traces/verify unaffected —
+no fixture drift): 19/19 active tests passing, `playthrough_power_on_to_winner`
+still disabled per Phase 5b, `overlay_bridge_tests` new and passing.
+
+**8.6.7 (Video/Controls menu entries, phase-8-goals.md goal 5): built in a
+follow-up session.** The system menu's Top screen (8.6.6) gained two more
+lines below Q QUIT: `V VIDEO: PIXEL/CRISP` and `C CONTROLS: TABLET/PHONE`.
+Both are presentation-only settings with no relation to `Shell`/`MenuState`
+(no core state, no confirmation, no trace line), so `V`/`C` are handled
+directly in `sdl_app.cpp`'s key loop rather than through
+`MenuState::press`/`MenuEffect` — the same pattern F1's existing
+pixel/crisp toggle already uses outside the menu entirely. `V` toggles
+`crisp_style` (identical effect to F1, just discoverable and readable from
+the menu). `C` toggles the touch-overlay layout (`OverlayBridge::set_layout`,
+already a runtime setter) between `Tablet4x3` and `PhoneLandscape` at once,
+not only on the next launch's `--layout` flag.
+
+Making Controls take effect live needs the window itself to change size and
+aspect ratio while running, which `--layout` had never done before (it was
+read once, at start-up, into a `const` window size). The first attempt —
+`SDL_SetWindowSize` on the existing window, keeping the same renderer and
+texture — rendered wrong under `SDL_VIDEODRIVER=offscreen` (the tool this
+project's `--shots` screenshot checks run under): `SDL_GetRenderOutputSize`
+correctly reported the new, larger size, but the newly exposed margin read
+back as `(0,0,0,0)` (RGBA), i.e. never actually touched by `SDL_RenderClear`,
+even several frames later. Destroying and recreating just the renderer
+against the same window did not help either. Destroying and recreating the
+window itself (then the renderer, then the texture, all at the new size)
+did. This may be an offscreen-driver-specific quirk rather than a real
+window manager's behaviour (a resize under X11/Wayland genuinely
+reallocates the surface), but rebuilding the window is correct under any
+backend and was the only approach confirmed correct under this one, so it
+is what shipped. `set_layout` checks all three recreated resources and
+exits with a message rather than continuing to render through a null
+pointer, matching the null checks `main()` already does for the original
+start-up window/renderer/texture just above it. Screenshots taken through `--shots` with injected `key C`
+events (not just static-state renders: this exercises live interaction,
+narrowing the "no input-automation tooling" gap recorded in 8.6.2/8.6.6
+above for keyboard-driven paths) confirm: the margin renders black with no
+stale content immediately after a live `C` toggle in either direction, the
+menu's own `C CONTROLS: ...` line updates to match, and the game keeps
+responding to input (a move key) after the window/renderer/texture swap.
+
+`make all`: 23/23 active tests passing (unchanged by this addition — pure
+`sdl_app.cpp` UI glue over an existing `OverlayBridge::set_layout` setter
+and the existing `crisp_style` toggle, not new core-adjacent behaviour
+needing its own headless test, the same judgement 8.6.6 made for the
+Save/Load/Restart/Quit screen).
+
+**8.6.8 (system menu restyle: boxed, clickable rows): built in a follow-up
+session, Steve's feedback after 8.6.7's hand test.** The Top/ChooseSave/
+ChooseLoad/confirmation screens (8.6.6, then 8.6.7) drew plain unboxed
+`SDL_RenderDebugText` lines with no touch equivalent at all (8.6.6's own
+scope note: "no touch equivalent of the Y/N/S/L/X/Q keyboard shortcuts is
+built"). Steve: the menu should match the touch overlay's own pickers
+(Picker/Popup boards) visually, keep the keystroke hint, and make the whole
+row tappable. `sdl_app.cpp` gained a `MenuRow` (label, a `Rect`, an
+`activate` callback) and a `menu_rows()` lambda that builds the current
+screen's rows -- a heading (e.g. "SAVE SLOT 1-5" or "RESTART?") has no
+`activate` and draws unboxed; every other row is a black-filled,
+white-bordered 200x44 box (Picker board's own dimensions) with its label
+left-padded and centred vertically, computed once per frame alongside
+`current_buttons`/`picker_rects` (same one-frame-lag convention: a tap this
+frame hits the rects drawn last frame) and used for both the draw and the
+tap hit-test. A tap on a row now does exactly what its key does --
+`apply_menu_key`, `toggle_video`, `toggle_controls` are each a single
+function the matching key and the matching row's `activate` both call, so
+the two input paths cannot drift. This finally closes 8.6.6's "no touch
+equivalent" scope note and, with it, the touch-overlay design's own
+`--layout=phone` promise: every screen reachable by key is now also
+reachable by tap.
+
+Verified through `--shots` with injected `key`/`tap` events (not static
+renders): the Top screen's six rows, the Save-slot list (including a
+populated slot's `Shell::auto_name` text inside its box), and the
+overwrite confirmation's two rows all render correctly boxed; a tap on
+"N NO" cancels the pending overwrite the same way the `N` key does, and a
+tap on "S SAVE" opens the slot list the same way `S` does, both confirmed
+by the following frame's screenshot showing the expected screen.
+
+`make all`: 23/23 active tests passing. No new headless test: this is
+`sdl_app.cpp` draw/hit-test glue reusing `MenuState`/`Shell`'s already-tested
+API and the existing `Rect::contains`, not new core-adjacent behaviour --
+the same judgement 8.6.6 and 8.6.7 made.

@@ -50,6 +50,10 @@ add_executable(shell_tests shell/shell_tests.cpp)
 target_link_libraries(shell_tests PRIVATE daggorath::shell)
 add_test(NAME shell_tests COMMAND shell_tests)
 
+add_executable(system_menu_tests shell/system_menu_tests.cpp)
+target_link_libraries(system_menu_tests PRIVATE daggorath::shell)
+add_test(NAME system_menu_tests COMMAND system_menu_tests)
+
 # Phase 8.3: the `crisp` draw list, regenerated from the same golden states
 # Phase 6's viewer fixtures fix, must match the committed fixture byte for
 # byte — proof `crisp` and `pixel` project the same logical draw list
@@ -71,6 +75,10 @@ target_link_libraries(replay_equivalence_tests PRIVATE daggorath::input)
 target_compile_definitions(replay_equivalence_tests
   PRIVATE DAG_PHASE0B_TRACE_DIR="${CMAKE_SOURCE_DIR}/docs/archaeology/phase-0b/traces")
 add_test(NAME replay_equivalence_tests COMMAND replay_equivalence_tests)
+
+add_executable(overlay_bridge_tests platform/overlay_bridge_tests.cpp)
+target_link_libraries(overlay_bridge_tests PRIVATE daggorath::platform daggorath::input)
+add_test(NAME overlay_bridge_tests COMMAND overlay_bridge_tests)
 
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)

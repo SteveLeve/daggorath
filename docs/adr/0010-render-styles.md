@@ -37,6 +37,33 @@ only); they are deferred to 8.4, which wires `crisp`/`pixel` into
 `src/platform`. This Resolution settles the geometry source and the segment
 contract, not the on-screen rendering.
 
+**Addendum (2026-09-27):** SDL3 became available (see
+`docs/archaeology/phase-8/reconciliation.md`'s addendum) and workstream 8.6
+wired the touch overlay and shell into `src/platform/sdl_app.cpp`, but the
+`crisp`/`pixel` device-rendering toggle this Resolution defers to "8.4" was
+explicitly time-boxed out of that session (tracked as 8.6.3) and not
+attempted. `pixel` (the exact bitmap raster) remains the only on-screen
+render style; this Resolution's open items are all still open.
+
+**Addendum (2026-09-27, workstream 8.6.3):** the toggle above was built in a
+follow-up session. `src/platform/sdl_app.cpp`'s F1 key switches `present_frame`'s
+overlay callback between doing nothing (`pixel`, default, unchanged texture
+blit) and overdrawing the viewport band with `draw_crisp_view`/`draw_crisp_map`
+— `SDL_RenderLine`/`SDL_RenderFillRect` calls scaled by the same integer
+`kScale` `pixel` uses, fed from `dag::project(snap)`/`build_crisp_frame` and
+`build_crisp_map` directly (no second geometry source, per §2). Verified with
+a temporary, since-removed light-forcing hook (`ViewSnapshot::regular_light`/
+`magic_light` set to the same values `tests/presentation/crisp_fixture_gen.cpp`
+already uses for its golden states — the real power-on view is dark until a
+torch is lit, which no implemented command can do yet): screenshots of both
+styles at the same forced-light state show the same corridor geometry
+(`captures/phase-8-sdl-wiring/{crisp,pixel}-corridor-2026-09-27.png`,
+gitignored). Golden-image tests (`viewer_regressions`, `text_regressions`,
+`crisp_segment_fixtures`, `make verify`) are untouched and still pass, since
+`pixel` stays the default and no fixture was regenerated. **Not built:** line
+thickness/smoothing (still "Open for Phase 8" above) — lines are drawn at
+1 device pixel regardless of screen size.
+
 ## Context
 
 The desktop window rasterises the viewer's vector draw list onto a 256×192

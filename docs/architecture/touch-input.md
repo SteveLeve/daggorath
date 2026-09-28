@@ -104,6 +104,16 @@ carried from the plan):**
   so the exact name strings are an 8.1/8.4 implementation detail, not decided
   here.
 
+**Addendum (2026-09-28, touch-overlay run 5):** The pickers are now built,
+with Steve deciding the one open question.
+- The floor picker lists the objects EXAMINE lists on the player's cell,
+  whether or not there is light, as EXAMINE itself does (Steve,
+  2026-09-28, answering Q1 in `docs/planning/touch-overlay-log.md`).
+- The pack picker lists the backpack names as EXAMINE gives them.
+- No new core accessor was needed. `dag::platform::overlay_state_from` reads
+  the existing `examine_snapshot_from` (presentation) and `vfind` (core; PCLIMB.ASM:13 `JSR VFIND`,
+  [SRC]).
+
 ## 5. Commands with unresolved effect
 
 `ATTACK`, `CLIMB`, `DROP`, `EXAMINE`, `GET`, `INCANT`, `PULL`, `REVEAL`,
@@ -113,6 +123,35 @@ touch to reach the same keystrokes a typist would use; it does not require the
 core to implement these verbs, and does not approximate them. Phase 8 adds no
 gameplay behaviour (`docs/prompts/phase-8-touch-input.md`: "do not build...
 rule changes").
+
+**Addendum (2026-09-28):** this section and the "core status" column of §1
+are out of date. `Game::dispatch_line` (src/core/game.cpp) now handles all 15
+verbs:
+- MOVE, TURN and LOOK;
+- ATTACK, CLIMB, DROP and EXAMINE;
+- GET, INCANT, PULL and REVEAL;
+- STOW, USE, ZLOAD and ZSAVE.
+
+The contract is unchanged: touch types the same keystrokes a typist would.
+
+**Addendum (2026-09-28, touch-overlay run 6):** Steve's decisions of
+2026-09-28 supersede parts of §1 and §3. The details are in
+`docs/planning/touch-overlay-log.md`.
+- **GET and PULL** are no longer separate buttons under `A`. They are
+  entries in the empty hand's `≡` menu:
+  - `G` appears only when something is on the floor;
+  - `P` appears only when the pack holds something.
+- **The `⌨` free-command-line button is removed.** The on-screen keyboard
+  opens only for INCANT, from `≡` → `I`.
+- **The typed-line fallback in §1 and §3 now exists only on a physical
+  keyboard.** On touch that affects two routes:
+  - §3's INCANT-overrun path;
+  - ZLOAD and ZSAVE (rows 39–40).
+- **§6's gate for ZLOAD and ZSAVE:** reopened by the removal above, then
+  closed by Steve's answer to Q7 (2026-09-28). They are keyboard-only by
+  design. On touch, saving goes through the system menu's Save/Load, the
+  shell's slots plus the hidden resume slot. Issue #34 carries the optional
+  later "Tape" screen for the original commands.
 
 ## 6. Coverage gate
 
@@ -177,6 +216,16 @@ hidden slot.
 The SDL menu UI (Esc key, the on-screen button, backgrounding hook) is
 deferred to 8.4, which wires this headless shell into `src/platform`;
 ADR-0009 is accepted on that basis (see its Resolution).
+
+**Addendum (2026-09-27, 8.6.2):** Esc and the `SystemMenu` overlay button
+now toggle `pause()`/`resume()` in `src/platform/sdl_app.cpp`. The unpaused
+window still runs and renders correctly (screenshot-confirmed); actually
+entering the paused state was not, for lack of click/keypress-automation
+tooling in this sandbox (`docs/archaeology/phase-8/reconciliation.md`'s
+addendum has the full account). Still
+not built: the Save/Load/Restart/Quit menu surface (Resume-by-toggle is the
+only way back from paused) and the OS-backgrounding hook — both real,
+recorded gaps, not design decisions.
 
 ## 9. Crisp render style (8.3, ADR-0010)
 
@@ -280,11 +329,28 @@ items — `make all` output and the README phase table — are recorded in
 
 Two layouts were built and tested (§10): phone landscape (bottom-corner
 controls) and tablet 4:3 (edge-hugging 2-column grids, clear of the status
-band). Both are headless prototypes; **no on-screen evaluation was possible
-in this environment** (§10's recorded obstacle: no SDL3). Absent a real
-rendering to compare, this document does not choose a default between the
-two — that decision needs the manual evaluation the 8.4 gate calls for,
-which is deferred along with the SDL wiring. The design doc's own
-decision stands as the interim default: phone landscape for phones, tablet
-4:3 for tablets, selected by device form factor rather than by a
-this-project on-screen comparison.
+band). Both were headless prototypes as of 2026-09-27.
+
+**Addendum (2026-09-27, workstream 8.6):** SDL3 became available in the
+build environment; `docs/archaeology/phase-8/reconciliation.md`'s addendum
+has the full account. `Tablet4x3` is now wired into `src/platform/sdl_app.cpp`
+and evaluated on screen — a real screenshot of the running `dod` window
+(kept outside the tree at
+`captures/phase-8-sdl-wiring/tablet4x3-buttons-2026-09-27.png`, gitignored)
+shows all 15 buttons at `layout_buttons()`'s computed positions, legible labels,
+chrome unaffected. It was the natural choice: the fixed 768x576 (4:3) desktop
+window matches that layout's own assumption without any letterboxing.
+**Addendum (2026-09-27, workstream 8.6.5):** `PhoneLandscape` is now also
+evaluated on screen. `sdl_app.cpp`'s `--layout=phone` opens a 1248x576
+(19.5:9) window with the 768x576 game view centered and letterboxed; a
+screenshot
+(`captures/phase-8-sdl-wiring/phonelandscape-buttons-2026-09-27.png`,
+gitignored) confirms the corner/edge buttons land in the black side
+margins, chrome centered and unaffected, matching the design doc's
+"controls sit in the black side margins" intent. `--layout=tablet` (the
+default) is unchanged and still screenshot-confirmed above. With both now
+genuinely evaluated, neither on-screen check gives a reason to override the
+design doc's own decision: device form factor still selects the layout
+(phone landscape for phones, tablet 4:3 for tablets), not a single
+this-project-wide default. The 8.4 gate's manual-evaluation requirement is
+closed by this addendum.

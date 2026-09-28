@@ -23,6 +23,27 @@ are deferred to 8.4, which is presentation/UI work, not this ADR's
 architecture question — this Resolution settles the shell's boundary and its
 pause/snapshot behaviour, not the full menu surface.
 
+**Addendum (2026-09-27, workstream 8.6.2):** the SDL menu UI wiring named
+above as deferred is partly landed: Esc and an on-screen `SystemMenu` button
+in `src/platform/sdl_app.cpp` both call `Shell::pause()`/`resume()`. This
+compiles and the unpaused window still runs correctly (screenshot-confirmed);
+actually triggering the paused state was not verified on screen, for lack of
+click/keypress-automation tooling in this sandbox
+(`docs/archaeology/phase-8/reconciliation.md`'s addendum has the full
+account). The Video/Controls menu entries, option-setting, and the backgrounding hook
+remain unbuilt, as does any Save/Load/Restart/Quit on-screen list — pausing
+only toggles, it does not yet expose the menu `Shell` already supports.
+
+**Addendum (2026-09-27, workstream 8.6.6):** the Save/Load/Restart/Quit
+on-screen list named above is now built: `S`/`L`/`X`/`Q` keys, `1`-`5` for a
+slot, `Y`/`N` for a confirmation, Esc backing out one level at a time. Video/
+Controls, option-setting, and the backgrounding hook remain unbuilt.
+`docs/archaeology/phase-8/reconciliation.md`'s addendum has the full
+account, including why menu text uses SDL3's debug font rather than the
+original char generator (no digit glyphs available), and that the key
+sequence itself is unverified on the running window for the same
+click/keypress-automation gap as 8.6.2.
+
 ADR-0007 rule 5 is narrowed as the Consequences section says: shell pause is
 no longer enhanced-mode-only. The "in-play overlays stay enhanced-mode-only"
 carve-out is design intent for later workstreams, not a runtime-enforced
