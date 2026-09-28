@@ -171,15 +171,46 @@ void test_miss_and_keyboard_and_system_menu_are_not_this_bridge() {
     check(!bridge.handle_tap(-1000, -1000, game), "a tap off every button presses nothing");
     check(render_trace(game) == baseline, "a missed tap leaves the trace unchanged");
 
-    const auto [kx, ky] = center_of(buttons, dag::input::ButtonId::Keyboard);
-    check(!bridge.handle_tap(kx, ky, game),
-          "Keyboard is the free command line, not this bridge's job");
     const auto [mx, my] = center_of(buttons, dag::input::ButtonId::SystemMenu);
     check(!bridge.handle_tap(mx, my, game),
           "SystemMenu belongs to the shell (8.6.2), not this bridge");
-    check(!bridge.picker_open(), "neither Keyboard nor SystemMenu opens a picker here");
-    check(render_trace(game) == baseline,
-          "Keyboard/SystemMenu taps leave the trace unchanged (nothing pressed)");
+    check(!bridge.picker_open(), "SystemMenu opens no picker here");
+    check(render_trace(game) == baseline, "a SystemMenu tap presses nothing");
+}
+
+void test_keyboard_types_a_line() {
+    // ⌨ opens the on-screen keyboard; its keys build the line; ENTER types it
+    // exactly as the physical keyboard would.
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
+    const auto [kx, ky] = center_of(buttons, dag::input::ButtonId::Keyboard);
+    dag::Game tapped;
+    check(!bridge.handle_tap(kx, ky, tapped) && bridge.keyboard_open() &&
+              bridge.pending() == dag::input::PendingKind::FreeKeyboard,
+          "⌨ opens the free keyboard, pressing nothing yet");
+    for (const char* key : {"T", "SPACE", "R", "X", "BACK"}) bridge.press_key(key, tapped);
+    check(bridge.typed() == "T R", "letters, SPACE and BACK edit the text box");
+    check(bridge.press_key("ENTER", tapped) && !bridge.keyboard_open(),
+          "ENTER types the line and closes the keyboard");
+    tapped.advance_jiffies(200);
+    check(render_trace(tapped) == render_trace(typed_reference("T R", 200)),
+          "the on-screen T R matches typing it by hand");
+
+    dag::Game cancelled;
+    const std::string before = render_trace(cancelled);
+    bridge.handle_tap(kx, ky, cancelled);
+    bridge.press_key("M", cancelled);
+    bridge.press_key("CANCEL", cancelled);
+    check(!bridge.keyboard_open() && bridge.typed().empty() && render_trace(cancelled) == before,
+          "CANCEL closes the keyboard pressing nothing");
+
+    dag::Game incant;
+    bridge.open_incant_keyboard();
+    for (const char* key : {"F", "I", "R", "E"}) bridge.press_key(key, incant);
+    bridge.press_key("ENTER", incant);
+    incant.advance_jiffies(200);
+    check(render_trace(incant) == render_trace(typed_reference("I FIRE", 200)),
+          "the incant keyboard types I <word>");
 }
 
 }  // namespace
@@ -191,6 +222,7 @@ int main() {
     test_get_left_floor_picker_two_tap_sequence();
     test_miss_and_keyboard_and_system_menu_are_not_this_bridge();
     test_overlay_state_from_game();
+    test_keyboard_types_a_line();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";
     return g_failures == 0 ? 0 : 1;

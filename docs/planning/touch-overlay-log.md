@@ -27,7 +27,7 @@ Add what you see on screen here. The loop takes these first.
   mockup. Every move button reads "M" and every turn "T"; use arrow icons.
 - S6 (2026-09-28, fixed run 3): E and L should toggle. E appears only while looking (the
   view), L only while examining (the pack and floor list).
-- S7 (2026-09-28): "K" seems to do nothing. It is the ⌨ Keyboard button (free
+- S7 (2026-09-28, fixed run 4): "K" seems to do nothing. It is the ⌨ Keyboard button (free
   command line); see T12.
 
 ## Backlog
@@ -46,8 +46,8 @@ Code paths are in `src/`.
 | T8 | Popup | `picker_choice_rects` | fixed 2 | The hand menu should be a row of letters with captions beside the ≡ that opened it. |
 | T9 | Climb | `picker_choice_rects` | fixed 2 | The U/D choices should sit beside the C button. |
 | T10 | Picker | `sdl_app.cpp` drawing | fixed 2 | The button that opened a picker should be drawn pressed (inverted). |
-| T11 | README "sequential entry" | command line | todo | The partial command (e.g. `.G L`) should be echoed while a picker is open. |
-| T12 | Incant | `sdl_app.cpp`, `overlay_bridge` | todo | No on-screen QWERTY keyboard: hand-menu I and ⌨ fall back to the physical keyboard. |
+| T11 | README "sequential entry" | command line | fixed 4 | The partial command (e.g. `.G L`) should be echoed while a picker is open. |
+| T12 | Incant | `sdl_app.cpp`, `overlay_bridge` | fixed 4 | No on-screen QWERTY keyboard: hand-menu I and ⌨ fall back to the physical keyboard. |
 | T13 | Main | `sdl_app.cpp` `button_label` | fixed 3 | Buttons use placeholder letters; the mockups use ⇤↑⇥ ↶↻↷ ↓ ≡ ⌨ icons. |
 | T14 | Main / Legacy | `input/touch_overlay.cpp` layouts | fixed 3 | Compare each button's position with the phone and tablet boards. |
 | T15 | — | `platform/overlay_bridge.cpp` `handle_tap` | todo | `handle_tap` passes a default `OverlayState{}` to `resolve_tap`. It is harmless while `resolve_tap` ignores the state, but should pass the real one. |
@@ -57,6 +57,8 @@ Code paths are in `src/`.
 | T20 | — | `sdl_app.cpp` | todo | The hand-menu caption words are defined in `sdl_app.cpp`; they belong with the verb letters in `src/input`. |
 | T21 | Examine on tablet | `input/touch_overlay.cpp` `layout_tablet` | needs-steve | On the tablet the buttons float over the game, so the top ones (A, G, P) cover the EXAMINE listing's first lines. See Q4. |
 | T22 | Main (phone) | `layout_phone` | todo | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
+| T23 | Incant | `sdl_app.cpp` | todo | The text box and the ⌫ ↵ ✕ SPC labels use SDL's 8 px debug font, which is small next to the keys. |
+| T24 | Incant | `sdl_app.cpp` | todo | The Incant board keeps both A buttons visible over the keyboard; the keyboard currently hides every button. |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
@@ -115,3 +117,16 @@ Code paths are in `src/`.
   - Screens checked: tablet main, picker, examine; phone main.
   - New rows: T21 and T22. New questions: Q4 and Q5.
   - `test_phone_matches_main_board` fails when the layout is reverted.
+- Run 4, 2026-09-28: T11, T12, S7.
+  - Added an on-screen keyboard (`keyboard_layout`, `press_keyboard_key` in
+    `src/input`; `OverlayBridge::press_key`), laid out at the Incant board's
+    coordinates.
+  - ⌨ opens it for a free command line, with an added SPC key that the Incant board does not
+    draws.
+  - Hand-menu I opens it for INCANT and types `I <word>`.
+  - The text box echoes the line being typed; ✕ cancels.
+  - Screens checked: keyboard on tablet and on phone.
+  - Tests: `test_keyboard_matches_incant_board` and
+    `test_keyboard_types_a_line`. The incant test fails when the `I ` prefix is
+    removed.
+  - New rows: T23 and T24. Q4 and Q5 still open.

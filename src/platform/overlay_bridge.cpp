@@ -54,7 +54,12 @@ bool OverlayBridge::press_line(const std::string& line, dag::Game& game) {
 bool OverlayBridge::handle_tap(double x, double y, dag::Game& game) {
     const auto hit = dag::input::hit_test(buttons_, x, y);
     if (!hit) return false;
-    if (*hit == ButtonId::Keyboard || *hit == ButtonId::SystemMenu) return false;
+    if (*hit == ButtonId::SystemMenu) return false;
+    if (*hit == ButtonId::Keyboard) {  // ⌨ opens the on-screen keyboard
+        pending_ = PendingKind::FreeKeyboard;
+        typed_.clear();
+        return false;
+    }
 
     const dag::input::OverlayState dummy_state{};  // resolve_tap ignores state today
     const dag::input::TapOutcome outcome = dag::input::resolve_tap(*hit, dummy_state);
@@ -64,6 +69,14 @@ bool OverlayBridge::handle_tap(double x, double y, dag::Game& game) {
         pending_right_hand_ = outcome.right_hand;
     }
     return false;
+}
+
+bool OverlayBridge::press_key(const std::string& key, dag::Game& game) {
+    if (!keyboard_open()) return false;
+    bool closed = false;
+    const auto line = dag::input::press_keyboard_key(pending_, typed_, key, closed);
+    if (closed) pending_ = PendingKind::None;
+    return line && !line->empty() && press_line(*line, game);
 }
 
 bool OverlayBridge::resolve_choice(const std::string& choice, dag::Game& game) {

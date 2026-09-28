@@ -86,10 +86,29 @@ public:
     // (skipping resolve_choice, since "I" itself is not a finishable
     // choice — see resolve_picker_choice(HandMenu, ...) returning nullopt
     // for it).
-    void open_incant_keyboard() { pending_ = dag::input::PendingKind::IncantKeyboard; }
+    void open_incant_keyboard() {
+        pending_ = dag::input::PendingKind::IncantKeyboard;
+        typed_.clear();
+    }
+
+    // True while the on-screen keyboard (INCANT's or ⌨'s) is up; typed() is
+    // what the text box shows.
+    bool keyboard_open() const {
+        return pending_ == dag::input::PendingKind::IncantKeyboard ||
+               pending_ == dag::input::PendingKind::FreeKeyboard;
+    }
+    const std::string& typed() const { return typed_; }
+
+    // One on-screen key (keyboard_layout's labels). ENTER presses the
+    // finished line on `game` (returns true) and closes the keyboard;
+    // CANCEL closes it pressing nothing.
+    bool press_key(const std::string& key, dag::Game& game);
 
     // Closes any open picker without pressing anything (a picker's "cancel").
-    void cancel_picker() { pending_ = dag::input::PendingKind::None; }
+    void cancel_picker() {
+        pending_ = dag::input::PendingKind::None;
+        typed_.clear();
+    }
 
 private:
     bool press_line(const std::string& line, dag::Game& game);
@@ -98,6 +117,7 @@ private:
     std::vector<dag::input::Button> buttons_;
     dag::input::PendingKind pending_ = dag::input::PendingKind::None;
     bool pending_right_hand_ = false;
+    std::string typed_;
 };
 
 }  // namespace dag::platform

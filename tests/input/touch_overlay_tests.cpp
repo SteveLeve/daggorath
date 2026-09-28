@@ -258,6 +258,32 @@ void test_choices_sit_beside_their_anchor() {
           "each picker is anchored to the button that opens it");
 }
 
+void test_keyboard_matches_incant_board() {
+    using namespace dag::input;
+    // The Incant board is 844x390; at that size a board unit is one pixel.
+    const auto kb = keyboard_layout(OverlayLayout::PhoneLandscape, 844, 390, false);
+    auto key = [&](const std::string& label) {
+        for (const auto& k : kb.keys)
+            if (k.label == label) return k.rect;
+        return Rect{-1, -1, 0, 0};
+    };
+    check(kb.text_box.x == 184 && kb.text_box.y == 178 && kb.text_box.w == 476 && kb.text_box.h == 44,
+          "the text box sits where the Incant board puts it");
+    check(key("Q").x == 184 && key("Q").y == 236 && key("P").x == 616 && key("A").x == 208 &&
+              key("A").y == 284 && key("Z").x == 256 && key("Z").y == 332 && key("M").x == 544,
+          "the QWERTY rows match the Incant board");
+    check(key("BACK").x == 592 && key("ENTER").x == 640 && key("CANCEL").x == 782 &&
+              key("CANCEL").y == 328,
+          "⌫ ↵ and ✕ match the Incant board");
+    check(key("SPACE").x < 0, "the incant keyboard has no space");
+    check(keyboard_layout(OverlayLayout::PhoneLandscape, 844, 390, true).keys.size() == kb.keys.size() + 1,
+          "the free keyboard adds a space key");
+    std::string typed;
+    bool closed = false;
+    for (int i = 0; i < 40; ++i) press_keyboard_key(PendingKind::IncantKeyboard, typed, "A", closed);
+    check(typed.size() + 2 + 1 <= kMaxGestureLine, "typing stops at the gesture-line limit");
+}
+
 void test_climb_confirmation() {
     using namespace dag::input;
     OverlayState state;
@@ -284,6 +310,7 @@ int main() {
     test_always_present_controls();
     test_hand_state_swaps_controls();
     test_phone_matches_main_board();
+    test_keyboard_matches_incant_board();
     test_climb_conditional();
     test_no_overlaps_within_a_layout();
     test_tablet_stays_clear_of_bottom_band();

@@ -559,6 +559,11 @@ int main(int argc, char** argv) {
         // docs/architecture/touch-input.md §5).
         const dag::input::OverlayState overlay_state = dag::platform::overlay_state_from(*held);
         const auto& current_buttons = overlay.buttons(viewport_w, viewport_h, overlay_state);
+        const auto keyboard = overlay.keyboard_open()
+                                  ? dag::input::keyboard_layout(
+                                        layout, viewport_w, viewport_h,
+                                        overlay.pending() == dag::input::PendingKind::FreeKeyboard)
+                                  : dag::input::KeyboardLayout{};
         // The open picker's choices, placed beside the button that opened it.
         std::optional<dag::input::Rect> picker_anchor_rect;
         const auto picker_anchor_id = dag::input::picker_anchor(overlay.pending(), overlay.pending_right_hand());
@@ -615,21 +620,22 @@ int main(int argc, char** argv) {
                     // shortcuts is built (8.6.6 scope note, reconciliation
                     // addendum) -- Esc, the physical keyboard, or the
                     // SystemMenu button are the only ways to act on it.
+                } else if (overlay.keyboard_open()) {
+                    // Taps off the keys do nothing; ✕ closes (Incant board).
+                    for (const auto& k : keyboard.keys)
+                        if (k.rect.contains(mx, my)) {
+                            overlay.press_key(k.label, *held);
+                            break;
+                        }
                 } else if (overlay.picker_open()) {
                     bool chose = false;
                     for (const auto& [choice, rect] : picker_rects) {
                         if (!rect.contains(mx, my)) continue;
                         chose = true;
-                        // HandMenu's "I" opens the in-game keyboard (design
-                        // doc: "I types I and opens an in-game keyboard").
-                        // No on-screen QWERTY grid is built here (8.6.1
-                        // scope); the physical keyboard finishes the line
-                        // the same way it always has, seeded with "I ".
+                        // HandMenu's "I" opens the on-screen keyboard (Incant board).
                         if (overlay.pending() == dag::input::PendingKind::HandMenu &&
                             choice == "I") {
-                            overlay.cancel_picker();
-                            held->press('I');
-                            held->press(0x20);
+                            overlay.open_incant_keyboard();
                         } else {
                             overlay.resolve_choice(choice, *held);
                         }
@@ -1003,6 +1009,37 @@ int main(int argc, char** argv) {
                         draw_button(r, button.rect, 0);
                         draw_icon(r, button.rect, button.id);
                     }
+                return;
+            }
+            if (overlay.keyboard_open()) {
+                // Incant board: the text box echoes the line being typed.
+                const auto& box = keyboard.text_box;
+                const SDL_FRect bf{static_cast<float>(box.x), static_cast<float>(box.y),
+                                   static_cast<float>(box.w), static_cast<float>(box.h)};
+                SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+                SDL_RenderFillRect(r, &bf);
+                SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+                SDL_RenderRect(r, &bf);
+                const std::string shown =
+                    (overlay.pending() == dag::input::PendingKind::IncantKeyboard ? ".I " : ".") +
+                    overlay.typed() + "_";
+                draw_text_line(r, box.x + 12, box.y + box.h / 2 - 4, shown);
+                for (const auto& k : keyboard.keys) {
+                    const SDL_FRect kf{static_cast<float>(k.rect.x), static_cast<float>(k.rect.y),
+                                       static_cast<float>(k.rect.w), static_cast<float>(k.rect.h)};
+                    SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+                    SDL_RenderFillRect(r, &kf);
+                    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+                    SDL_RenderRect(r, &kf);
+                    if (k.label.size() == 1) {
+                        draw_glyph(r, k.rect.x + k.rect.w / 2, k.rect.y + k.rect.h / 2, k.label[0]);
+                    } else {
+                        const std::string mark = k.label == "BACK" ? "<X" : k.label == "ENTER" ? "OK"
+                                               : k.label == "SPACE" ? "SPC" : "X";
+                        draw_text_line(r, k.rect.x + (k.rect.w - 8.0 * mark.size()) / 2,
+                                       k.rect.y + k.rect.h / 2 - 4, mark);
+                    }
+                }
                 return;
             }
             // The buttons stay up under an open picker; the one that opened

@@ -177,10 +177,69 @@ std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
         case PendingKind::ClimbChoice:
             return {"U", "D"};
         case PendingKind::IncantKeyboard:
+        case PendingKind::FreeKeyboard:
         case PendingKind::None:
             return {};
     }
     return {};
+}
+
+namespace {
+double layout_unit(OverlayLayout layout, double vh) {
+    return layout == OverlayLayout::PhoneLandscape ? vh / 390.0 : vh / 576.0;
+}
+double layout_bottom(OverlayLayout layout, double vh) {
+    return layout == OverlayLayout::PhoneLandscape ? vh : vh * 0.75;
+}
+}  // namespace
+
+KeyboardLayout keyboard_layout(OverlayLayout layout, double vw, double vh, bool with_space) {
+    const double u = layout_unit(layout, vh);
+    const double key = 44 * u, pitch = 48 * u;
+    const double row3 = layout_bottom(layout, vh) - 14 * u - key;
+    const double row2 = row3 - pitch, row1 = row2 - pitch;
+    const double left = vw / 2 - 238 * u;  // the board's 476-wide box, centred
+    KeyboardLayout out;
+    out.text_box = Rect{left, row1 - 58 * u, 476 * u, 44 * u};
+    auto row = [&](const std::string& letters, double x, double y) {
+        for (std::size_t i = 0; i < letters.size(); ++i)
+            out.keys.push_back({std::string(1, letters[i]),
+                                Rect{x + static_cast<double>(i) * pitch, y, key, key}});
+    };
+    row("QWERTYUIOP", left, row1);
+    row("ASDFGHJKL", left + 24 * u, row2);
+    row("ZXCVBNM", left + 72 * u, row3);
+    out.keys.push_back({"BACK", Rect{left + 72 * u + 7 * pitch, row3, key, key}});
+    out.keys.push_back({"ENTER", Rect{left + 72 * u + 8 * pitch, row3, key, key}});
+    if (with_space) out.keys.push_back({"SPACE", Rect{left + 24 * u, row3, key, key}});
+    const double bs = 48 * u;
+    out.keys.push_back({"CANCEL", Rect{vw - 14 * u - bs, layout_bottom(layout, vh) - 14 * u - bs, bs, bs}});
+    return out;
+}
+
+std::optional<std::string> press_keyboard_key(PendingKind pending, std::string& typed,
+                                              const std::string& key, bool& closed) {
+    closed = false;
+    if (key == "CANCEL") {
+        typed.clear();
+        closed = true;
+        return std::nullopt;
+    }
+    if (key == "BACK") {
+        if (!typed.empty()) typed.pop_back();
+        return std::nullopt;
+    }
+    if (key == "ENTER") {
+        closed = true;
+        std::string line = pending == PendingKind::IncantKeyboard ? gesture_incant(typed) : typed;
+        typed.clear();
+        return line;
+    }
+    const std::size_t prefix = pending == PendingKind::IncantKeyboard ? 2 : 0;  // "I "
+    if (prefix + typed.size() + 2 > kMaxGestureLine) return std::nullopt;  // room for CR
+    if (key == "SPACE") typed.push_back(' ');
+    else if (key.size() == 1 && key[0] >= 'A' && key[0] <= 'Z') typed.push_back(key[0]);
+    return std::nullopt;
 }
 
 std::optional<ButtonId> picker_anchor(PendingKind pending, bool right_hand) {
@@ -194,6 +253,7 @@ std::optional<ButtonId> picker_anchor(PendingKind pending, bool right_hand) {
         case PendingKind::ClimbChoice:
             return ButtonId::Climb;
         case PendingKind::IncantKeyboard:
+        case PendingKind::FreeKeyboard:
         case PendingKind::None:
             return std::nullopt;
     }
@@ -236,6 +296,7 @@ std::vector<Choice> place_choices(PendingKind pending, const std::vector<std::st
             break;
         }
         case PendingKind::IncantKeyboard:
+        case PendingKind::FreeKeyboard:
         case PendingKind::None:
             break;
     }
@@ -261,6 +322,8 @@ std::optional<std::string> resolve_picker_choice(PendingKind pending, bool right
             return std::nullopt;
         case PendingKind::IncantKeyboard:
             return gesture_incant(choice);
+        case PendingKind::FreeKeyboard:
+            return choice;
         case PendingKind::None:
             return std::nullopt;
     }

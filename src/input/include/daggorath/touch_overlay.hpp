@@ -104,6 +104,7 @@ enum class PendingKind {
     PackPicker,
     HandMenu,
     IncantKeyboard,
+    FreeKeyboard,  // ⌨: the whole command line typed on the on-screen keyboard
     ClimbChoice
 };
 
@@ -149,6 +150,24 @@ struct Choice {
 // upward shift for long lists are extrapolated; no board draws them.
 std::vector<Choice> place_choices(PendingKind pending, const std::vector<std::string>& labels,
                                   const Rect& anchor, double viewport_w, double viewport_h);
+
+// The on-screen keyboard (Incant board): a text box over three QWERTY rows of
+// 44-unit keys on a 48-unit pitch, centred, the last row ending 14 above the
+// bottom line; then ⌫ ("BACK") and ↵ ("ENTER") after M, and ✕ ("CANCEL") in
+// the bottom-right corner. The free command line also needs a space
+// ("SPACE", before Z); the Incant board has none. Same units as layout_buttons.
+struct KeyboardLayout {
+    Rect text_box;
+    std::vector<Choice> keys;
+};
+KeyboardLayout keyboard_layout(OverlayLayout layout, double viewport_w, double viewport_h,
+                               bool with_space);
+
+// One key on the open keyboard, applied to `typed`. Returns the finished
+// command line on ENTER (INCANT's "I <word>", or the free line as typed) and
+// sets `closed` on ENTER or CANCEL. Letters stop at kMaxGestureLine.
+std::optional<std::string> press_keyboard_key(PendingKind pending, std::string& typed,
+                                              const std::string& key, bool& closed);
 
 // Finishes a pending picker: the floor/pack picker's chosen object name, or
 // the hand-menu's chosen verb letter ('S' stow, 'D' drop, 'U' use, 'R'
