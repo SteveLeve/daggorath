@@ -8,30 +8,31 @@ namespace {
 
 // Both layouts follow the Main (19.5:9) and Legacy (16:9) boards, which share
 // one arrangement in board units: 48-unit buttons on a 54-unit pitch, 14 from
-// the edges (docs/design/touch-controls/mockups/). Top corners: A, then G and
-// P or "≡". Bottom left: ⇤ ↑ ⇥ / ↶ ↻ ↷ / ↓. Bottom right: C over the E/L
-// toggle, ⌨ over the system menu. `unit` scales board units to pixels and
-// `bottom` is the line the bottom clusters sit on.
-std::vector<Button> layout_boards(double vw, double unit, double bottom, const OverlayState& state) {
+// the edges (docs/design/touch-controls/mockups/). Top corners: A over "≡"
+// for each hand (Steve, 2026-09-28: G and P moved into "≡", so each hand
+// shows only Attack and Menu). Bottom left: ⇤ ↑ ⇥ / ↶ ↻ ↷ / ↓. Bottom
+// right: C over the E/L toggle, beside the system menu. There is no ⌨
+// button (Steve, 2026-09-28): the keyboard opens only for INCANT. `unit`
+// scales board units to pixels, `bottom` is the line the bottom clusters sit
+// on, and [game_left, game_right) is where the game's 4:3 picture is drawn.
+std::vector<Button> layout_boards(double vw, double unit, double bottom, double game_left,
+                                  double game_right, const OverlayState& state) {
     std::vector<Button> out;
     const double bs = 48 * unit, step = 54 * unit, m = 14 * unit;
-    auto at = [&](ButtonId id, double x, double y) { out.push_back({id, {x, y, bs, bs}}); };
     const double right = vw - m - bs;
+    auto at = [&](ButtonId id, double x, double y) { out.push_back({id, {x, y, bs, bs}}); };
+    // While EXAMINE's listing is up, a top-corner button that would cover
+    // the picture is left out (Steve, 2026-09-28); in the phone's margins
+    // nothing is.
+    auto top = [&](ButtonId id, double x, double y) {
+        const bool over_picture = x < game_right && x + bs > game_left;
+        if (!(state.examining && over_picture)) at(id, x, y);
+    };
 
-    at(ButtonId::AttackLeft, m, m);
-    at(ButtonId::AttackRight, right, m);
-    if (state.left_hand_empty) {
-        at(ButtonId::GetLeft, m, m + step);
-        at(ButtonId::PullLeft, m, m + 2 * step);
-    } else {
-        at(ButtonId::HandMenuLeft, m, m + step);
-    }
-    if (state.right_hand_empty) {
-        at(ButtonId::GetRight, right, m + step);
-        at(ButtonId::PullRight, right, m + 2 * step);
-    } else {
-        at(ButtonId::HandMenuRight, right, m + step);
-    }
+    top(ButtonId::AttackLeft, m, m);
+    top(ButtonId::AttackRight, right, m);
+    top(ButtonId::HandMenuLeft, m, m + step);
+    top(ButtonId::HandMenuRight, right, m + step);
 
     const double row3 = bottom - m - bs, row2 = row3 - step, row1 = row2 - step;
     at(ButtonId::MoveLeft, m, row1);
@@ -47,22 +48,26 @@ std::vector<Button> layout_boards(double vw, double unit, double bottom, const O
     // side; the system menu, which no board draws, takes the other slot.
     at(state.examining ? ButtonId::Look : ButtonId::Examine, right - step, row3);
     at(ButtonId::SystemMenu, right, row3);
-    at(ButtonId::Keyboard, right, row2);
     if (state.climb_available) at(ButtonId::Climb, right - step, row2);
     return out;
 }
 
-// Phone landscape: the Main board, scaled by height; controls sit in the
-// side margins beside the 4:3 game.
+// Phone landscape: the Main board, scaled by height but shrunk if needed so
+// the three-button move cluster (176 units with its inner gap) fits the side
+// margin beside the 4:3 game (Steve, 2026-09-28; the board itself overlaps
+// by 8 units).
 std::vector<Button> layout_phone(double vw, double vh, const OverlayState& state) {
-    return layout_boards(vw, vh / 390.0, vh, state);
+    const double game_w = vh * 4.0 / 3.0;
+    const double margin = (vw - game_w) / 2;
+    const double unit = std::min(vh / 390.0, margin / 176.0);
+    return layout_boards(vw, unit, vh, margin, margin + game_w, state);
 }
 
 // Tablet 4:3 (decision 2026-09-27): the same arrangement floating over the
 // game's edges, at board size for a 576-high view, with the bottom clusters
 // raised above the bottom quarter (the status/command band stays clear).
 std::vector<Button> layout_tablet(double vw, double vh, const OverlayState& state) {
-    return layout_boards(vw, vh / 576.0, vh * 0.75, state);
+    return layout_boards(vw, vh / 576.0, vh * 0.75, 0, vw, state);
 }
 
 }  // namespace
@@ -94,22 +99,6 @@ TapOutcome resolve_tap(ButtonId id, const OverlayState& state) {
             break;
         case ButtonId::AttackRight:
             out.line = gesture_attack(true);
-            break;
-        case ButtonId::GetLeft:
-            out.pending = PendingKind::FloorPicker;
-            out.right_hand = false;
-            break;
-        case ButtonId::GetRight:
-            out.pending = PendingKind::FloorPicker;
-            out.right_hand = true;
-            break;
-        case ButtonId::PullLeft:
-            out.pending = PendingKind::PackPicker;
-            out.right_hand = false;
-            break;
-        case ButtonId::PullRight:
-            out.pending = PendingKind::PackPicker;
-            out.right_hand = true;
             break;
         case ButtonId::HandMenuLeft:
             out.pending = PendingKind::HandMenu;
@@ -151,7 +140,6 @@ TapOutcome resolve_tap(ButtonId id, const OverlayState& state) {
         case ButtonId::Look:
             out.line = gesture_look();
             break;
-        case ButtonId::Keyboard:
         case ButtonId::SystemMenu:
             // The free command line and the system menu are not gesture
             // lines: the former hands control to the typed line, the latter
@@ -170,6 +158,16 @@ std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
         case PendingKind::PackPicker:
             return state.pack_items;
         case PendingKind::HandMenu: {
+            // An empty hand offers G when something is on the floor and P
+            // when the pack holds something (Steve, 2026-09-28); a full hand
+            // offers S D U R, plus I for a ring (HandStates board).
+            const bool empty = right_hand ? state.right_hand_empty : state.left_hand_empty;
+            if (empty) {
+                std::vector<std::string> out;
+                if (!state.floor_items.empty()) out.push_back("G");
+                if (!state.pack_items.empty()) out.push_back("P");
+                return out;
+            }
             std::vector<std::string> out{"S", "D", "U", "R"};
             if (right_hand ? state.right_hand_ring : state.left_hand_ring) out.push_back("I");
             return out;
@@ -177,7 +175,6 @@ std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
         case PendingKind::ClimbChoice:
             return {"U", "D"};
         case PendingKind::IncantKeyboard:
-        case PendingKind::FreeKeyboard:
         case PendingKind::None:
             return {};
     }
@@ -187,13 +184,13 @@ std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
 namespace {
 double layout_unit(OverlayLayout layout, double vh) {
     return layout == OverlayLayout::PhoneLandscape ? vh / 390.0 : vh / 576.0;
-}
+}  // the keyboard spans the middle, so the phone's margin fit doesn't apply
 double layout_bottom(OverlayLayout layout, double vh) {
     return layout == OverlayLayout::PhoneLandscape ? vh : vh * 0.75;
 }
 }  // namespace
 
-KeyboardLayout keyboard_layout(OverlayLayout layout, double vw, double vh, bool with_space) {
+KeyboardLayout keyboard_layout(OverlayLayout layout, double vw, double vh) {
     const double u = layout_unit(layout, vh);
     const double key = 44 * u, pitch = 48 * u;
     const double row3 = layout_bottom(layout, vh) - 14 * u - key;
@@ -211,7 +208,6 @@ KeyboardLayout keyboard_layout(OverlayLayout layout, double vw, double vh, bool 
     row("ZXCVBNM", left + 72 * u, row3);
     out.keys.push_back({"BACK", Rect{left + 72 * u + 7 * pitch, row3, key, key}});
     out.keys.push_back({"ENTER", Rect{left + 72 * u + 8 * pitch, row3, key, key}});
-    if (with_space) out.keys.push_back({"SPACE", Rect{left + 24 * u, row3, key, key}});
     const double bs = 48 * u;
     out.keys.push_back({"CANCEL", Rect{vw - 14 * u - bs, layout_bottom(layout, vh) - 14 * u - bs, bs, bs}});
     return out;
@@ -231,14 +227,13 @@ std::optional<std::string> press_keyboard_key(PendingKind pending, std::string& 
     }
     if (key == "ENTER") {
         closed = true;
-        std::string line = pending == PendingKind::IncantKeyboard ? gesture_incant(typed) : typed;
+        std::string line = gesture_incant(typed);
         typed.clear();
         return line;
     }
-    const std::size_t prefix = pending == PendingKind::IncantKeyboard ? 2 : 0;  // "I "
-    if (prefix + typed.size() + 2 > kMaxGestureLine) return std::nullopt;  // room for CR
-    if (key == "SPACE") typed.push_back(' ');
-    else if (key.size() == 1 && key[0] >= 'A' && key[0] <= 'Z') typed.push_back(key[0]);
+    (void)pending;
+    if (typed.size() + 2 + 2 > kMaxGestureLine) return std::nullopt;  // "I " and CR
+    if (key.size() == 1 && key[0] >= 'A' && key[0] <= 'Z') typed.push_back(key[0]);
     return std::nullopt;
 }
 
@@ -248,21 +243,20 @@ std::string hand_verb_caption(const std::string& letter) {
     if (letter == "U") return "USE";
     if (letter == "R") return "REVEAL";
     if (letter == "I") return "INCANT";
+    if (letter == "G") return "GET";
+    if (letter == "P") return "PULL";
     return {};
 }
 
 std::optional<ButtonId> picker_anchor(PendingKind pending, bool right_hand) {
     switch (pending) {
-        case PendingKind::FloorPicker:
-            return right_hand ? ButtonId::GetRight : ButtonId::GetLeft;
+        case PendingKind::FloorPicker:  // opened from "≡" (G/P live there now)
         case PendingKind::PackPicker:
-            return right_hand ? ButtonId::PullRight : ButtonId::PullLeft;
         case PendingKind::HandMenu:
             return right_hand ? ButtonId::HandMenuRight : ButtonId::HandMenuLeft;
         case PendingKind::ClimbChoice:
             return ButtonId::Climb;
         case PendingKind::IncantKeyboard:
-        case PendingKind::FreeKeyboard:
         case PendingKind::None:
             return std::nullopt;
     }
@@ -305,11 +299,17 @@ std::vector<Choice> place_choices(PendingKind pending, const std::vector<std::st
             break;
         }
         case PendingKind::IncantKeyboard:
-        case PendingKind::FreeKeyboard:
         case PendingKind::None:
             break;
     }
     return out;
+}
+
+std::optional<PendingKind> hand_menu_opens(const std::string& choice) {
+    if (choice == "G") return PendingKind::FloorPicker;
+    if (choice == "P") return PendingKind::PackPicker;
+    if (choice == "I") return PendingKind::IncantKeyboard;
+    return std::nullopt;
 }
 
 std::optional<std::string> resolve_picker_choice(PendingKind pending, bool right_hand,
@@ -324,15 +324,13 @@ std::optional<std::string> resolve_picker_choice(PendingKind pending, bool right
             if (choice == "D") return gesture_drop(right_hand);
             if (choice == "U") return gesture_use(right_hand);
             if (choice == "R") return gesture_reveal(right_hand);
-            return std::nullopt;  // "I" opens the incant keyboard instead
+            return std::nullopt;  // G, P, I open the next picker (hand_menu_opens)
         case PendingKind::ClimbChoice:
             if (choice == "U") return gesture_climb_up();
             if (choice == "D") return gesture_climb_down();
             return std::nullopt;
         case PendingKind::IncantKeyboard:
             return gesture_incant(choice);
-        case PendingKind::FreeKeyboard:
-            return choice;
         case PendingKind::None:
             return std::nullopt;
     }

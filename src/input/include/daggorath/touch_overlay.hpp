@@ -31,10 +31,6 @@ enum class OverlayLayout { PhoneLandscape, Tablet4x3 };
 enum class ButtonId {
     AttackLeft,
     AttackRight,
-    GetLeft,
-    GetRight,
-    PullLeft,
-    PullRight,
     HandMenuLeft,
     HandMenuRight,  // "≡": S D U R I, holding hand only
     MoveForward,
@@ -47,7 +43,6 @@ enum class ButtonId {
     Climb,  // offers C U / C D when available
     Examine,
     Look,
-    Keyboard,    // free command line
     SystemMenu,  // the one control that pauses (ADR-0009)
 };
 
@@ -93,7 +88,7 @@ std::vector<Button> layout_buttons(OverlayLayout layout, double viewport_w,
 // last); `layout_buttons` never overlaps its own output.
 std::optional<ButtonId> hit_test(const std::vector<Button>& buttons, double x, double y);
 
-// The picker/menu state a tap on GetLeft/GetRight, PullLeft/PullRight, or a
+// The picker/menu state a tap on a
 // HandMenu button opens, per the design doc's "sequential entry" rule: a tap
 // types its letters immediately (the partial line, e.g. "G L", is already
 // authoritative) and a picker/keyboard supplies the rest before the whole
@@ -104,7 +99,6 @@ enum class PendingKind {
     PackPicker,
     HandMenu,
     IncantKeyboard,
-    FreeKeyboard,  // ⌨: the whole command line typed on the on-screen keyboard
     ClimbChoice
 };
 
@@ -125,13 +119,15 @@ struct TapOutcome {
 TapOutcome resolve_tap(ButtonId id, const OverlayState& state);
 
 // The choices a pending picker offers, in display order: floor or pack item
-// names (Picker board: "Get left: on floor"), the hand menu's S D U R plus I
-// for a ring, or climb's U D. Empty when there is nothing to choose.
+// names (Picker board: "Get left: on floor"), the hand menu's G/P (empty
+// hand, when there is something to get or pull) or S D U R plus I for a
+// ring, or climb's U D. Empty when there is nothing to choose.
 std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
                                         const OverlayState& state);
 
-// The button a pending picker opened from: G or P for the floor or pack
-// picker, "≡" for the hand menu, C for climb. nullopt for the keyboard.
+// The button a pending picker opened from: the hand's "≡" for the hand menu
+// and the floor and pack pickers it leads to, C for climb. nullopt for the
+// keyboard.
 std::optional<ButtonId> picker_anchor(PendingKind pending, bool right_hand);
 
 struct Choice {
@@ -160,11 +156,10 @@ struct KeyboardLayout {
     Rect text_box;
     std::vector<Choice> keys;
 };
-KeyboardLayout keyboard_layout(OverlayLayout layout, double viewport_w, double viewport_h,
-                               bool with_space);
+KeyboardLayout keyboard_layout(OverlayLayout layout, double viewport_w, double viewport_h);
 
 // One key on the open keyboard, applied to `typed`. Returns the finished
-// command line on ENTER (INCANT's "I <word>", or the free line as typed) and
+// command line on ENTER (INCANT's "I <word>") and
 // sets `closed` on ENTER or CANCEL. Letters stop at kMaxGestureLine.
 std::optional<std::string> press_keyboard_key(PendingKind pending, std::string& typed,
                                               const std::string& key, bool& closed);
@@ -173,9 +168,13 @@ std::optional<std::string> press_keyboard_key(PendingKind pending, std::string& 
 // (S STOW, D DROP, U USE, R REVEAL, I INCANT); empty for anything else.
 std::string hand_verb_caption(const std::string& letter);
 
+// A hand-menu choice that opens another picker rather than finishing a line:
+// G the floor picker, P the pack picker, I the incant keyboard.
+std::optional<PendingKind> hand_menu_opens(const std::string& choice);
+
 // Finishes a pending picker: the floor/pack picker's chosen object name, or
 // the hand-menu's chosen verb letter ('S' stow, 'D' drop, 'U' use, 'R'
-// reveal — 'I' opens the incant keyboard instead of finishing here).
+// reveal). G, P and I lead on to another picker instead: hand_menu_opens.
 std::optional<std::string> resolve_picker_choice(PendingKind pending, bool right_hand,
                                                  const std::string& choice);
 

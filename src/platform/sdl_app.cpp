@@ -223,7 +223,7 @@ void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
 
 // Button labels: the boards' letters (A G P C E L) through the original char
 // generator, and line-drawn icons for the ones the boards draw as symbols
-// (⇤ ↑ ⇥ ↶ ↻ ↷ ↓ ≡ ⌨), which that uppercase-only set cannot draw. 0 means
+// (⇤ ↑ ⇥ ↶ ↻ ↷ ↓ ≡), which that uppercase-only set cannot draw. 0 means
 // "icon, no letter". The system menu, which no board draws, gets a pause
 // sign.
 char button_label(dag::input::ButtonId id) {
@@ -232,12 +232,6 @@ char button_label(dag::input::ButtonId id) {
         case ButtonId::AttackLeft:
         case ButtonId::AttackRight:
             return 'A';
-        case ButtonId::GetLeft:
-        case ButtonId::GetRight:
-            return 'G';
-        case ButtonId::PullLeft:
-        case ButtonId::PullRight:
-            return 'P';
         case ButtonId::HandMenuLeft:
         case ButtonId::HandMenuRight:
             return 0;
@@ -255,7 +249,6 @@ char button_label(dag::input::ButtonId id) {
             return 'E';
         case ButtonId::Look:
             return 'L';
-        case ButtonId::Keyboard:
         case ButtonId::SystemMenu:
             return 0;
     }
@@ -296,10 +289,6 @@ std::vector<Stroke> icon_strokes(dag::input::ButtonId id) {
         case ButtonId::HandMenuLeft:
         case ButtonId::HandMenuRight:  // ≡
             return {{{-0.7f, -0.5f}, {0.7f, -0.5f}}, {{-0.7f, 0}, {0.7f, 0}}, {{-0.7f, 0.5f}, {0.7f, 0.5f}}};
-        case ButtonId::Keyboard:  // ⌨: a key block with a space bar
-            return {{{-0.85f, -0.55f}, {0.85f, -0.55f}, {0.85f, 0.55f}, {-0.85f, 0.55f}, {-0.85f, -0.55f}},
-                    {{-0.55f, -0.2f}, {-0.45f, -0.2f}}, {{-0.15f, -0.2f}, {-0.05f, -0.2f}},
-                    {{0.25f, -0.2f}, {0.35f, -0.2f}}, {{-0.4f, 0.25f}, {0.4f, 0.25f}}};
         case ButtonId::SystemMenu:  // pause sign
             return {{{-0.3f, -0.6f}, {-0.3f, 0.6f}}, {{0.3f, -0.6f}, {0.3f, 0.6f}}};
         default:
@@ -572,9 +561,7 @@ int main(int argc, char** argv) {
         const dag::input::OverlayState overlay_state = dag::platform::overlay_state_from(*held);
         const auto& current_buttons = overlay.buttons(viewport_w, viewport_h, overlay_state);
         const auto keyboard = overlay.keyboard_open()
-                                  ? dag::input::keyboard_layout(
-                                        layout, viewport_w, viewport_h,
-                                        overlay.pending() == dag::input::PendingKind::FreeKeyboard)
+                                  ? dag::input::keyboard_layout(layout, viewport_w, viewport_h)
                                   : dag::input::KeyboardLayout{};
         // The open picker's choices, placed beside the button that opened it.
         std::optional<dag::input::Rect> picker_anchor_rect;
@@ -648,13 +635,9 @@ int main(int argc, char** argv) {
                     for (const auto& [choice, rect] : picker_rects) {
                         if (!rect.contains(mx, my)) continue;
                         chose = true;
-                        // HandMenu's "I" opens the on-screen keyboard (Incant board).
-                        if (overlay.pending() == dag::input::PendingKind::HandMenu &&
-                            choice == "I") {
-                            overlay.open_incant_keyboard();
-                        } else {
-                            overlay.resolve_choice(choice, *held);
-                        }
+                        // G, P and I open the next picker or the keyboard;
+                        // anything else finishes the line.
+                        overlay.resolve_choice(choice, *held);
                         break;
                     }
                     // A tap outside every choice closes the picker unchanged,
@@ -1036,9 +1019,7 @@ int main(int argc, char** argv) {
                 SDL_RenderFillRect(r, &bf);
                 SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
                 SDL_RenderRect(r, &bf);
-                const std::string shown =
-                    (overlay.pending() == dag::input::PendingKind::IncantKeyboard ? ".I " : ".") +
-                    overlay.typed() + "_";
+                const std::string shown = ".I " + overlay.typed() + "_";
                 draw_text_line(r, box.x + 12, box.y + box.h / 2 - 8, shown, 2.0f);
                 for (const auto& k : keyboard.keys) {
                     const SDL_FRect kf{static_cast<float>(k.rect.x), static_cast<float>(k.rect.y),
@@ -1050,8 +1031,7 @@ int main(int argc, char** argv) {
                     if (k.label.size() == 1) {
                         draw_glyph(r, k.rect.x + k.rect.w / 2, k.rect.y + k.rect.h / 2, k.label[0]);
                     } else {
-                        const std::string mark = k.label == "BACK" ? "<X" : k.label == "ENTER" ? "OK"
-                                               : k.label == "SPACE" ? "SPC" : "X";
+                        const std::string mark = k.label == "BACK" ? "<X" : k.label == "ENTER" ? "OK" : "X";
                         draw_text_centered(r, k.rect, mark, mark.size() > 2 ? 1.5f : 2.0f);
                     }
                 }

@@ -73,13 +73,13 @@ public:
     // directly), returns false and changes nothing.
     bool handle_tap(double x, double y, dag::Game& game);
 
-    // Finishes an open picker with `choice`: a GENTAB object name for
+    // Finishes an open picker with `choice`: an object name for
     // FloorPicker/PackPicker, a hand-menu letter ('S'/'D'/'U'/'R') for
     // HandMenu, or "U"/"D" for ClimbChoice. Presses the resulting gesture
-    // line's keys and closes the picker (returns true). HandMenu's "I"
-    // does not resolve here — the caller must see it and call
-    // open_incant_keyboard() instead. Returns false, unchanged, if no
-    // picker is open or `choice` doesn't resolve.
+    // line's keys and closes the picker (returns true). The hand menu's G,
+    // P and I instead open the floor picker, pack picker or incant keyboard
+    // for the same hand (returns false, nothing pressed). Returns false,
+    // unchanged, if no picker is open or `choice` doesn't resolve.
     bool resolve_choice(const std::string& choice, dag::Game& game);
 
     // HandMenu's "I": opens the incant keyboard pending state directly
@@ -91,11 +91,10 @@ public:
         typed_.clear();
     }
 
-    // True while the on-screen keyboard (INCANT's or ⌨'s) is up; typed() is
+    // True while INCANT's on-screen keyboard is up; typed() is
     // what the text box shows.
     bool keyboard_open() const {
-        return pending_ == dag::input::PendingKind::IncantKeyboard ||
-               pending_ == dag::input::PendingKind::FreeKeyboard;
+        return pending_ == dag::input::PendingKind::IncantKeyboard;
     }
     const std::string& typed() const { return typed_; }
 

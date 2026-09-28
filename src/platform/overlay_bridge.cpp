@@ -56,14 +56,14 @@ bool OverlayBridge::handle_tap(double x, double y, dag::Game& game) {
     const auto hit = dag::input::hit_test(buttons_, x, y);
     if (!hit) return false;
     if (*hit == ButtonId::SystemMenu) return false;
-    if (*hit == ButtonId::Keyboard) {  // ⌨ opens the on-screen keyboard
-        pending_ = PendingKind::FreeKeyboard;
-        typed_.clear();
-        return false;
-    }
 
     const dag::input::TapOutcome outcome = dag::input::resolve_tap(*hit, state_);
     if (outcome.line) return press_line(*outcome.line, game);
+    // A hand menu with nothing to offer (empty hand, nothing to get or pull)
+    // does not open (Steve, 2026-09-28).
+    if (outcome.pending == PendingKind::HandMenu &&
+        dag::input::picker_choices(outcome.pending, outcome.right_hand, state_).empty())
+        return false;
     if (outcome.pending != PendingKind::None) {
         pending_ = outcome.pending;
         pending_right_hand_ = outcome.right_hand;
@@ -87,8 +87,15 @@ bool OverlayBridge::handle_attack_tap(double x, double y, dag::Game& game) {
 
 bool OverlayBridge::resolve_choice(const std::string& choice, dag::Game& game) {
     if (pending_ == PendingKind::None) return false;
+    if (pending_ == PendingKind::HandMenu) {
+        if (const auto next = dag::input::hand_menu_opens(choice)) {
+            pending_ = *next;  // same hand; the picker opens beside the same "≡"
+            typed_.clear();
+            return false;
+        }
+    }
     const auto line = dag::input::resolve_picker_choice(pending_, pending_right_hand_, choice);
-    if (!line) return false;  // e.g. HandMenu's "I": caller must open_incant_keyboard()
+    if (!line) return false;
     const PendingKind finished = pending_;
     pending_ = PendingKind::None;
     if (!press_line(*line, game)) {

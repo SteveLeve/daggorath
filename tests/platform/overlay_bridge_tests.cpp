@@ -110,29 +110,37 @@ void test_examine_tap_matches_typed() {
           "an Examine tap matches typing \"E\\r\" by hand, byte for byte");
 }
 
-void test_get_left_floor_picker_two_tap_sequence() {
-    // GetLeft alone only opens a picker (touch_overlay.hpp: resolve_tap
-    // returns pending, no line) -- the design doc's "sequential entry": the
-    // second tap (the chosen object) is what finishes the command line.
+void test_empty_hand_menu_does_not_open() {
+    // Empty hand, nothing on the floor, empty pack: ≡ has nothing to offer.
     dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
     const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
-    const auto [x, y] = center_of(buttons, dag::input::ButtonId::GetLeft);
-    check(x >= 0, "GetLeft has a hit rectangle when the left hand is empty");
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::HandMenuLeft);
+    dag::Game game;
+    check(!bridge.handle_tap(x, y, game) && !bridge.picker_open(),
+          "an empty hand with nothing to get or pull opens no menu");
+}
+
+void test_get_left_through_hand_menu() {
+    // G lives in the empty hand's "≡" menu (Steve, 2026-09-28): ≡, then G,
+    // then the item finishes the line.
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    dag::input::OverlayState floor;
+    floor.floor_items = {"PINE TORCH"};
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, floor);
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::HandMenuLeft);
+    check(x >= 0, "the left hand's menu has a hit rectangle");
 
     dag::Game tapped;
-    const bool first_tap_finished = bridge.handle_tap(x, y, tapped);
-    check(!first_tap_finished, "GetLeft alone does not finish a command line");
-    check(bridge.picker_open() && bridge.pending() == dag::input::PendingKind::FloorPicker,
-          "GetLeft opens the floor picker");
-    check(!bridge.pending_right_hand(), "GetLeft's picker is for the left hand");
-
-    check(bridge.resolve_choice("TORCH", tapped),
-          "choosing TORCH from the floor picker finishes the command line");
-    check(!bridge.picker_open(), "resolving the picker closes it");
+    check(!bridge.handle_tap(x, y, tapped) && bridge.pending() == dag::input::PendingKind::HandMenu,
+          "≡ opens the hand menu, pressing nothing");
+    check(!bridge.resolve_choice("G", tapped) &&
+              bridge.pending() == dag::input::PendingKind::FloorPicker && !bridge.pending_right_hand(),
+          "G in the menu opens the left hand's floor picker");
+    check(bridge.resolve_choice("TORCH", tapped) && !bridge.picker_open(),
+          "choosing TORCH finishes the line and closes the picker");
     tapped.advance_jiffies(200);
-
     check(render_trace(tapped) == render_trace(typed_reference("G L TORCH", 200)),
-          "GetLeft -> TORCH matches typing \"G L TORCH\\r\" by hand, byte for byte");
+          "≡ G TORCH matches typing \"G L TORCH\\r\" by hand, byte for byte");
 }
 
 void test_overlay_state_from_game() {
@@ -145,12 +153,15 @@ void test_overlay_state_from_game() {
     check(state.floor_items.empty(), "nothing lies on the starting cell");
     check(!state.left_hand_ring && !state.right_hand_ring, "no ring is held at the start");
 
-    // PullRight -> the first listed name matches typing P R <name>.
+    // Right ≡ -> P -> the first listed name matches typing P R <name>.
     dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
     const auto& buttons = bridge.buttons(kViewportW, kViewportH, state);
-    const auto [x, y] = center_of(buttons, dag::input::ButtonId::PullRight);
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::HandMenuRight);
     dag::Game tapped;
     bridge.handle_tap(x, y, tapped);
+    check(dag::input::picker_choices(bridge.pending(), true, state) == std::vector<std::string>{"P"},
+          "with nothing on the floor the empty hand's menu offers only P");
+    bridge.resolve_choice("P", tapped);
     const auto choices = dag::input::picker_choices(bridge.pending(), bridge.pending_right_hand(), state);
     check(!choices.empty() && bridge.resolve_choice(choices.front(), tapped),
           "the pack picker's first name finishes a PULL");
@@ -160,10 +171,10 @@ void test_overlay_state_from_game() {
           "the pulled item leaves the pack for the right hand");
     if (!choices.empty())
         check(render_trace(tapped) == render_trace(typed_reference("P R " + choices.front(), 200)),
-              "PullRight -> first pack name matches typing it by hand");
+              "≡ P -> first pack name matches typing it by hand");
 }
 
-void test_miss_and_keyboard_and_system_menu_are_not_this_bridge() {
+void test_miss_and_system_menu_are_not_this_bridge() {
     dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
     const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
     dag::Game game;
@@ -178,39 +189,29 @@ void test_miss_and_keyboard_and_system_menu_are_not_this_bridge() {
     check(render_trace(game) == baseline, "a SystemMenu tap presses nothing");
 }
 
-void test_keyboard_types_a_line() {
-    // ⌨ opens the on-screen keyboard; its keys build the line; ENTER types it
-    // exactly as the physical keyboard would.
+void test_incant_keyboard() {
+    // Only INCANT opens the keyboard (Steve, 2026-09-28): ≡ I on a ring.
     dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
     const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
-    const auto [kx, ky] = center_of(buttons, dag::input::ButtonId::Keyboard);
     dag::Game tapped;
-    check(!bridge.handle_tap(kx, ky, tapped) && bridge.keyboard_open() &&
-              bridge.pending() == dag::input::PendingKind::FreeKeyboard,
-          "⌨ opens the free keyboard, pressing nothing yet");
-    for (const char* key : {"T", "SPACE", "R", "X", "BACK"}) bridge.press_key(key, tapped);
-    check(bridge.typed() == "T R", "letters, SPACE and BACK edit the text box");
-    check(bridge.press_key("ENTER", tapped) && !bridge.keyboard_open(),
-          "ENTER types the line and closes the keyboard");
-    tapped.advance_jiffies(200);
-    check(render_trace(tapped) == render_trace(typed_reference("T R", 200)),
-          "the on-screen T R matches typing it by hand");
+    bridge.open_incant_keyboard();
+    for (const char* key : {"F", "X", "BACK", "I"}) bridge.press_key(key, tapped);
+    check(bridge.typed() == "FI", "letters and BACK edit the text box");
 
     dag::Game cancelled;
     const std::string before = render_trace(cancelled);
-    bridge.handle_tap(kx, ky, cancelled);
-    bridge.press_key("M", cancelled);
     bridge.press_key("CANCEL", cancelled);
     check(!bridge.keyboard_open() && bridge.typed().empty() && render_trace(cancelled) == before,
           "CANCEL closes the keyboard pressing nothing");
 
+    const auto [fx, fy] = center_of(buttons, dag::input::ButtonId::MoveForward);
     dag::Game attacked;
-    bridge.handle_tap(kx, ky, attacked);
+    bridge.open_incant_keyboard();
     bridge.press_key("F", attacked);
     const auto [ax, ay] = center_of(buttons, dag::input::ButtonId::AttackLeft);
     check(bridge.handle_attack_tap(ax, ay, attacked) && bridge.keyboard_open() && bridge.typed() == "F",
           "A stays live over the keyboard and leaves the typed text alone");
-    check(!bridge.handle_attack_tap(kx, ky, attacked), "other buttons stay dead over the keyboard");
+    check(!bridge.handle_attack_tap(fx, fy, attacked), "other buttons stay dead over the keyboard");
     bridge.cancel_picker();
     attacked.advance_jiffies(200);
     check(render_trace(attacked) == render_trace(typed_reference("A L", 200)),
@@ -231,10 +232,11 @@ int main() {
     test_move_forward_tap_matches_typed();
     test_turn_right_tap_matches_typed();
     test_examine_tap_matches_typed();
-    test_get_left_floor_picker_two_tap_sequence();
-    test_miss_and_keyboard_and_system_menu_are_not_this_bridge();
+    test_empty_hand_menu_does_not_open();
+    test_get_left_through_hand_menu();
+    test_miss_and_system_menu_are_not_this_bridge();
     test_overlay_state_from_game();
-    test_keyboard_types_a_line();
+    test_incant_keyboard();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";
     return g_failures == 0 ? 0 : 1;

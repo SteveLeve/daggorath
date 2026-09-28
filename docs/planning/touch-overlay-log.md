@@ -27,6 +27,11 @@ Add what you see on screen here. The loop takes these first.
   mockup. Every move button reads "M" and every turn "T"; use arrow icons.
 - S6 (2026-09-28, fixed run 3): E and L should toggle. E appears only while looking (the
   view), L only while examining (the pack and floor list).
+- S8 (2026-09-28, fixed run 6): each hand shows only A and ≡. G and P move
+  into ≡, G only when something is on the floor and P only when the pack
+  holds something.
+- S9 (2026-09-28, fixed run 6): remove the ⌨ button; the keyboard opens only
+  for INCANT.
 - S7 (2026-09-28, fixed run 4): "K" seems to do nothing. It is the ⌨ Keyboard button (free
   command line); see T12.
 
@@ -53,26 +58,24 @@ Code paths are in `src/`.
 | T15 | — | `platform/overlay_bridge.cpp` `handle_tap` | fixed 5 | `handle_tap` passed a default `OverlayState{}` to `resolve_tap`; it now passes the state `buttons()` last laid out. |
 | T16 | touch-input.md §4–5 | docs | fixed 5 | §5 called GET/PULL/CLIMB UNIMPLEMENTED; a dated addendum now records that all 15 verbs are implemented. |
 | T18 | Picker | `sdl_app.cpp` | todo | The Picker board titles the menu ("Get left: on floor"); no title is drawn yet. |
-| T19 | — | `sdl_app.cpp` | todo | An empty floor or pack opens a picker with no rows. Consider showing "nothing here" or not opening it at all (ask Steve if unclear). |
+| T19 | — | `sdl_app.cpp` | fixed 6 | An empty picker used to open with no rows. Now G and P appear in ≡ only when there is something to get or pull, and a ≡ with nothing to offer does not open (Q5). |
 | T20 | — | `sdl_app.cpp` | fixed 5 | The hand-menu caption words are defined in `sdl_app.cpp`; they belong with the verb letters in `src/input`. |
-| T21 | Examine on tablet | `input/touch_overlay.cpp` `layout_tablet` | needs-steve | On the tablet the buttons float over the game, so the top ones (A, G, P) cover the EXAMINE listing's first lines. See Q4. |
-| T22 | Main (phone) | `layout_phone` | todo | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
+| T21 | Examine on tablet | `input/touch_overlay.cpp` `layout_tablet` | fixed 6 | On the tablet the buttons float over the game, so the top ones (A, G, P) cover the EXAMINE listing's first lines. See Q4. |
+| T22 | Main (phone) | `layout_phone` | fixed 6 | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
 | T23 | Incant | `sdl_app.cpp` | fixed 5 | The text box and the ⌫ ↵ ✕ SPC labels use SDL's 8 px debug font, which is small next to the keys. |
 | T24 | Incant | `sdl_app.cpp` | fixed 5 | The Incant board keeps both A buttons visible over the keyboard; the keyboard currently hides every button. |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
 
-- Q4 (T21): on the tablet, the buttons cover the top of the EXAMINE listing.
-  Options:
-  - hide the top-corner buttons while examining;
-  - dim them;
-  - shift the listing.
-  Which do you want?
-- Q5 (T19): what should Get or Pull show when the floor or pack is empty? The
-  picker currently opens with no rows. Options:
-  - don't open it, and flash the button;
-  - show one greyed "NOTHING" row.
+- Q6: `--layout=tablet` already exists and is the default. It opens a 768x576
+  window, the same 4:3 as the game, so the controls float over the picture. Did
+  you mean a different tablet shape (for example 16:10, which would leave side
+  margins like the phone), or a larger 4:3 window?
+- Q7: with the ⌨ button gone, ZLOAD and ZSAVE have no touch path. The coverage
+  gate in `touch-input.md` §6 routed them through ⌨. Is the system menu's
+  Save/Load enough on touch (desktop keeps the physical keyboard), or should
+  they get a menu entry?
 
 ## Run history
 
@@ -141,3 +144,21 @@ Code paths are in `src/`.
   - Screen checked: keyboard on tablet with typed text.
   - The new bridge check fails without `handle_attack_tap`.
   - Q4 and Q5 still open.
+- 2026-09-28, answers from Steve:
+  - Q4: hide the top-corner buttons while examining, but only where they cover
+    the picture (not on the phone).
+  - Q5: offer G only with something on the floor, and P only with something in
+    the pack.
+  - T22: shrink the controls to fit the margin.
+- Run 6, 2026-09-28: S8, S9, T19, T21, T22.
+  - Each hand shows only A over ≡.
+  - An empty hand's ≡ offers G and P according to floor and pack; choosing one
+    opens the named picker beside the same ≡ (`hand_menu_opens`).
+  - A full hand's ≡ offers S D U R, plus I with a ring.
+  - The ⌨ button and the free-typing keyboard are removed; the keyboard is
+    INCANT's only.
+  - On the phone, controls shrink so the move cluster fits the margin.
+  - While examining, top buttons over the picture are left out: on the tablet,
+    not on the phone.
+  - Screens checked: tablet ≡ menu (P only), tablet examine, phone examine.
+  - New questions: Q6 and Q7.

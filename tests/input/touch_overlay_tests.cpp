@@ -52,7 +52,7 @@ void test_always_present_controls() {
         for (ButtonId id : {ButtonId::AttackLeft, ButtonId::AttackRight,
                             ButtonId::MoveForward, ButtonId::MoveBack, ButtonId::MoveLeft,
                             ButtonId::MoveRight, ButtonId::TurnLeft, ButtonId::TurnRight,
-                            ButtonId::TurnAround, ButtonId::Keyboard, ButtonId::SystemMenu}) {
+                            ButtonId::TurnAround, ButtonId::SystemMenu}) {
             check(has(buttons, id), "control is always present in both layouts");
         }
         check(has(buttons, ButtonId::Examine) && !has(buttons, ButtonId::Look),
@@ -69,51 +69,63 @@ void test_always_present_controls() {
     }
 }
 
-void test_hand_state_swaps_controls() {
+void test_each_hand_shows_attack_and_menu() {
     using namespace dag::input;
-    OverlayState empty_hands;
-    OverlayState holding;
-    holding.left_hand_empty = false;
-    holding.right_hand_empty = false;
-
-    const auto with_empty =
-        layout_buttons(OverlayLayout::PhoneLandscape, 1280, 720, empty_hands);
-    check(has(with_empty, ButtonId::GetLeft) && has(with_empty, ButtonId::PullLeft),
-          "empty left hand shows G and P");
-    check(!has(with_empty, ButtonId::HandMenuLeft), "empty hand has no hand menu");
-
-    const auto with_holding =
-        layout_buttons(OverlayLayout::PhoneLandscape, 1280, 720, holding);
-    check(has(with_holding, ButtonId::HandMenuLeft) &&
-              has(with_holding, ButtonId::HandMenuRight),
-          "holding hands show the hand menu");
-    check(!has(with_holding, ButtonId::GetLeft) && !has(with_holding, ButtonId::PullLeft),
-          "holding hand has no G or P");
+    for (bool empty : {true, false}) {
+        OverlayState state;
+        state.left_hand_empty = state.right_hand_empty = empty;
+        const auto b = layout_buttons(OverlayLayout::PhoneLandscape, 1280, 720, state);
+        check(has(b, ButtonId::AttackLeft) && has(b, ButtonId::HandMenuLeft) &&
+                  has(b, ButtonId::AttackRight) && has(b, ButtonId::HandMenuRight),
+              "each hand shows A and its menu, full or empty");
+        check(b.size() == 13, "no separate G, P or keyboard buttons (Steve, 2026-09-28)",
+              std::to_string(b.size()));
+    }
 }
 
-void test_phone_matches_main_board() {
+void test_phone_follows_main_board() {
     using namespace dag::input;
-    // The Main board is 844x390; at that size a board unit is one pixel.
+    // At 872x390 the move cluster just fits the margin, so a board unit is
+    // one pixel and the left side matches the Main board exactly.
     OverlayState state;
-    state.right_hand_empty = false;
     state.climb_available = true;
-    const auto b = layout_buttons(OverlayLayout::PhoneLandscape, 844, 390, state);
+    const double vw = 872;
+    const auto b = layout_buttons(OverlayLayout::PhoneLandscape, vw, 390, state);
     auto at = [&](ButtonId id, double x, double y) {
         const Rect& r = rect_of(b, id);
         return std::abs(r.x - x) < 1e-9 && std::abs(r.y - y) < 1e-9 && std::abs(r.w - 48) < 1e-9;
     };
-    check(at(ButtonId::AttackLeft, 14, 14) && at(ButtonId::GetLeft, 14, 68) &&
-              at(ButtonId::PullLeft, 14, 122) && at(ButtonId::AttackRight, 782, 14) &&
-              at(ButtonId::HandMenuRight, 782, 68),
-          "hand controls sit where the Main board puts them");
+    check(at(ButtonId::AttackLeft, 14, 14) && at(ButtonId::HandMenuLeft, 14, 68) &&
+              at(ButtonId::AttackRight, vw - 62, 14) && at(ButtonId::HandMenuRight, vw - 62, 68),
+          "A over the hand menu, as the Main board stacks A over its hand button");
     check(at(ButtonId::MoveLeft, 14, 220) && at(ButtonId::MoveForward, 68, 220) &&
               at(ButtonId::MoveRight, 122, 220) && at(ButtonId::TurnLeft, 14, 274) &&
               at(ButtonId::TurnAround, 68, 274) && at(ButtonId::TurnRight, 122, 274) &&
               at(ButtonId::MoveBack, 68, 328),
           "movement is ⇤ ↑ ⇥ / ↶ ↻ ↷ / ↓ as on the Main board");
-    check(at(ButtonId::Examine, 728, 328) && at(ButtonId::Keyboard, 782, 274) &&
-              at(ButtonId::Climb, 728, 274),
-          "E and ⌨ sit where the Main board puts them, C in the Legacy board's slot");
+    check(at(ButtonId::Examine, vw - 116, 328) && at(ButtonId::Climb, vw - 116, 274),
+          "E where the Main board puts it, C in the Legacy board's slot");
+
+    // At the Main board's own 844 wide the controls shrink to the margin.
+    const auto narrow = layout_buttons(OverlayLayout::PhoneLandscape, 844, 390, state);
+    const double game_left = (844 - 520) / 2.0, game_right = game_left + 520;
+    bool clear = true;
+    for (const auto& btn : narrow)
+        if (btn.rect.x < game_right && btn.rect.x + btn.rect.w > game_left) clear = false;
+    check(clear, "no phone control reaches into the game picture (T22)");
+}
+
+void test_examining_hides_top_buttons_over_the_picture() {
+    using namespace dag::input;
+    OverlayState state;
+    state.examining = true;
+    const auto tablet = layout_buttons(OverlayLayout::Tablet4x3, 768, 576, state);
+    check(!has(tablet, ButtonId::AttackLeft) && !has(tablet, ButtonId::HandMenuRight),
+          "on the tablet the top buttons leave the EXAMINE listing clear");
+    const auto phone = layout_buttons(OverlayLayout::PhoneLandscape, 1248, 576, state);
+    check(has(phone, ButtonId::AttackLeft) && has(phone, ButtonId::HandMenuRight),
+          "in the phone's margins they stay");
+    check(has(tablet, ButtonId::Look), "L stays so the player can leave the listing");
 }
 
 void test_climb_conditional() {
@@ -184,13 +196,13 @@ void test_tap_dispatch_for_simple_commands() {
 void test_tap_dispatch_for_pickers_and_menus() {
     using namespace dag::input;
     OverlayState state;
-    auto outcome = resolve_tap(ButtonId::GetLeft, state);
-    check(!outcome.line.has_value(), "GetLeft alone has no finished line yet");
-    check(outcome.pending == PendingKind::FloorPicker && !outcome.right_hand,
-          "GetLeft opens the floor picker for the left hand");
+    auto outcome = resolve_tap(ButtonId::HandMenuLeft, state);
+    check(!outcome.line.has_value(), "the hand menu alone has no finished line yet");
+    check(hand_menu_opens("G") == PendingKind::FloorPicker && hand_menu_opens("P") == PendingKind::PackPicker &&
+              hand_menu_opens("I") == PendingKind::IncantKeyboard && !hand_menu_opens("S"),
+          "G, P and I lead on to the floor picker, pack picker and keyboard");
 
-    const auto chosen =
-        resolve_picker_choice(outcome.pending, outcome.right_hand, "SWORD");
+    const auto chosen = resolve_picker_choice(PendingKind::FloorPicker, false, "SWORD");
     check(chosen.has_value() && *chosen == "G L SWORD",
           "choosing SWORD from the floor picker types G L SWORD");
 
@@ -217,6 +229,12 @@ void test_picker_choices_follow_game_state() {
     check(picker_choices(PendingKind::FloorPicker, false, OverlayState{}).empty(),
           "an empty floor gives an empty picker, not generic names");
     const std::vector<std::string> sdur{"S", "D", "U", "R"};
+    const std::vector<std::string> gp{"G", "P"};
+    check(picker_choices(PendingKind::HandMenu, true, state) == gp,
+          "an empty hand's menu offers G and P when floor and pack hold something");
+    check(picker_choices(PendingKind::HandMenu, true, OverlayState{}).empty(),
+          "nothing to get or pull, nothing offered");
+    state.right_hand_empty = state.left_hand_empty = false;
     check(picker_choices(PendingKind::HandMenu, true, state) == sdur,
           "the hand menu offers no I without a ring (HandStates board)");
     state.right_hand_ring = true;
@@ -252,7 +270,7 @@ void test_choices_sit_beside_their_anchor() {
                                     {"A", "B", "C", "D", "E", "F", "G", "H"},
                                     Rect{14, 122, 48, 48}, vw, vh);
     check(pack.back().rect.y + pack.back().rect.h <= vh, "a long picker stays on screen");
-    check(picker_anchor(PendingKind::PackPicker, true) == ButtonId::PullRight &&
+    check(picker_anchor(PendingKind::PackPicker, true) == ButtonId::HandMenuRight &&
               picker_anchor(PendingKind::HandMenu, false) == ButtonId::HandMenuLeft &&
               picker_anchor(PendingKind::ClimbChoice, false) == ButtonId::Climb,
           "each picker is anchored to the button that opens it");
@@ -261,7 +279,7 @@ void test_choices_sit_beside_their_anchor() {
 void test_keyboard_matches_incant_board() {
     using namespace dag::input;
     // The Incant board is 844x390; at that size a board unit is one pixel.
-    const auto kb = keyboard_layout(OverlayLayout::PhoneLandscape, 844, 390, false);
+    const auto kb = keyboard_layout(OverlayLayout::PhoneLandscape, 844, 390);
     auto key = [&](const std::string& label) {
         for (const auto& k : kb.keys)
             if (k.label == label) return k.rect;
@@ -276,8 +294,6 @@ void test_keyboard_matches_incant_board() {
               key("CANCEL").y == 328,
           "⌫ ↵ and ✕ match the Incant board");
     check(key("SPACE").x < 0, "the incant keyboard has no space");
-    check(keyboard_layout(OverlayLayout::PhoneLandscape, 844, 390, true).keys.size() == kb.keys.size() + 1,
-          "the free keyboard adds a space key");
     std::string typed;
     bool closed = false;
     for (int i = 0; i < 40; ++i) press_keyboard_key(PendingKind::IncantKeyboard, typed, "A", closed);
@@ -308,8 +324,9 @@ void test_incant_keyboard_finish() {
 
 int main() {
     test_always_present_controls();
-    test_hand_state_swaps_controls();
-    test_phone_matches_main_board();
+    test_each_hand_shows_attack_and_menu();
+    test_examining_hides_top_buttons_over_the_picture();
+    test_phone_follows_main_board();
     test_keyboard_matches_incant_board();
     test_climb_conditional();
     test_no_overlaps_within_a_layout();

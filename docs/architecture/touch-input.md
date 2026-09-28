@@ -134,6 +134,23 @@ verbs:
 
 The contract is unchanged: touch types the same keystrokes a typist would.
 
+**Addendum (2026-09-28, touch-overlay run 6):** Steve's decisions of
+2026-09-28 supersede parts of §1 and §3. The details are in
+`docs/planning/touch-overlay-log.md`.
+- **GET and PULL** are no longer separate buttons under `A`. They are
+  entries in the empty hand's `≡` menu:
+  - `G` appears only when something is on the floor;
+  - `P` appears only when the pack holds something.
+- **The `⌨` free-command-line button is removed.** The on-screen keyboard
+  opens only for INCANT, from `≡` → `I`.
+- **The typed-line fallback in §1 and §3 now exists only on a physical
+  keyboard.** On touch that affects two routes:
+  - §3's INCANT-overrun path;
+  - ZLOAD and ZSAVE (rows 39–40).
+- **§6's gate is reopened for ZLOAD and ZSAVE** until Steve answers Q7: is the
+  shell's system-menu Save/Load enough on touch, or do they need their own
+  entry?
+
 ## 6. Coverage gate
 
 Every one of the 15 `CMDTAB` verbs has at least one touch path to its
