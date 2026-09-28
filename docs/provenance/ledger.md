@@ -154,8 +154,16 @@ is `dcli` output from the core, not a capture. Creature delays were already in
 - [Dungeons of Daggorath Walk-Through](https://iloveglory.freehostia.com/daggorath/dodwt.html),
   author/date unresolved; secondary, strategy-only. Search excerpt suggests several
   finite ring blows followed by sword attacks. Considered, not used as mechanic
-  authority: this core's wizard has zero physical susceptibility, so its actual
-  damage channels must determine the route. Direct retrieval timed out.
+  authority: the Elvish sword has a magic channel as well as a physical channel,
+  and the pinned listing plus a core trace show it can damage WIZ1. Direct
+  retrieval timed out.
+- Kevin Neil Shimp, “Scoreboard,” *The Rainbow*, vol. 7, no. 6 (January 1988),
+  [archived issue PDF](https://colorcomputerarchive.com/repo/Documents/Magazines/Rainbow%2C%20The%20%28OCR%29/The%20Rainbow%20Vol.%2007%20No.%2006%20-%20January%201988.pdf),
+  retrieved 2026-09-27. Secondary, strategy-only: recommends building power by
+  fighting at least ten creatures before the third-level image and using ring
+  hit-and-run with Hale/Thews flask recovery. Search-indexed OCR was used because
+  direct PDF retrieval exceeded the web fetch limit. No guide code or tuning
+  tables were copied.
 
 **Source-proven** (`PATTK.ASM PATT10` exertion calculation, `ENDGAM`):
 ring exertion uses SCAL16 radix 63 (about half power), and ENDGAM keeps

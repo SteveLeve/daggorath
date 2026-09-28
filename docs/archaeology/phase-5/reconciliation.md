@@ -84,7 +84,7 @@ Authored by `src/app/dplan.cpp`. Committed script:
 | Level 2 scorpions | 100 | Revealed IRON (pho 40) under a live torch, hit-and-run. Image left alive. Checkpoint `cleared-2` / `pre-image`. |
 | Type 10 / ENDGAM | 25 | Original incoming one-shots the landing. `FUDGE incoming 25` plus `FUDGE rest`. Checkpoint `endgam`. |
 | Cleared level 3 | 25 | JOULE → ENERGY, ELVISH. Checkpoint `cleared-3`. |
-| Level 4 | 25 | Revealed ELVISH kite; never climb an occupied hole; ENERGY hit-and-run on type 11 only (wizard `pdef` 0 zeros a sword). `GET` SUPREME, `INCANT FINAL`. |
+| Level 4 | 25 | Revealed ELVISH kite; never climb an occupied hole; ENERGY hit-and-run on type 11. The later combat audit below corrects the original claim that zero physical defense makes the Elvish sword ineffective. `GET` SUPREME, `INCANT FINAL`. |
 
 ## Correction 2026-09-27: rings have three charges; playthrough disabled
 
@@ -115,3 +115,33 @@ review generated changes against this recorded reason before acceptance.
 The desktop target builds and existing dod/dcli parity test passes; its death
 menu and filesystem load shortcut remain deferred. No honest WINNER route is
 established; planner and independent acceptance implementation remain pending.
+
+## 2026-09-27 — Wizard1 weapon-channel correction and route status
+
+**Source-proven:** `DTABAS.ASM` gives WIZ1 `MGO=255, MGD=6, PHO=255,
+PHD=0`; the Elvish sword has `MGO=64, PHO=64`. `PATTK.ASM DAMAGE` applies
+magic and physical offense/defense as separate `SCAL16` channels. At player
+power 10660, the Elvish sword's magic channel deals
+`SCAL16(SCAL16(10660,64),6) = 249`; its physical channel deals zero. Therefore
+“wizard `pdef` 0 zeros a sword” was false: it described only the physical
+channel. The secondary walkthrough's finite-ring-then-sword advice is
+consistent with this result, but does not establish safe timing or survival.
+
+**Core-observed:** a temporary `dcli` trace recorded an Elvish-sword `HIT` on
+WIZ1 and a 249-point increase to the wizard's damage at that power. This is a
+headless core trace, not a ROM capture. A planner candidate reached WIZ1 with
+power 10660 and two useful rings; after the rings ran out it accumulated 5473
+WIZ1 damage before the player died through the bounded recovery attempts.
+These exploratory runs have no committed candidate script, accepted trace, or
+hash. They show that the sword can contribute damage, not that a safe sword
+route has been established.
+
+Gameplay-model fixes from the active `refinement/discovery-2` checkout were
+carried into the dedicated worktree with their regression tests and evidence:
+death clears FAINT, BURNER's redraw is charged, ENDGAM and CLIMB level-build
+timing follows the C-22 measurements, and the starting bag's `$0B` level byte
+is preserved. The BURNER test correction and the related EXAMINE scrolling fix
+were included to keep the imported test/evidence set coherent. `make all` passes;
+it regenerates no fixture, trace baseline, or manifest. The power-on WINNER
+test remains disabled and Phase 5b remains open until a candidate passes the
+prompt's independent two-replay acceptance checks.

@@ -56,6 +56,10 @@ Original Mode:
 - The mechanics now in force are the ones any route must respect:
   - The incanted attack rings have three charges, then become plain gold rings
     with 0/5 offense; verify the relevant ring transitions against the listing.
+  - WIZ1's physical defense is zero, but that disables only the Elvish sword's
+    physical channel. Its magic offense is 64; at player power 10660, the
+    source-derived magic channel deals 249 damage. This does not establish a
+    safe attack/recovery cycle.
   - A kill adds creature power ÷ 8 to `PPOW` (`PATT42`).
   - Flasks: THEWS adds 1000 power, HALE heals fully, ABYE hurts.
   - Darkness gives a 25% hit gate.
