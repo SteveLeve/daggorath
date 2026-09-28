@@ -77,7 +77,7 @@ target_compile_definitions(replay_equivalence_tests
 add_test(NAME replay_equivalence_tests COMMAND replay_equivalence_tests)
 
 add_executable(overlay_bridge_tests platform/overlay_bridge_tests.cpp)
-target_link_libraries(overlay_bridge_tests PRIVATE daggorath::platform daggorath::input)
+target_link_libraries(overlay_bridge_tests PRIVATE daggorath::platform daggorath::input daggorath::shell)
 add_test(NAME overlay_bridge_tests COMMAND overlay_bridge_tests)
 
 # Phase 3 fight traces: regenerate from the committed script and require identity.
