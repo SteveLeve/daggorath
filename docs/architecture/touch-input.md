@@ -301,10 +301,17 @@ and evaluated on screen — a real screenshot of the running `dod` window
 shows all 15 buttons at `layout_buttons()`'s computed positions, legible labels,
 chrome unaffected. It was the natural choice: the fixed 768x576 (4:3) desktop
 window matches that layout's own assumption without any letterboxing.
-`PhoneLandscape` is **still not evaluated on screen** — this fixed-aspect
-window has no simulated 19.5:9 letterboxed mode, and building one was out of
-that session's scope. The design doc's own decision therefore still stands
-as the interim default: phone landscape for phones, tablet 4:3 for tablets,
-selected by device form factor rather than by a this-project on-screen
-comparison of both. Closing this fully needs either a real phone-aspect
-device/window or a letterboxed simulation mode, neither built yet.
+**Addendum (2026-09-27, workstream 8.6.5):** `PhoneLandscape` is now also
+evaluated on screen. `sdl_app.cpp`'s `--layout=phone` opens a 1248x576
+(19.5:9) window with the 768x576 game view centered and letterboxed; a
+screenshot
+(`captures/phase-8-sdl-wiring/phonelandscape-buttons-2026-09-27.png`,
+gitignored) confirms the corner/edge buttons land in the black side
+margins, chrome centered and unaffected, matching the design doc's
+"controls sit in the black side margins" intent. `--layout=tablet` (the
+default) is unchanged and still screenshot-confirmed above. With both now
+genuinely evaluated, neither on-screen check gives a reason to override the
+design doc's own decision: device form factor still selects the layout
+(phone landscape for phones, tablet 4:3 for tablets), not a single
+this-project-wide default. The 8.4 gate's manual-evaluation requirement is
+closed by this addendum.

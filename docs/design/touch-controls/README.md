@@ -70,3 +70,13 @@ follow-up. The floor/pack pickers show GENTAB's six generic names
 unconditionally (not filtered by visibility) — a working tap path to the
 keystrokes, not the visibility-filtering decision this section still defers.
 
+## Addendum (2026-09-27, workstream 8.6.5, follow-up session): on-screen evaluation, now complete
+
+`PhoneLandscape` is now also evaluated: `--layout=phone` opens a letterboxed
+19.5:9 window; screenshots
+(`captures/phase-8-sdl-wiring/phonelandscape-buttons-2026-09-27.png`,
+gitignored) confirm the corner/edge buttons sit in the black side margins as
+intended. With both layouts now evaluated, the decision in the addendum
+above stands unchanged: device form factor selects the layout, not a single
+project-wide default.
+

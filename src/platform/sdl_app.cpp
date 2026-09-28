@@ -1,5 +1,6 @@
 // Present when SDL3 is available. The core is advanced one jiffy at a time.
 #include "daggorath/game.hpp"
+#include "daggorath/crisp.hpp"
 #include "daggorath/examine.hpp"
 #include "daggorath/mapper.hpp"
 #include "daggorath/overlay_bridge.hpp"
@@ -125,6 +126,11 @@ std::optional<std::string> read_save(const std::string& dir, const std::string& 
 
 enum class DeathPrompt { Playing, Menu, LoadName };
 
+// 8.6.6: which sub-screen the system menu (ADR-0009 §6) shows while
+// shell->paused(); Shell::pending() (SaveOverwrite/Restart/Quit) layers a
+// confirmation on top of whichever of these is current.
+enum class MenuMode { Top, ChooseSave, ChooseLoad };
+
 std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int bar_x) {
     // PTURN.ASM LRTURN/RLTURN: two horizontal lines and a vertical bar.
     // The sweep is eight positions inside one foreground burst. One bar is
@@ -143,13 +149,19 @@ std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int b
 }
 
 // Screen polarity follows VDGINV; see dag::apply_vdginv (NEWLVL.ASM NLVL50).
-// `overlay` draws on top of the blitted frame, before the flip -- the touch
-// overlay's buttons/picker (Phase 8.6.1) and, later, the shell's system menu
-// (8.6.2). Absent for the transitional animation frames (turn wipe, faint,
-// wizard fade), which do not draw it.
+// `game_x`/`game_w`/`game_h` place the fixed 4:3 game render within the
+// window: equal to the whole window for Tablet4x3 (no letterboxing), offset
+// and narrower than the window for PhoneLandscape (8.6.5), whose black side
+// margins the touch overlay's corner/side buttons sit in (design doc,
+// "Landscape, thumbs on the sides"). `overlay` draws on top of the blitted
+// frame, before the flip -- the touch overlay's buttons/picker (8.6.1), the
+// shell's system menu (8.6.2), and crisp's vector overdraw (8.6.3). Absent
+// for the transitional animation frames (turn wipe, faint, wizard fade),
+// which do not draw it.
 void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
                    std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels,
-                   int level, const std::function<void(SDL_Renderer*)>& overlay = nullptr) {
+                   int level, double game_x, double game_w, double game_h,
+                   const std::function<void(SDL_Renderer*)>& overlay = nullptr) {
     dag::apply_vdginv(pixels, level);
     constexpr int kScale = 3;
     const auto scaled = dag::scale_frame(pixels, kScale);
@@ -162,7 +174,11 @@ void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
     }
     const int pitch = dag::kScreenWidth * kScale * 3;
     SDL_UpdateTexture(texture, nullptr, rgb.data(), pitch);
-    SDL_RenderTexture(renderer, texture, nullptr, nullptr);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);  // letterbox margins (PhoneLandscape) stay black every frame
+    const SDL_FRect dst{static_cast<float>(game_x), 0, static_cast<float>(game_w),
+                        static_cast<float>(game_h)};
+    SDL_RenderTexture(renderer, texture, nullptr, &dst);
     if (overlay) overlay(renderer);
     SDL_RenderPresent(renderer);
 }
@@ -213,8 +229,13 @@ char button_label(dag::input::ButtonId id) {
 }
 
 // glyph_rows takes the original char generator's own codes (text.cpp's
-// code_for: 'A'-'Z' -> 1-26, not ASCII 0x41-0x5A); every label here is
-// already an uppercase letter, so this is the only case that matters.
+// code_for: 'A'-'Z' -> 1-26 via kSwcTab, not ASCII 0x41-0x5A); every button
+// label here is a letter, so this is the only case that matters. Codes
+// >= 0x20 index kSpcTab directly, but that table is only 28 bytes (4
+// glyphs: the heart icon's two sizes, `paint_text_bands`' own use) -- not a
+// general ASCII font, so digits/punctuation are NOT reachable this way
+// (screenshot-verified blank when tried; see 8.6.6's menu text, which uses
+// SDL_RenderDebugText instead for exactly this reason).
 std::uint8_t glyph_code(char label) {
     if (label >= 'A' && label <= 'Z') return static_cast<std::uint8_t>(label - 'A' + 1);
     return 0x1D;  // code_for's '?': anything unmapped shows as a question mark
@@ -242,6 +263,67 @@ void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char labe
     draw_glyph(renderer, rect.x + rect.w / 2, rect.y + rect.h / 2, label);
 }
 
+// 8.6.6: one line of left-aligned text for the system menu (Resume/Save/
+// Load/Restart/Quit, ADR-0009 §6) -- this menu is this project's own new
+// UI, not a projection of the original's display, so it uses SDL3's built-in
+// debug font (SDL_RenderDebugText) rather than the original char generator
+// (draw_glyph/glyph_rows, used for the touch overlay's single-letter button
+// labels): kSpcTab -- the table glyph_rows indexes for any code >= 0x20 --
+// is only 28 bytes (4 glyphs, the heart icon's sizes), not a general ASCII
+// font, so it cannot draw slot names, digits, or punctuation (confirmed
+// blank on screen when tried).
+void draw_text_line(SDL_Renderer* renderer, double x, double y, const std::string& text) {
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDebugText(renderer, static_cast<float>(x), static_cast<float>(y), text.c_str());
+}
+
+// crisp render style (8.6.3, ADR-0010 §2): device-scaled line/point drawing
+// for the same draw list `pixel` rasterises into a bitmap. Coordinates from
+// dag::build_crisp_frame/build_crisp_map are source-256x192 space; this is
+// the "platform maps them to device pixels" half ADR-0010 leaves to the
+// caller. Text stays on the bitmap path (ADR-0010 §6, unchanged) -- these
+// only draw over the viewport band (rows 0..kViewportScanlineEnd), never the
+// status/command text bands below it.
+void draw_crisp_view(SDL_Renderer* renderer, const dag::RenderState& state, int scale,
+                     double x_offset) {
+    const dag::CrispFrame crisp = dag::build_crisp_frame(state);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    for (const auto& line : crisp.lines) {
+        SDL_RenderLine(renderer, static_cast<float>(line.x0 * scale + x_offset),
+                       static_cast<float>(line.y0 * scale), static_cast<float>(line.x1 * scale + x_offset),
+                       static_cast<float>(line.y1 * scale));
+    }
+    for (const auto& dot : crisp.dots) {
+        const SDL_FRect px{static_cast<float>(dot.x * scale + x_offset),
+                           static_cast<float>(dot.y * scale), static_cast<float>(scale),
+                           static_cast<float>(scale)};
+        SDL_RenderFillRect(renderer, &px);
+    }
+}
+
+void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int scale,
+                    double x_offset) {
+    const dag::CrispMap crisp = dag::build_crisp_map(snap);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    for (const auto& wall : crisp.walls) {
+        const SDL_FRect r{static_cast<float>(wall.x * scale + x_offset),
+                          static_cast<float>(wall.y * scale), static_cast<float>(wall.w * scale),
+                          static_cast<float>(wall.h * scale)};
+        SDL_RenderFillRect(renderer, &r);
+    }
+    for (const auto& mark : crisp.marks) {
+        for (int row = 0; row < 6; ++row) {
+            for (int bit = 0; bit < 8; ++bit) {
+                if ((mark.rows[static_cast<std::size_t>(row)] & (0x80 >> bit)) == 0) continue;
+                const SDL_FRect px{static_cast<float>((mark.x + bit) * scale + x_offset),
+                                   static_cast<float>((mark.y + row) * scale),
+                                   static_cast<float>(scale), static_cast<float>(scale)};
+                SDL_RenderFillRect(renderer, &px);
+            }
+        }
+    }
+}
+
 // Picker/menu choices (Phase 8.6.1): the design doc's floor/pack pickers and
 // hand menu are simple choice lists, not yet checked against the listing for
 // which objects are actually visible (docs/architecture/touch-input.md §4,
@@ -249,8 +331,11 @@ void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char labe
 // names, or the hand-menu/climb letters, as one evenly spaced row -- a
 // working tap path to the keystrokes (Phase 8's own scope), not a claim
 // about which objects the player can actually see.
+// `game_x`/`game_w`/`game_h` place the row over the actual game view (not
+// the full window -- see present_frame's letterboxing comment), so it stays
+// centered over the visible corridor on PhoneLandscape's wider window too.
 std::vector<std::pair<std::string, dag::input::Rect>> picker_choice_rects(
-    dag::input::PendingKind kind, double viewport_w, double viewport_h) {
+    dag::input::PendingKind kind, double game_x, double game_w, double game_h) {
     std::vector<std::string> choices;
     switch (kind) {
         case dag::input::PendingKind::FloorPicker:
@@ -268,11 +353,11 @@ std::vector<std::pair<std::string, dag::input::Rect>> picker_choice_rects(
             return {};
     }
     std::vector<std::pair<std::string, dag::input::Rect>> out;
-    const double w = viewport_w / static_cast<double>(choices.size());
+    const double w = game_w / static_cast<double>(choices.size());
     const double h = 40;
-    const double y = viewport_h - h - 60;  // clear of the status/command bands
+    const double y = game_h - h - 60;  // clear of the status/command bands
     for (std::size_t i = 0; i < choices.size(); ++i)
-        out.push_back({choices[i], dag::input::Rect{i * w, y, w - 4, h}});
+        out.push_back({choices[i], dag::input::Rect{game_x + i * w, y, w - 4, h}});
     return out;
 }
 
@@ -280,11 +365,27 @@ std::vector<std::pair<std::string, dag::input::Rect>> picker_choice_rects(
 
 int main(int argc, char** argv) {
     if (argc > 1 && std::string(argv[1]) == "--headless") return headless(argc, argv);
+    // 8.6.5: --layout=phone simulates a 19.5:9 phone in landscape (design
+    // doc: "the game renders full screen at 4:3, full height, centred...
+    // controls sit in the black side margins"); default stays Tablet4x3,
+    // which the fixed 4:3 window already matches without letterboxing.
+    dag::input::OverlayLayout layout = dag::input::OverlayLayout::Tablet4x3;
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--layout=phone") layout = dag::input::OverlayLayout::PhoneLandscape;
+        else if (arg == "--layout=tablet") layout = dag::input::OverlayLayout::Tablet4x3;
+    }
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) return 1;
     constexpr int kScale = 3;
-    SDL_Window* window = SDL_CreateWindow("Dungeons of Daggorath",
-                                          dag::kScreenWidth * kScale,
-                                          dag::kScreenHeight * kScale, 0);
+    constexpr double kGameW = dag::kScreenWidth * kScale;
+    constexpr double kGameH = dag::kScreenHeight * kScale;
+    const double window_w = layout == dag::input::OverlayLayout::PhoneLandscape
+                                ? kGameH * 19.5 / 9.0
+                                : kGameW;
+    const double window_h = kGameH;
+    const double game_x = (window_w - kGameW) / 2.0;
+    SDL_Window* window = SDL_CreateWindow("Dungeons of Daggorath", static_cast<int>(window_w),
+                                          static_cast<int>(window_h), 0);
     if (window == nullptr) return 1;
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24,
@@ -293,12 +394,13 @@ int main(int argc, char** argv) {
                                              dag::kScreenHeight * kScale);
     if (renderer == nullptr || texture == nullptr) return 1;
 
-    // Tablet4x3 (docs/design/touch-controls/README.md): the fixed 4:3
-    // window natively matches that layout's assumption; PhoneLandscape
-    // needs a simulated letterboxed aspect to evaluate honestly (8.6.4).
-    dag::platform::OverlayBridge overlay(dag::input::OverlayLayout::Tablet4x3);
-    const double viewport_w = dag::kScreenWidth * kScale;
-    const double viewport_h = dag::kScreenHeight * kScale;
+    dag::platform::OverlayBridge overlay(layout);
+    // Buttons hit-test/render against the whole window (so PhoneLandscape's
+    // corner buttons land in its side margins, per the design doc); pickers
+    // and crisp stay bound to the game's own 768x576 render (game_x/kGameW/
+    // kGameH below), never the margins.
+    const double viewport_w = window_w;
+    const double viewport_h = window_h;
 
     std::optional<dag::Game> held;
     held.emplace();
@@ -332,6 +434,8 @@ int main(int argc, char** argv) {
     std::uint64_t audio_jiffy = 0;
     std::string message;
     bool running = true;
+    bool crisp_style = false;  // 8.6.3: F1 toggles pixel (default) vs crisp (ADR-0010)
+    MenuMode menu_mode = MenuMode::Top;  // 8.6.6: system menu sub-screen
     int shown_row = 0;
     int shown_col = 0;
     int shown_dir = 0;
@@ -378,6 +482,21 @@ int main(int argc, char** argv) {
         was_dead = game.player().dead;
         seen_motion = game.events().size();
     };
+    // 8.6.6: SystemMenu's tap and Esc's key both back out one level at a
+    // time -- cancel a pending confirmation, then a sub-screen, then resume
+    // -- so neither leaves a stale confirmation showing next time the menu
+    // opens. Shared so the two input paths can't drift apart.
+    auto pause_or_back_out = [&]() {
+        if (!shell->paused()) {
+            shell->pause();
+        } else if (shell->pending() != dag::shell::ConfirmKind::None) {
+            shell->cancel();
+        } else if (menu_mode != MenuMode::Top) {
+            menu_mode = MenuMode::Top;
+        } else {
+            shell->resume();
+        }
+    };
     while (running) {
         // Computed before polling so a tap this frame hit-tests the same
         // rects drawn last frame (one-frame lag on a hand-state change is
@@ -387,7 +506,7 @@ int main(int argc, char** argv) {
             held->player().left_hand < 0, held->player().right_hand < 0, false};
         const auto& current_buttons = overlay.buttons(viewport_w, viewport_h, overlay_state);
         const auto picker_rects = overlay.picker_open()
-                                       ? picker_choice_rects(overlay.pending(), viewport_w, viewport_h)
+                                       ? picker_choice_rects(overlay.pending(), game_x, kGameW, kGameH)
                                        : std::vector<std::pair<std::string, dag::input::Rect>>{};
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -399,17 +518,16 @@ int main(int argc, char** argv) {
                 // ADR-0009 §6: SystemMenu is the one control that pauses,
                 // checked ahead of the overlay bridge (which treats it as
                 // not its job, 8.6.1) so it works whether or not a picker
-                // is open, and toggles resume the same way.
+                // is open.
                 if (dag::input::hit_test(current_buttons, mx, my) ==
                     dag::input::ButtonId::SystemMenu) {
-                    if (shell->paused()) shell->resume();
-                    else shell->pause();
+                    pause_or_back_out();
                 } else if (shell->paused()) {
-                    // The system menu owns the screen while paused (design
-                    // doc: "the only control that pauses"); a Save/Load/
-                    // Restart/Quit menu surface is not built in this pass
-                    // (8.6.2 scope note, reconciliation addendum) -- Esc or
-                    // the SystemMenu button is the only way back for now.
+                    // The system menu owns the screen while paused; no
+                    // touch equivalent of the Y/N/S/L/X/Q keyboard
+                    // shortcuts is built (8.6.6 scope note, reconciliation
+                    // addendum) -- Esc, the physical keyboard, or the
+                    // SystemMenu button are the only ways to act on it.
                 } else if (overlay.picker_open()) {
                     for (const auto& [choice, rect] : picker_rects) {
                         if (!rect.contains(mx, my)) continue;
@@ -475,11 +593,54 @@ int main(int argc, char** argv) {
                 continue;
             }
             if (key == SDLK_ESCAPE) {
-                if (shell->paused()) shell->resume();
-                else shell->pause();
+                pause_or_back_out();
                 continue;
             }
-            if (shell->paused()) continue;  // the system menu owns input while open
+            if (key == SDLK_F1) {  // 8.6.3: pixel/crisp render-style toggle, harmless while paused
+                crisp_style = !crisp_style;
+                continue;
+            }
+            if (shell->paused()) {
+                // 8.6.6: Resume/Save/Load/Restart/Quit (ADR-0009 §6). No
+                // on-screen QWERTY grid for slot names -- keyboard shortcuts
+                // only, matching the incant-keyboard simplification in
+                // 8.6.1 (this build's only tested input path anyway, for
+                // lack of click/keypress-automation tooling to verify a
+                // touch equivalent).
+                const auto pending = shell->pending();
+                if (pending == dag::shell::ConfirmKind::Restart ||
+                    pending == dag::shell::ConfirmKind::Quit) {
+                    if (key == SDLK_Y) {
+                        shell->confirm();
+                        if (pending == dag::shell::ConfirmKind::Restart) {
+                            restart_game();  // re-emplaces held and shell (fresh, unpaused)
+                        } else {
+                            running = false;
+                        }
+                        menu_mode = MenuMode::Top;
+                    } else if (key == SDLK_N) {
+                        shell->cancel();
+                    }
+                    continue;
+                }
+                if (pending == dag::shell::ConfirmKind::SaveOverwrite) {
+                    if (key == SDLK_Y) shell->confirm();
+                    else if (key == SDLK_N) shell->cancel();
+                    continue;
+                }
+                if (menu_mode == MenuMode::Top) {
+                    if (key == SDLK_S) menu_mode = MenuMode::ChooseSave;
+                    else if (key == SDLK_L) menu_mode = MenuMode::ChooseLoad;
+                    else if (key == SDLK_X) shell->request_restart();
+                    else if (key == SDLK_Q) shell->request_quit();
+                } else if (key >= SDLK_1 && key <= SDLK_5) {
+                    const std::size_t slot = static_cast<std::size_t>(key - SDLK_1);
+                    if (menu_mode == MenuMode::ChooseSave) shell->save_to_slot(slot);
+                    else shell->load_from_slot(slot);
+                    menu_mode = MenuMode::Top;
+                }
+                continue;  // the system menu owns input while open
+            }
             // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
             if (key == SDLK_RETURN || key == SDLK_KP_ENTER) held->press(0x0D);
             else if (key == SDLK_SPACE) held->press(0x20);
@@ -608,7 +769,7 @@ int main(int argc, char** argv) {
                 --fading.magic_light;
                 auto step = dag::rasterize(fading);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step, game.level_index());
+                present_frame(renderer, texture, step, game.level_index(), game_x, kGameW, kGameH);
                 SDL_Delay(83);
                 --fading.regular_light;
             } while (fading.regular_light > -8);
@@ -626,7 +787,7 @@ int main(int argc, char** argv) {
                 for (int fade = 32; fade >= 0; fade -= 2) {
                     auto step = dag::rasterize_wizard(static_cast<std::uint8_t>(fade));
                     dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                    present_frame(renderer, texture, step, game.level_index());
+                    present_frame(renderer, texture, step, game.level_index(), game_x, kGameW, kGameH);
                     SDL_Delay(300);
                 }
                 std::uint16_t noise = 1;
@@ -652,7 +813,7 @@ int main(int argc, char** argv) {
             do {
                 auto step = dag::rasterize(rising);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step, game.level_index());
+                present_frame(renderer, texture, step, game.level_index(), game_x, kGameW, kGameH);
                 SDL_Delay(83);
                 ++rising.magic_light;
                 ++rising.regular_light;
@@ -677,7 +838,7 @@ int main(int argc, char** argv) {
             leaving.scale = half_scale;
             auto midway = dag::rasterize(leaving);
             dag::paint_text_bands(midway.data(), dag::kScreenWidth, chrome, message, command_override);
-            present_frame(renderer, texture, midway, game.level_index());
+            present_frame(renderer, texture, midway, game.level_index(), game_x, kGameW, kGameH);
             SDL_Delay(12);
         } else if (sidestep_bar >= 0 ||
                    (turned && have_shown && snap.mode == 0 &&
@@ -694,18 +855,61 @@ int main(int argc, char** argv) {
                 auto wipe = turn_wipe(bar);
                 dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
                                       command_override);
-                present_frame(renderer, texture, wipe, game.level_index());
+                present_frame(renderer, texture, wipe, game.level_index(), game_x, kGameW, kGameH);
                 SDL_Delay(12);
             }
         }
-        present_frame(renderer, texture, frame, game.level_index(), [&](SDL_Renderer* r) {
+        present_frame(renderer, texture, frame, game.level_index(), game_x, kGameW, kGameH,
+                      [&](SDL_Renderer* r) {
+            // 8.6.3: crisp overdraws the already-blitted pixel bitmap's
+            // viewport band with device-scaled vector geometry (ADR-0010).
+            // Skipped for death/faint/menu frames, which use their own
+            // presentation-only fades (D-14) this pass does not reproduce
+            // in crisp form.
+            if (crisp_style && prompt == DeathPrompt::Playing && !game.player().dead &&
+                !game.player().fainted) {
+                SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+                const SDL_FRect viewport_rect{static_cast<float>(game_x), 0,
+                                              static_cast<float>(kGameW),
+                                              static_cast<float>(dag::kViewportScanlineEnd * kScale)};
+                SDL_RenderFillRect(r, &viewport_rect);
+                if (map_up) draw_crisp_map(r, dag::map_snapshot_from(game), kScale, game_x);
+                else draw_crisp_view(r, dag::project(snap), kScale, game_x);
+            }
             if (prompt != DeathPrompt::Playing) return;  // death/load prompt owns the screen
             if (shell->paused()) {
-                // 8.6.2 scope note: no Save/Load/Restart/Quit menu surface
-                // yet (reconciliation addendum) -- just the pause banner
-                // proving the clock is genuinely withheld (D-16), and the
-                // SystemMenu button stays drawn so the same tap resumes.
-                draw_button(r, dag::input::Rect{viewport_w / 2 - 90, 40, 180, 30}, 'P');
+                // 8.6.6: Resume/Save/Load/Restart/Quit (ADR-0009 §6). Text
+                // only -- no on-screen QWERTY slot-name entry (8.6.1's
+                // incant-keyboard simplification applies here too).
+                const double cx = game_x + kGameW / 2;
+                double y = 60;
+                const auto pending = shell->pending();
+                if (pending == dag::shell::ConfirmKind::Restart) {
+                    draw_text_line(r, cx - 110, y, "RESTART? Y N");
+                } else if (pending == dag::shell::ConfirmKind::Quit) {
+                    draw_text_line(r, cx - 110, y, "QUIT? Y N");
+                } else if (pending == dag::shell::ConfirmKind::SaveOverwrite) {
+                    draw_text_line(r, cx - 110, y, "OVERWRITE? Y N");
+                } else if (menu_mode == MenuMode::Top) {
+                    draw_text_line(r, cx - 110, y, "S SAVE");
+                    y += 24;
+                    draw_text_line(r, cx - 110, y, "L LOAD");
+                    y += 24;
+                    draw_text_line(r, cx - 110, y, "X RESTART");
+                    y += 24;
+                    draw_text_line(r, cx - 110, y, "Q QUIT");
+                } else {
+                    draw_text_line(r, cx - 110, y,
+                                   menu_mode == MenuMode::ChooseSave ? "SAVE SLOT 1-5" : "LOAD SLOT 1-5");
+                    y += 24;
+                    const auto& slots = shell->slots();
+                    for (std::size_t i = 0; i < slots.size(); ++i) {
+                        const std::string label =
+                            std::to_string(i + 1) + " " + (slots[i].occupied() ? slots[i].name : "EMPTY");
+                        draw_text_line(r, cx - 110, y, label);
+                        y += 24;
+                    }
+                }
                 for (const auto& button : current_buttons)
                     if (button.id == dag::input::ButtonId::SystemMenu)
                         draw_button(r, button.rect, 'X');

@@ -156,6 +156,20 @@ list is missing.
 **8.6.3 (crisp render style toggle): not attempted this session** — flagged
 as a time-boxed stretch goal in the plan and deferred rather than half-wired.
 
+**Addendum (2026-09-27, workstream 8.6.3, follow-up session):** built after
+all. F1 toggles `present_frame`'s overlay between the unchanged `pixel`
+texture blit (default) and `draw_crisp_view`/`draw_crisp_map`, drawing
+`dag::project(snap)` via `build_crisp_frame`/`build_crisp_map` with
+`SDL_RenderLine`/`SDL_RenderFillRect` at the same `kScale` `pixel` uses — no
+second geometry source. Verified with a temporary, removed-before-commit
+light-forcing hook (the real power-on view is dark until a torch is lit,
+which no implemented command reaches yet): screenshots of both styles at the
+same forced light show identical corridor geometry
+(`captures/phase-8-sdl-wiring/{crisp,pixel}-corridor-2026-09-27.png`,
+gitignored; see ADR-0010's addendum for the full account). Golden-image
+tests untouched, still passing; line thickness/smoothing remain unbuilt
+(ADR-0010 §"Open for Phase 8").
+
 **8.6.4 (manual on-screen evaluation): partially closed.** `Tablet4x3` is
 now genuinely evaluated on screen (screenshots above). `PhoneLandscape` is
 not — this fixed-size window has no letterboxed-aspect simulation mode, and
@@ -163,6 +177,51 @@ building one was out of this session's scope. The 8.4 gate's
 phone-vs-tablet default decision therefore still stands as the design doc's
 interim default (device form factor selects the layout), not a comparison
 made here.
+
+**Addendum (2026-09-27, workstream 8.6.4, follow-up session):**
+`PhoneLandscape` is now also evaluated, closing this fully — see 8.6.5 below.
+
+**8.6.5 (PhoneLandscape on-screen evaluation): built in a follow-up
+session.** `sdl_app.cpp` now takes `--layout=phone`, opening a 1248x576
+(19.5:9) window with `present_frame`'s texture blit centered and letterboxed
+(`game_x`/`kGameW`/`kGameH`, `SDL_RenderClear` keeping the margins black
+every frame) instead of filling the whole renderer. `layout_buttons` is
+computed against the full window size, so `PhoneLandscape`'s corner/edge
+buttons naturally land in the margins without special-casing; picker rows
+and crisp's vector overdraw stay bound to the game's own 768x576 rect via
+the same offset. Screenshot
+(`captures/phase-8-sdl-wiring/phonelandscape-buttons-2026-09-27.png`,
+gitignored) confirms this; `--layout=tablet` (default) is unchanged and
+re-confirmed by a fresh screenshot, no regression. With both layouts now
+genuinely evaluated on screen, the 8.4 gate's phone-vs-tablet decision
+stands as originally written: device form factor selects the layout, not a
+single project-wide default (see `docs/design/touch-controls/README.md`'s
+addendum).
+
+**8.6.6 (Save/Load/Restart/Quit menu surface): built in a follow-up
+session.** `sdl_app.cpp` gained a `MenuMode` (Top/ChooseSave/ChooseLoad)
+alongside `Shell::pending()`'s own confirmation state: `S`/`L`/`X`/`Q` (Save/
+Load/Restart/Quit) at the top screen, `1`-`5` to pick a slot, `Y`/`N` to
+answer a Restart/Quit/overwrite confirmation, Esc backing out one level at a
+time before finally resuming. Discovered along the way: `draw_glyph`
+(the original char generator's `glyph_rows`, reused from 8.6.1 for the touch
+overlay's single-letter button labels) cannot draw digits or slot names —
+its `code >= 0x20` branch indexes `kSpcTab`, which is only 28 bytes (4
+glyphs: the heart icon, `paint_text_bands`'s own use), not a general ASCII
+font, confirmed blank on screen when tried first. This menu is this
+project's own new UI, not a projection of the original's display, so it now
+uses SDL3's built-in `SDL_RenderDebugText` instead, which draws the full
+ASCII line correctly (digits, colons, spaces). Screenshots
+(`captures/phase-8-sdl-wiring/menu-{top,save-slots,restart-confirm}-2026-09-27.png`,
+gitignored, taken with the same temporary since-removed force-pause hook
+8.6.3 used) confirm all three screens render legibly, including an occupied
+slot's `Shell::auto_name` ("1 L0 00:00"). As with 8.6.2, the actual key
+sequence was not exercised on the running window — no
+click/keypress-automation tooling in this sandbox (below) — so this is
+verified by code review plus static-state screenshots, not a live
+interaction trace. `make all`'s test count is unchanged: this is UI glue
+over `Shell`'s already-tested API, not new core-adjacent behaviour needing
+its own headless test.
 
 **Recorded obstacle: no input-automation tooling in this sandbox.** Verifying
 a tap or keypress actually *changes* the running window's behavior (not just
