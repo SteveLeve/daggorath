@@ -147,9 +147,11 @@ The contract is unchanged: touch types the same keystrokes a typist would.
   keyboard.** On touch that affects two routes:
   - §3's INCANT-overrun path;
   - ZLOAD and ZSAVE (rows 39–40).
-- **§6's gate is reopened for ZLOAD and ZSAVE** until Steve answers Q7: is the
-  shell's system-menu Save/Load enough on touch, or do they need their own
-  entry?
+- **§6's gate for ZLOAD and ZSAVE:** reopened by the removal above, then
+  closed by Steve's answer to Q7 (2026-09-28). They are keyboard-only by
+  design. On touch, saving goes through the system menu's Save/Load, the
+  shell's slots plus the hidden resume slot. Issue #34 carries the optional
+  later "Tape" screen for the original commands.
 
 ## 6. Coverage gate
 

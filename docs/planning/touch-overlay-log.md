@@ -64,18 +64,12 @@ Code paths are in `src/`.
 | T22 | Main (phone) | `layout_phone` | fixed 6 | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
 | T23 | Incant | `sdl_app.cpp` | fixed 5 | The text box and the ⌫ ↵ ✕ SPC labels use SDL's 8 px debug font, which is small next to the keys. |
 | T24 | Incant | `sdl_app.cpp` | fixed 5 | The Incant board keeps both A buttons visible over the keyboard; the keyboard currently hides every button. |
+| T25 | Issue #34 | system menu | todo | Add a delete action for the system menu's save slots. |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
 
-- Q6: `--layout=tablet` already exists and is the default. It opens a 768x576
-  window, the same 4:3 as the game, so the controls float over the picture. Did
-  you mean a different tablet shape (for example 16:10, which would leave side
-  margins like the phone), or a larger 4:3 window?
-- Q7: with the ⌨ button gone, ZLOAD and ZSAVE have no touch path. The coverage
-  gate in `touch-input.md` §6 routed them through ⌨. Is the system menu's
-  Save/Load enough on touch (desktop keeps the physical keyboard), or should
-  they get a menu entry?
+(none open)
 
 ## Run history
 
@@ -162,3 +156,9 @@ Code paths are in `src/`.
     not on the phone.
   - Screens checked: tablet ≡ menu (P only), tablet examine, phone examine.
   - New questions: Q6 and Q7.
+- 2026-09-28, answers from Steve:
+  - Q6: disregard; `--layout=tablet` already exists.
+  - Q7: touch saving goes through the system menu's Save/Load. ZSAVE and ZLOAD
+    stay original and keyboard-only on touch.
+  - Issue #34 records the options, including a possible later "Tape" screen.
+    Delete-slot is added to the backlog as T25.
