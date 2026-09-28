@@ -137,7 +137,11 @@ artifacts not plans, a named completion gate with run output, an explicit
 - **In:** `src/input` adapters that emit keystroke streams or parsed commands
   (never a side door), prototyped in the desktop app with mouse-as-touch,
   portrait and landscape layouts evaluated, visible command trace option.
-- **Out:** any rule change. Pausing only where the original pauses.
+  The shell's system menu with a shell pause and snapshot slots (ADR-0009,
+  D-16), and the `crisp`/`pixel` render styles (ADR-0010). Plan:
+  [`phase-8-plan.md`](phase-8-plan.md).
+- **Out:** any rule change. In-play overlays never pause; only the shell menu
+  and OS backgrounding do.
 
 ### Phase 9 — Mobile packaging
 

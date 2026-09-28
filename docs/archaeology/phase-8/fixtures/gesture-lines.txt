@@ -1,0 +1,27 @@
+# Phase 8.1 gesture -> command-line fixture.
+#
+# Not ROM-derived: this is this project's own touch-control mapping, from
+# docs/design/touch-controls/README.md and docs/architecture/touch-input.md
+# §1. Format: "name|command line" (the line before GestureLine appends CR).
+# Regenerated identity is checked by tests/input/gesture_tests.cpp; a mismatch
+# means gesture.cpp changed, not that this file is stale evidence.
+move_forward|M
+move_back|M B
+move_left|M L
+move_right|M R
+turn_left|T L
+turn_right|T R
+turn_around|T A
+attack_left|A L
+attack_right|A R
+get_left_sword|G L SWORD
+pull_right_torch|P R TORCH
+stow_left|S L
+drop_right|D R
+use_left|U L
+reveal_right|R R
+incant_supreme|I SUPREME
+examine|E
+look|L
+climb_up|C U
+climb_down|C D

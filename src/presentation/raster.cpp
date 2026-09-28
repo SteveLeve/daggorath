@@ -45,8 +45,8 @@ std::int32_t increment_for(std::int16_t delta, std::uint16_t length) {
 
 }  // namespace
 
-void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
-                  const DrawSegment& segment, std::uint8_t fade) {
+void walk_segment(const DrawSegment& segment, std::uint8_t fade,
+                  const std::function<void(int x, int y)>& emit) {
     const std::uint8_t fade_now = static_cast<std::uint8_t>(fade + 1u);
     if (fade_now == 0) return;
     // VECTOR.ASM. Length is the larger absolute delta. The walk starts at
@@ -70,12 +70,19 @@ void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels
         if (countdown == 0) {
             countdown = fade_now;
             if (high_x == 0 && py >= 0 && py < kScreenHeight) {
-                pixels[static_cast<std::size_t>(py * kScreenWidth + px)] = 1;
+                emit(px, py);
             }
         }
         x += x_step;
         y += y_step;
     }
+}
+
+void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
+                  const DrawSegment& segment, std::uint8_t fade) {
+    walk_segment(segment, fade, [&pixels](int px, int py) {
+        pixels[static_cast<std::size_t>(py * kScreenWidth + px)] = 1;
+    });
 }
 
 void pack_bitmap(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
@@ -92,12 +99,14 @@ void pack_bitmap(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& p
 }
 
 std::uint8_t set_fade(std::uint8_t light, std::uint8_t range) {
-    const std::uint8_t adjusted = static_cast<std::uint8_t>(static_cast<std::uint8_t>(light - 7u) - range);
+    const std::uint8_t adjusted =
+        static_cast<std::uint8_t>(static_cast<std::uint8_t>(light - 7u) - range);
     const auto signed_level = static_cast<std::int8_t>(adjusted);
     if (signed_level >= 0) return 0;
     if (signed_level <= -7) return 0xFF;
     // Reachable signed levels are -6..-1, so only BITMSK entries 2..7 are used.
-    static constexpr std::uint8_t kBitMask[8] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
+    static constexpr std::uint8_t kBitMask[8] = {0x80, 0x40, 0x20, 0x10,
+                                                 0x08, 0x04, 0x02, 0x01};
     return kBitMask[8 + signed_level];
 }
 
@@ -112,7 +121,8 @@ int jiffies_due(std::uint64_t elapsed_us, std::uint64_t& accumulator_us) {
     return count;
 }
 
-std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels) {
+std::string bitmap_pbm(
+    const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels) {
     std::ostringstream out;
     out << "P1\n" << kScreenWidth << ' ' << kScreenHeight << '\n';
     for (int y = 0; y < kScreenHeight; ++y) {
@@ -125,7 +135,8 @@ std::string bitmap_pbm(const std::array<std::uint8_t, kScreenWidth * kScreenHeig
     return out.str();
 }
 
-std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnapshot& view) {
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(
+    const ViewSnapshot& view) {
     std::array<std::uint8_t, kScreenWidth * kScreenHeight> pixels{};
     // SETFAX already stored each segment's fade from that draw's light and
     // range. A pine torch (regular light 7) is solid only at range 0.
@@ -134,12 +145,22 @@ std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize(const ViewSnaps
     return pixels;
 }
 
-std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(std::uint8_t fade) {
+std::array<std::uint8_t, kScreenWidth * kScreenHeight> rasterize_wizard(
+    std::uint8_t fade) {
     std::array<std::uint8_t, kScreenWidth * kScreenHeight> pixels{};
     for (const DrawSegment& segment :
          decode_vectors(kVectorBlob, 0x80, 0x80, kCentroidX, kCentroidY, fade, kVec_WIZ1))
         draw_segment(pixels, segment, fade);
     return pixels;
+}
+
+std::uint8_t vdginv(int level) {
+    return static_cast<std::uint8_t>(-(level & 1));   // ANDA #BIT0 / NEGA
+}
+
+void apply_vdginv(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels, int level) {
+    if (vdginv(level) == 0) return;
+    for (auto& dot : pixels) dot = dot != 0 ? 0 : 1;
 }
 
 std::vector<std::uint8_t> scale_frame(

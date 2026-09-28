@@ -99,7 +99,7 @@ The committed `traces/power-on-to-winner.script` and its two-replay sha256 `be54
 CLK50 redirects a keypress to GAME, whose COMINI clears RAM and the triggering
 key. The core now preserves cassette, future keys, trace history and external
 replay time while resetting gameplay state. Typed ZLOAD resumes the save.
-See the scheduler specification's Phase 5b restart section and D-16 for inferred
+See the scheduler specification's Phase 5b restart section and D-18 for inferred
 startup timing. WINNER likewise leaves interrupts running, with no death restart.
 
 Verification: all 13 enabled ctests pass; WINNER replay remains disabled. Two

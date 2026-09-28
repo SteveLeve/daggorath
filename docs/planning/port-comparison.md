@@ -273,6 +273,28 @@ look like when it only emits commands. This project already has the first
 problem solved in the core. The remaining work is the touch adapter, the
 platform shell, and the decision about backgrounding.
 
+## Vector rendering study (2026-09-27)
+
+A read-only study for Phase 8 workstream 8.3
+([prompt](../prompts/phase-8-port-vector-study.md)), run on the owner's
+machine against the site repo @ `d37e0fb` and its populated submodule
+`cognitivegears/DungeonsOfDaggorath` @ `c2bce45`, which is the C++ the WASM
+is built from. Mostly `src/viewer.cpp`. The WASM was not opened. The findings
+below describe that port, not the original.
+
+| Topic | What the port does | Lesson for this project |
+|---|---|---|
+| Pipeline | Legacy immediate-mode OpenGL. VECTOR mode batches a whole vector list into one `GL_LINES` call; NORMAL and HIRES plot points or quads one at a time | Batch segments per frame (one geometry call) |
+| Coordinates | 256×192 source, uniform scale, 4:3 enforced (`height = width × 0.75`), letterbox offsets, Y flipped for GL | Same idea: one uniform scale, centred |
+| Line quality | Width is never set (1 px at any size). Smoothing is disabled, with the enable commented out and no reason given | 1 px is too thin on a phone. **Draw thickness as quads scaled to device pixels.** Test smoothing in 8.3 before adopting it |
+| Modes | NORMAL plots CoCo-pixel squares with fade dot-skipping; HIRES plots finer points; VECTOR draws continuous lines | Our `pixel` style is a transliteration of `VECTOR.ASM`'s walk (`raster.cpp`, Phase 7 golden images) |
+| Fades | VECTOR mode replaces dot-skipping with a colour blend toward the background. The fade cadences (300 ms ±2, and a faster 16 ms −4 marked "snappier") are the port's own choices | **Rejected.** Crisp mode stays dotted (ADR-0010 §8). Our fade timing stays ROM-capture based (D-14) |
+| Distance scale | CPU vertex transform from a scale table | Already ours: the listing's scale applied in presentation |
+| Text | Glyphs are filled quads per cell, the same in every mode, so text looks pixel-exact at any size | Supports ADR-0010 §6: glyph cells drawn as sharp squares |
+| Map | Filled squares and door ticks, the same in every mode, unbatched | Supports ADR-0010 §7 |
+| Web/HiDPI | No `devicePixelRatio` handling; the canvas renders at CSS resolution and the browser upscales it. An optional NTSC artifact-colour shader runs on a 256×192 FBO | **Size to real device pixels** (SDL3 pixel density). Artifact colour is a possible later presentation option, out of Phase 8 |
+| Frame pacing | Redraws when the `UPDATE` dirty flag is set, then repaints the whole frame (double buffering keeps nothing) | Repaint the full frame every time |
+
 ## Comparison harness
 
 `tools/compare/` drives a local checkout of the web port. The port is still

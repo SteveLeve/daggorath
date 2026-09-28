@@ -30,7 +30,8 @@ set(DAGGORATH_PHASE6_DIR "${CMAKE_CURRENT_SOURCE_DIR}/docs/archaeology/phase-6/f
 
 add_subdirectory(src/core)          # simulation: no SDL, no platform APIs
 add_subdirectory(src/presentation)  # placeholder: vector/audio presentation state
-add_subdirectory(src/input)         # placeholder: input adapters -> commands
+add_subdirectory(src/input)         # gesture -> keystroke adapters (Phase 8.1)
+add_subdirectory(src/shell)          # headless system-menu shell (ADR-0009, Phase 8.2)
 add_subdirectory(src/platform)      # placeholder: SDL, storage, packaging
 add_subdirectory(src/app)           # dcli today; desktop app later
 

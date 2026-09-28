@@ -26,6 +26,11 @@ struct MapProjection {
 
 MapProjection project_map(const MapSnapshot& snap);
 
+// MARK4: row 0 and 5 are blank, rows 1 and 4 are `a`, rows 2 and 3 are `b`.
+// Shared by `rasterize_map`'s pixel plot and the `crisp` render style's
+// bitmap marks (ADR-0010 §7), so there is one source for the pattern.
+std::array<std::uint8_t, 6> mark4_rows(std::uint8_t a, std::uint8_t b);
+
 // MAPPER.ASM on the 256x192 screen, one byte per pixel (0 or 1). Each maze cell
 // is one byte (8 pixels) wide and 6 scanlines tall (DSP32), so the map fills
 // the whole screen.
