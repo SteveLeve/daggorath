@@ -335,6 +335,7 @@ struct Runner {
     std::size_t build_cursor = 0;
     bool endgam_building = false;
     int build_idle = 0;
+    int supreme_settled = 0;
     bool building() {
         const auto& t = game.trace();
         for (; build_cursor < t.size(); ++build_cursor) {
@@ -435,6 +436,16 @@ struct Runner {
 
     bool ring_ready() const {
         return charged_ring(hand_type(false)) || charged_ring(hand_type(true));
+    }
+
+    // WIZ1 damage only accumulates (PATTK.ASM DAMAGE is its only writer), so
+    // sword hits made between heals are never lost unless a reload restores
+    // the save. Swing only with a margin for WIZ1's return hit; power/2 is a
+    // planner estimate (L003-a vs /3 in L003-b), not a source-derived bound.
+    static constexpr int kSwordMarginDiv = 2;
+    bool sword_safe() const {
+        const auto& p = game.player();
+        return p.damage < p.power / kSwordMarginDiv;
     }
 
     bool ring_safe() const {
@@ -1043,6 +1054,8 @@ struct Runner {
         if (wizard(c)) {
             if (phase == KillImage || phase == KillWizard) {
                 if (ring_ready() && ring_safe()) hit_run(true);
+                else if (phase == KillWizard && !ring_ready() && have_sword() && sword_safe())
+                    hit_run(false);   // any sword; in L003-c it is the Elvish, whose magic channel bites WIZ1
                 else type({leave_cmd()}, 3);
                 return true;
             }
@@ -1962,7 +1975,8 @@ struct Runner {
                     ensure_sword();
                     // Prepare the ring through typed commands after a cassette
                     // reload as well as during uninterrupted candidate progress.
-                    if (!charged_ring(hand_type(false)) && !charged_ring(hand_type(true))) {
+                    if (!charged_ring(hand_type(false)) && !charged_ring(hand_type(true)) &&
+                        (find_owned(game, kJoule) >= 0 || find_owned(game, kEnergy) >= 0)) {
                         empty_hand(true);
                         type({"PULL RIGHT JOULE RING"});
                         type({"INCANT ENERGY"});
@@ -1992,6 +2006,14 @@ struct Runner {
                     break;
                 }
                 case TakeSupreme: {
+                    // The killing hit_run also queued a leave move; let queued
+                    // keys run before trusting the position (L003-a typed GET
+                    // on the ring's cell, then MOVE LEFT carried it off).
+                    if (supreme_settled < 1) {
+                        ++supreme_settled;
+                        idle(10);
+                        break;
+                    }
                     const int idx = find_obj(game, kSupreme);
                     if (idx < 0) {
                         report_block("no SUPREME");
