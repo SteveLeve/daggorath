@@ -167,3 +167,9 @@ forbidden scripts/traces, missing output, process errors/timeouts, incomplete
 recovery, stale loads, trace mismatch, and hash mismatch. CTest runs these
 negative tests. No candidate has qualified yet; the legacy winner baseline
 remains untouched.
+
+## Search loop (from 2026-09-27)
+
+Route search now runs as a self-paced loop: method in
+[`phase-5b-loop.md`](phase-5b-loop.md), state and results in
+[`phase-5b-search-log.md`](phase-5b-search-log.md). New progress goes there.
