@@ -120,6 +120,7 @@ then the rest.
 | OBIRTH.ASM:OCBFIX | population.cpp ocbfil, fill_ocb_specific | matches | 24 | ODBTAB copy of OD.LEN bytes; OFIL10 writes P.OCXXX only on an XXXTAB match (run 6 fix). |
 | TOKEN.ASM (all tables) | lexicon_tables.hpp (generated from tokens.json) | matches | 24 | Fixture-generated from the listing (EXPAND.ASM decode); `make fixtures` checks it. |
 | COMTXT.ASM:TXTXXX, TXTBS, TXTCR, TXTSCR; TXTSER.ASM:TXTCHR, TXTSTR, TXTSTI | game.cpp out_char, text; examine.cpp Pad | gap-fixed | 25 | Primary text matches (BS wrap to 127, CR, scroll after the char). The EXAMINE pad dropped lines past row 19 instead of scrolling (fixed); the tab-to-608 status-line spill is a recorded quirk, not reproduced. TXTDPB glyphs are fixture-backed (phase 6). |
+| ONCE.ASM:GAME10-GAME50, SYSTCB, IRQSYN | game.cpp Game(), systcb, build_level | gap-fixed | 27 | Start position, PPOW, level-0 build, GAMDAT bag (specific refill is a no-op for wooden/pine), reveal, PROMPT match. P.OCLVL $0B quirk now reproduced. Demo/autoplay path (GAME40) not modelled. |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -152,3 +153,4 @@ then the rest.
 | 2026-09-27 | 24 | OBIRTH, TOKEN | Both match (TOKEN via fixtures) | log only | — |
 | 2026-09-27 | 25 | COMTXT, TXTSER | EXAMINE page never scrolled | Pad scroll + test; quirk recorded; audited | — |
 | 2026-09-27 | 26 | Q6: CLIMB/ENDGAM NEWLVL build time | C-22 captured (levels 1-4); timed NEWLVL + PREPARE! applied; SYSTCB tasks deferred to the build's end after the capture showed CREGEN must follow the births | Core, window, tests, reconciliation | — |
+| 2026-09-27 | 27 | ONCE game start | Starting objects' level byte was 0, listing leaves $0B | Quirk reproduced + test; audited | — |
