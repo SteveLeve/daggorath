@@ -55,14 +55,13 @@ the first `todo` goal, and only that goal. Statuses: `todo`, `done <commit>`,
    - Acceptance: a test shows that a shell pause/resume emits `PAUSE`/`RESUME`
      shell lines and does not advance the core clock (phase-8-plan item 8).
 4. **Hand test.**
-   - Status: `needs-steve`, once goals 2–3 are done.
-   - Steve runs `./build/src/app/dod` (tablet and `--layout=phone`) and checks:
-     - Esc pause and resume;
-     - the S/L/X/Q menu, slots 1–5, Y/N and Esc;
-     - the F1 pixel/crisp toggle on an even and an odd level, including
-       PREPARE! during a climb and EXAMINE;
-     - tapping the on-screen buttons;
-     - a Save → Load round trip.
+   - Status: `done`. Steve's hand test found real gaps in the touch UI
+     (state transitions, layout, game-state awareness); these ran through
+     the separate touch-overlay loop (`docs/planning/touch-overlay-loop.md`,
+     `touch-overlay-log.md`, runs 1–7), not this goal list. The backlog is
+     now clear of `todo` rows: T17 stays explicitly out of that loop's
+     scope, and T25 (save-slot delete) is deferred to the later "Tape"
+     screen, issue #34.
 5. **Video/Controls menu entries.**
    - Status: `todo`, after goal 4.
    - A Video entry that selects the render style (the F1 toggle) and a Controls
@@ -87,3 +86,7 @@ Out of scope:
   - Menu key handling moved from `sdl_app.cpp` into `MenuState`; `make all`
     passes.
   - Goal 3 was found already tested. Next: goal 4 (`needs-steve`).
+- 2026-09-28, goal 4:
+  - Closed out through the touch-overlay loop rather than this list; see
+    `touch-overlay-log.md` runs 1–7. Next: goal 5 (Video/Controls menu
+    entries), still `todo`.
