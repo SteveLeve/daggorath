@@ -28,6 +28,11 @@ class AcceptanceTests(unittest.TestCase):
         self.assertEqual(validate_trace(trace())['recoveries'], 1)
         validate_script('0 Z\n1 SPACE\n2 CR\n', 6)
 
+    def test_timed_newlvl_event_is_vocabulary(self):
+        # D-19: game.cpp build_resume emits NEWLVL for every timed level build.
+        rows = ROWS[:2] + ['1\t0:0:6.3.0\tNEWLVL\tlevel=1 second=54'] + ROWS[2:]
+        self.assertEqual(validate_trace(trace(rows))['recoveries'], 1)
+
     def test_script_bypasses(self):
         for bad in ['0 FUDGE rest', 'FUDGE incoming 25', '0 SNAPSHOT x',
                     '0 CR extra', '0 7', '-1 A', '2 A\n1 B', '6 A', '# empty']:
