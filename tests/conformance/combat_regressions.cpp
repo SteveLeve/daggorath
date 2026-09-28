@@ -504,10 +504,10 @@ void test_death_on_exact_jiffy() {
     check(game.player().damage > game.player().power, "death means damage above power");
     check(count(game, "TASK", death + 1) == 0, "no task runs after the death jiffy");
     const std::uint64_t frozen_at = game.counters().total_jiffies;
-    game.load_script(type_at(frozen_at, "MOVE"));
+    game.load_script({});
     game.advance_jiffies(30);
-    check(game.counters().total_jiffies == frozen_at && count(game, "LINE") == 0,
-          "after DEATH's BRA * the clock and keyboard stop");
+    check(game.counters().total_jiffies == frozen_at + 30 && count(game, "LINE") == 0,
+          "after DEATH foreground stops while CLOCK continues");
 }
 
 }  // namespace

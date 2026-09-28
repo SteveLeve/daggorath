@@ -58,6 +58,27 @@ Game::Game(std::uint8_t second_at_entry, int level) {
     start(false, second_at_entry, level);
 }
 
+// Source-proven: CLOCK CLK50 redirects RTI to GAME; COMINI clears RAM,
+// including the triggering key buffered by CLK60. Cassette and replay state
+// are external. Inferred: reuse the startup clock alignment (see D-18).
+void Game::restart_after_death() {
+    const auto absolute = sched_.counters().total_jiffies;
+    sched_ = Scheduler{};
+    sched_.counters().total_jiffies = absolute;
+    player_ = PlayerState{};
+    heart_ = HeartState{};
+    mode_ = DisplayMode::Viewer;
+    line_.clear();
+    text_.fill(0);
+    text_cursor_ = 0;
+    zflag_ = 0;
+    tape_name_.clear();
+    sync_pending_ = 0;
+    newluk_ = false;
+    emit("RESTART", "GAME after death");
+    start(true, 0, 0);
+}
+
 void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     // The clock is already running when NEWLVL builds the maze, so the SECOND
     // counter at level entry is an input to DGEN90, not to the maze itself.
@@ -203,7 +224,6 @@ TaskResult Game::task_cmove(int slot) {
     view.heart_update = &heart;
     std::vector<CmoveView::Sound> sounds;
     view.sounds = &sounds;
-    view.incoming_damage_percent = incoming_damage_percent_;
     std::vector<std::string> events;
     const TaskResult r = cmove(slot, ccbs_, objects_, level_.maze, level_.rng, view, events);
     store_player_fighter(fighter);
@@ -344,36 +364,20 @@ void Game::heartbeat_interrupt() {
     e.large = large;
 }
 
-void Game::set_incoming_damage_percent(int percent) {
-    if (percent < 0) percent = 0;
-    incoming_damage_percent_ = percent;
-}
-
-void Game::apply_due_harness(std::uint64_t now) {
-    while (harness_pos_ < harness_.size() && harness_[harness_pos_].jiffy <= now) {
-        const HarnessEvent& e = harness_[harness_pos_++];
-        if (e.kind == HarnessFudge::Incoming) {
-            set_incoming_damage_percent(e.percent);
-            emit("FUDGE", "incoming=" + std::to_string(incoming_damage_percent_));
-        } else if (e.kind == HarnessFudge::Rest) {
-            player_.damage = 63;
-            update_heart_rate();
-            emit("FUDGE", "rest");
-        }
-    }
-}
-
 void Game::advance_jiffies(std::uint64_t n) {
     for (std::uint64_t i = 0; i < n; ++i) {
         // Collect the keystrokes timestamped for this jiffy.
         std::vector<std::uint8_t> keys;
         const std::uint64_t now = sched_.counters().total_jiffies;
-        apply_due_harness(now);
         while (script_pos_ < script_.size() && script_[script_pos_].jiffy == now) {
             keys.push_back(script_[script_pos_].ch);
             ++script_pos_;
         }
         sched_.interrupt(keys);
+        if (player_.dead && !keys.empty()) {
+            restart_after_death();
+            continue;
+        }
 
         if (sync_pending_ > 0) {   // a SYNC in the last pass owns this jiffy
             --sync_pending_;
@@ -423,8 +427,9 @@ void Game::update_heart_rate() {
         player_.dead = true;
         // DEATH tail, HUPDAT.ASM:168: CLR FAINT (source-proven), so a player who
         // dies while unconscious is no longer fainted. The listing then does
-        // DEC AUTFLG (:169) so a keypress restarts GAME; the core halts instead
-        // (the restart is Phase 5b work).
+        // DEC AUTFLG (:169) so a keypress restarts GAME (D-18): the core halts
+        // here and restart_after_death() (below, triggered on the next key)
+        // does the restart.
         player_.fainted = false;
         sched_.set_faint(false);
         sched_.halt();
@@ -1486,6 +1491,12 @@ std::string Game::ram_image() const {
     return os.str();
 }
 
+bool Game::insert_cassette_image(const std::string& name, const std::string& image) {
+    if (name.empty() || image.rfind("DAGRAM 1\n", 0) != 0) return false;
+    tapes_.insert(tapes_.begin(), {name, image});   // older than any save this session
+    return true;
+}
+
 const std::string* Game::cassette_image(const std::string& name) const {
     for (auto it = tapes_.rbegin(); it != tapes_.rend(); ++it)
         if (it->first == name) return &it->second;
@@ -1514,7 +1525,7 @@ std::string Game::snapshot() const {
     os << tapes_.size() << '\n';
     for (const auto& [name, image] : tapes_)
         os << name.size() << ' ' << name << '|' << image.size() << ' ' << image << '\n';
-    os << incoming_damage_percent_ << '\n';
+    os << 100 << '\n';   // retired D-12 incoming-damage field; layout kept for DAGSNAP 1
     os << text_cursor_;
     for (const std::uint8_t cell : text_) os << ' ' << static_cast<int>(cell);
     os << '\n';
@@ -1554,8 +1565,8 @@ void Game::restore_snapshot(const std::string& bytes) {
         in.read(image.data(), static_cast<std::streamsize>(m));
         tapes_.push_back({name, image});
     }
-    int percent = 100;
-    if (in >> percent) incoming_damage_percent_ = percent;
+    int retired_percent = 100;   // D-12 field, ignored
+    in >> retired_percent;
     int cursor = 0;
     if (in >> cursor) {
         text_cursor_ = cursor;
@@ -1582,7 +1593,6 @@ std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) 
         {
             std::string first;
             if (!(ls >> first)) continue;
-            if (first == "FUDGE") continue;  // harness line, not a keystroke
             std::istringstream back(first);
             if (!(back >> jiffy)) {
                 error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
@@ -1593,7 +1603,6 @@ std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) 
                 error = "line " + std::to_string(lineno) + ": expected '<jiffy> <KEY>'";
                 return {};
             }
-            if (key == "FUDGE") continue;  // "<jiffy> FUDGE ..."
         }
         std::uint8_t ch = 0;
         if (key == "SPACE") ch = kCSp;
@@ -1606,51 +1615,6 @@ std::vector<KeyEvent> parse_script(const std::string& text, std::string& error) 
         }
         out.push_back({jiffy, ch});
     }
-    return out;
-}
-
-std::vector<Game::HarnessEvent> parse_harness(const std::string& text, std::string& error) {
-    std::vector<Game::HarnessEvent> out;
-    std::istringstream in(text);
-    std::string line;
-    int lineno = 0;
-    while (std::getline(in, line)) {
-        ++lineno;
-        const auto hash = line.find('#');
-        if (hash != std::string::npos) line = line.substr(0, hash);
-        std::istringstream ls(line);
-        std::string a, b, c;
-        if (!(ls >> a)) continue;
-        std::uint64_t jiffy = 0;
-        if (a != "FUDGE") {
-            std::istringstream num(a);
-            if (!(num >> jiffy) || !(ls >> a) || a != "FUDGE") continue;
-        }
-        if (!(ls >> b)) {
-            error = "line " + std::to_string(lineno) + ": FUDGE needs a verb";
-            return {};
-        }
-        Game::HarnessEvent ev;
-        ev.jiffy = jiffy;
-        if (b == "incoming") {
-            if (!(ls >> ev.percent)) {
-                error = "line " + std::to_string(lineno) + ": FUDGE incoming needs a percent";
-                return {};
-            }
-            ev.kind = Game::HarnessFudge::Incoming;
-        } else if (b == "rest") {
-            ev.kind = Game::HarnessFudge::Rest;
-        } else {
-            error = "line " + std::to_string(lineno) + ": unknown FUDGE '" + b + "'";
-            return {};
-        }
-        (void)c;
-        out.push_back(ev);
-    }
-    std::sort(out.begin(), out.end(),
-              [](const Game::HarnessEvent& a, const Game::HarnessEvent& b) {
-                  return a.jiffy < b.jiffy;
-              });
     return out;
 }
 

@@ -101,13 +101,24 @@ if (TARGET dod)
   add_test(NAME dod_thud_samples
     COMMAND bash -c "$<TARGET_FILE:dod> --headless --second 1 --jiffies 40 --script ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-7/traces/blocked-move.script --samples ${CMAKE_BINARY_DIR}/thud.raw > ${CMAKE_BINARY_DIR}/dod-thud.trace && test $(wc -c < ${CMAKE_BINARY_DIR}/thud.raw) -eq 104")
 endif()
-# Power-on to WINNER. Two dcli replays must emit WINNER and match byte for byte.
-# The script contains D-12 FUDGE lines (not source behaviour).
+# Power-on to WINNER (Phase 5b, no FUDGE). tools/verify_playthrough.py runs two
+# fresh default dcli replays, checks the full trace (typed saves, every death
+# recovered by RESTART and a ZLOAD of the latest save, one WINNER) and the
+# recorded digest. Length, timeout and digest: phase-5 reconciliation,
+# "Playthrough status". Replays measured 8-15 s each.
 set(PHASE5_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-5/traces)
 set(WINNER_SCRIPT ${PHASE5_TRACES}/power-on-to-winner.script)
 add_test(NAME playthrough_power_on_to_winner
-  COMMAND sh -c "\"$<TARGET_FILE:dcli>\" --script \"${WINNER_SCRIPT}\" --jiffies 230000 --trace \"${CMAKE_CURRENT_BINARY_DIR}/winner-a.trace\" && \"$<TARGET_FILE:dcli>\" --script \"${WINNER_SCRIPT}\" --jiffies 230000 --trace \"${CMAKE_CURRENT_BINARY_DIR}/winner-b.trace\" && grep -q WINNER \"${CMAKE_CURRENT_BINARY_DIR}/winner-a.trace\" && grep -q WINNER \"${CMAKE_CURRENT_BINARY_DIR}/winner-b.trace\" && cmp \"${CMAKE_CURRENT_BINARY_DIR}/winner-a.trace\" \"${CMAKE_CURRENT_BINARY_DIR}/winner-b.trace\"")
-# Disabled 2026-09-27 (phase-5 reconciliation): the committed route relied on
-# the fire ring's charge wrap, which the ring-charge fix removed. Re-enable
-# once dplan is reworked and the script re-authored.
-set_tests_properties(playthrough_power_on_to_winner PROPERTIES TIMEOUT 120 DISABLED TRUE)
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/verify_playthrough.py
+    --dcli $<TARGET_FILE:dcli> --script ${WINNER_SCRIPT}
+    --jiffies 382000 --timeout 120
+    --sha256 b56777eecb2c887c565bd0b55add00ed099e9ac085f3c3e6d28b0e7b753661d1)
+set_tests_properties(playthrough_power_on_to_winner PROPERTIES TIMEOUT 300)
+
+# Independent replay acceptance must reject incomplete or bypassed candidates.
+add_test(NAME playthrough_verifier_negatives
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/test_verify_playthrough.py)
+
+# Phase 5b search diagnostics (docs/planning/phase-5b-loop.md); not acceptance.
+add_test(NAME playthrough_search_summary
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/test_summarize_candidate.py)

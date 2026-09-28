@@ -126,7 +126,16 @@ std::optional<std::string> read_save(const std::string& dir, const std::string& 
     return image;
 }
 
-enum class DeathPrompt { Playing, Menu, LoadName };
+// Put every stored save on the core's cassette before play, like a tape that
+// already holds earlier ZSAVEs. The player still types ZLOAD <name>.
+void mount_saves(dag::Game& game, const std::string& dir) {
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+        if (entry.path().extension() != ".dagram") continue;
+        const std::string name = entry.path().stem().string();
+        if (auto image = read_save(dir, name)) game.insert_cassette_image(name, *image);
+    }
+}
 
 std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int bar_x) {
     // PTURN.ASM LRTURN/RLTURN: two horizontal lines and a vertical bar.
@@ -482,8 +491,7 @@ int main(int argc, char** argv) {
         save_dir = pref;
         SDL_free(pref);
     }
-    DeathPrompt prompt = DeathPrompt::Playing;
-    std::string load_name;
+    mount_saves(*held, save_dir);
     SDL_AudioSpec spec{};
     spec.format = SDL_AUDIO_U8;
     spec.channels = 1;
@@ -500,7 +508,7 @@ int main(int argc, char** argv) {
     std::size_t traced = 0;
     bool audio_level = false;
     std::uint64_t audio_jiffy = 0;
-    std::string message;
+    const std::string message;   // no platform message row; OUTSTI owns the text page
     bool running = true;
     bool crisp_style = false;  // 8.6.3: F1 toggles pixel (default) vs crisp (ADR-0010)
     dag::shell::MenuState menu;  // 8.6.6: system menu sub-screen (src/shell/system_menu.hpp)
@@ -513,6 +521,7 @@ int main(int argc, char** argv) {
     int faint_magic = 0;   // MLIGHT at the same moment
     bool was_dead = false;
     std::size_t seen_motion = 0;
+    std::size_t seen_restart = 0;
     auto reset_view = [&]() {
         heard = 0;
         traced = 0;
@@ -520,35 +529,27 @@ int main(int argc, char** argv) {
         audio_jiffy = 0;
         heartbeat.clear();
         effect_carry.clear();
-        message.clear();
         mix = dag::SoundMix{};
-        prompt = DeathPrompt::Playing;
-        load_name.clear();
         have_shown = false;
         was_fainted = false;
         was_dead = false;
         seen_motion = 0;
+        seen_restart = 0;
     };
     auto restart_game = [&]() {
         held.emplace();
         shell.emplace(*held);
         reset_view();
     };
-    auto resume_view = [&](dag::Game& game) {
-        heard = game.events().size();
-        traced = game.trace().size();
-        audio_level = game.heart().audio_level;
-        audio_jiffy = game.counters().total_jiffies;
-        heartbeat.clear();
-        effect_carry.clear();
-        mix.discard_through(game.events().size());
-        message.clear();
-        prompt = DeathPrompt::Playing;
-        load_name.clear();
-        have_shown = false;
-        was_fainted = game.player().fainted || game.player().dead;
-        was_dead = game.player().dead;
-        seen_motion = game.events().size();
+    // HUPDAT DEATH halts the foreground while CLOCK runs; any key restarts
+    // GAME in the core (D-18), which keeps the cassette and the trace. Only
+    // the view's own memory of the last frame starts over.
+    auto restarted = [&](const dag::Game& game) {
+        bool any = false;
+        const auto& trace = game.trace();
+        for (; seen_restart < trace.size(); ++seen_restart)
+            any = any || trace[seen_restart].kind == "RESTART";
+        return any;
     };
     // 8.6.6: SystemMenu's tap and Esc's key share MenuState::back_out, so
     // the two input paths can't drift apart.
@@ -603,7 +604,7 @@ int main(int argc, char** argv) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
             if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                event.button.button == SDL_BUTTON_LEFT && prompt == DeathPrompt::Playing) {
+                event.button.button == SDL_BUTTON_LEFT) {
                 const double mx = event.button.x;
                 const double my = event.button.y;
                 // ADR-0009 §6: SystemMenu is the one control that pauses,
@@ -650,45 +651,6 @@ int main(int argc, char** argv) {
             }
             if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) continue;
             const SDL_Keycode key = event.key.key;
-            if (prompt == DeathPrompt::Menu) {
-                if (key == SDLK_R) {
-                    restart_game();
-                    break;
-                }
-                else if (key == SDLK_L) {
-                    prompt = DeathPrompt::LoadName;
-                    load_name.clear();
-                }
-                continue;
-            }
-            if (prompt == DeathPrompt::LoadName) {
-                if (key == SDLK_ESCAPE) {
-                    prompt = DeathPrompt::Menu;
-                    load_name.clear();
-                } else if (key == SDLK_BACKSPACE) {
-                    if (!load_name.empty()) load_name.pop_back();
-                } else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
-                    std::optional<std::string> image = read_save(save_dir, load_name);
-                    if (!image) {
-                        if (const std::string* mem = held->cassette_image(load_name))
-                            if (mem->rfind("DAGRAM 1", 0) == 0) image = *mem;
-                    }
-                    if (!image) {
-                        message = "???";
-                        prompt = DeathPrompt::Menu;
-                        load_name.clear();
-                    } else {
-                        held->restore_ram_image(*image);
-                        if (held->player().dead) prompt = DeathPrompt::Menu;
-                        else resume_view(*held);
-                    }
-                } else if (key >= SDLK_A && key <= SDLK_Z && load_name.size() < 8) {
-                    load_name.push_back(static_cast<char>('A' + (key - SDLK_A)));
-                } else if (key >= SDLK_0 && key <= SDLK_9 && load_name.size() < 8) {
-                    load_name.push_back(static_cast<char>('0' + (key - SDLK_0)));
-                }
-                continue;
-            }
             if (key == SDLK_ESCAPE) {
                 pause_or_back_out();
                 continue;
@@ -742,10 +704,13 @@ int main(int argc, char** argv) {
         // ADR-0009's pause-invariance test (tests/shell/shell_tests.cpp)
         // already proves this substitution changes nothing about the core
         // trace for an unpaused run.
-        if (steps > 0 && prompt == DeathPrompt::Playing)
-            shell->tick(static_cast<std::uint64_t>(steps));
+        if (steps > 0) shell->tick(static_cast<std::uint64_t>(steps));
         persist_saves(game, traced, save_dir);
-        if (prompt == DeathPrompt::Playing && game.player().dead) prompt = DeathPrompt::Menu;
+        if (restarted(game)) {
+            have_shown = false;
+            was_fainted = false;
+            was_dead = false;
+        }
         auto snap = dag::snapshot_from(game);
         bool stepped = false;
         bool turned = false;
@@ -812,8 +777,7 @@ int main(int argc, char** argv) {
         const auto& events = game.events();
         while (heard < events.size()) {
             const dag::CoreEvent& ev = events[heard++];
-            // OUTSTI is already on the primary text page. The message row is
-            // only the post-death load failure, which the core does not print.
+            // OUTSTI is already on the primary text page.
             if (ev.kind != dag::CoreEventKind::Heartbeat) continue;
             const std::uint64_t span = ev.jiffy > audio_jiffy ? ev.jiffy - audio_jiffy : 0;
             const std::uint8_t sample = audio_level ? 0xFF : 0x00;
@@ -828,12 +792,7 @@ int main(int argc, char** argv) {
                 heartbeat.push_back(sample);
             audio_jiffy = now_jiffy;
         }
-        std::string command_override;
-        if (prompt == DeathPrompt::Menu) command_override = "R RESTART OR L LOAD";
-        else if (prompt == DeathPrompt::LoadName) {
-            command_override = "LOAD " + load_name;
-            if (command_override.size() < 32) command_override.push_back('_');
-        }
+        const std::string command_override;
         if (!map_up)
             dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
         const bool faint_now = game.player().fainted || game.player().dead;
@@ -953,7 +912,7 @@ int main(int argc, char** argv) {
             // presentation-only fades (D-14) this pass does not reproduce
             // in crisp form, and for PREPARE! and EXAMINE, which replace
             // the viewport with text crisp has no vector form of.
-            if (crisp_style && prompt == DeathPrompt::Playing && !game.player().dead &&
+            if (crisp_style && !game.player().dead &&
                 !game.player().fainted && !game.preparing() &&
                 game.display_mode() != dag::DisplayMode::Examine) {
                 // NLVL50 polarity, as present_frame's apply_vdginv gives the pixel style
@@ -968,7 +927,6 @@ int main(int argc, char** argv) {
                 if (map_up) draw_crisp_map(r, dag::map_snapshot_from(game), kScale, game_x, ink);
                 else draw_crisp_view(r, dag::project(snap), kScale, game_x, ink);
             }
-            if (prompt != DeathPrompt::Playing) return;  // death/load prompt owns the screen
             if (shell->paused()) {
                 // 8.6.6: Resume/Save/Load/Restart/Quit (ADR-0009 §6). Text
                 // only -- no on-screen QWERTY slot-name entry (8.6.1's

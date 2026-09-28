@@ -14,7 +14,7 @@ The core applies this:
 
 - **Historical payload** is `Game::ram_image()`: every field the core models inside `DP.BEG`–`MM.END`, including the task table, the ready and countdown lists, the keyboard buffer, the maze, and every object and creature block. Task bodies are rebuilt from their `TCBDAT` or `CMOVE-n` names, which stand in for the `P.TCRTN` pointers. The image carries a `DAGRAM 1` header because it is a text encoding of those fields, not the 6809 byte layout.
 - **Suspend snapshot** is `Game::snapshot()`: the RAM image plus what lies outside it, namely the trace jiffy count, the halt state (`BRA *`), a pending `ZFLAG`, and the in-memory cassette. It is versioned `DAGSNAP 1`, and an unknown version aborts instead of migrating. Restoring it is not a game action.
-- **Storage envelope** belongs to `src/platform` and is not implemented.
+- **Storage envelope** belongs to `src/platform`. The desktop writes each `ZSAVE` image to a `.dagram` file and, at start-up, puts those files on the core's cassette for a typed `ZLOAD` (D-20, 2026-09-28).
 - **Deviation D-11** (`clock-and-scheduler.md` §13). `LOAD` searches the tape forever for a matching name. With an in-memory cassette the core reports `???` for an absent name instead.
 
 ## Context

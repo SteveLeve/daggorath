@@ -152,23 +152,6 @@ public:
         update_heart_rate();
     }
 
-    // Harness only (ADR-0007). Default 100 is Original Mode. Creature damage
-    // applied to the player is multiplied by percent/100. Player hits are not
-    // scaled. Used only when a FUDGE line is replayed.
-    void set_incoming_damage_percent(int percent);
-    int incoming_damage_percent() const { return incoming_damage_percent_; }
-
-    enum class HarnessFudge { Incoming, Rest };
-    struct HarnessEvent {
-        std::uint64_t jiffy = 0;
-        HarnessFudge kind = HarnessFudge::Incoming;
-        int percent = 100;
-    };
-    void load_harness(std::vector<HarnessEvent> events) {
-        harness_ = std::move(events);
-        harness_pos_ = 0;
-    }
-
     // What ZSAVE writes: the direct page and common RAM, DP.BEG ($0200)
     // through MM.END (COMMON.ASM SAVE). That range holds the player, clock,
     // SEED, queue heads and TCBs, keyboard and line buffers, CMXLND, CCBLND,
@@ -181,6 +164,13 @@ public:
     // Null when that name was never saved. The platform copies this out;
     // the core does not touch the filesystem.
     const std::string* cassette_image(const std::string& name) const;
+
+    // A tape that already holds an earlier ZSAVE. Source-proven: SAVE writes
+    // only DP.BEG..MM.END to tape (COMMON.ASM:80-86) and LOAD reads it back
+    // (:102), so the cassette is outside RAM. The platform may offer a stored
+    // image before play (D-20). Nothing is loaded until a typed `ZLOAD <name>`; saves made later
+    // shadow it. Refuses anything that is not a DAGRAM 1 image.
+    bool insert_cassette_image(const std::string& name, const std::string& image);
 
     // Suspend snapshot: the RAM image plus what lies outside it (the trace
     // clock, the halt state, and the cassette), enough to continue
@@ -255,6 +245,7 @@ private:
     void queue_creatures();
     void systcb();
     void build_level(int level, std::uint8_t second);
+    void restart_after_death();
     void start(bool rom_build, std::uint8_t second_at_entry, int level);
 
     std::array<std::array<std::uint8_t, kCreatureTypes>, 5> matrix_{};
@@ -305,17 +296,11 @@ private:
     void begin_newlvl(int level, bool prepare, int then);
     void build_resume();
     void endgame_after_newlvl();
-    int incoming_damage_percent_ = 100;
-    std::vector<HarnessEvent> harness_;
-    std::size_t harness_pos_ = 0;
-    void apply_due_harness(std::uint64_t now);
 };
 
 // Input script format: one event per line, "<jiffy> <KEY>" where KEY is a single
 // character, or the words SPACE, CR or BS. '#' starts a comment.
-// `FUDGE incoming <percent>` and `FUDGE rest` (optional leading jiffy) are
-// harness lines: parse_script ignores them. parse_harness collects them.
+// Any other token, including the retired D-12 `FUDGE` lines, is an error.
 std::vector<KeyEvent> parse_script(const std::string& text, std::string& error);
-std::vector<Game::HarnessEvent> parse_harness(const std::string& text, std::string& error);
 
 }  // namespace dag

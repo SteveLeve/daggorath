@@ -443,7 +443,8 @@ void test_winner() {
           "WINNER prints PINCAN.ASM's two OUTSTI strings");
     const std::uint64_t at = game.counters().total_jiffies;
     game.advance_jiffies(100);
-    check(game.counters().total_jiffies == at, "WINNER ends in BRA *");
+    check(game.counters().total_jiffies == at + 100 && game.player().won,
+          "WINNER foreground loops while CLOCK continues");
 }
 
 // COMMON.ASM:136-141 LOAD90: after INIVU clears the text area, PROMPT prints
@@ -471,14 +472,56 @@ void test_death_load_resumes() {
     game.set_player_damage(static_cast<std::uint16_t>(game.player().power + 1));
     game.advance_jiffies(2);
     check(game.player().dead, "damage past power is death");
-    const auto frozen = game.counters().total_jiffies;
+    const auto death_time = game.counters().total_jiffies;
+    auto keys = keys_for(death_time + 35, {"ZLOAD QUEST", "TURN RIGHT"});
+    keys.insert(keys.begin(), {death_time + 30, 'X'});
+    game.load_script(keys);
     game.advance_jiffies(30);
-    check(game.counters().total_jiffies == frozen, "DEATH's BRA * takes no further interrupts");
-    game.restore_ram_image(image);
-    check(!game.player().dead, "the cassette image is the living game");
-    game.advance_jiffies(30);
-    check(game.counters().total_jiffies == frozen + 30,
-          "restoring a living image returns to SCHED");
+    check(game.player().dead, "without a key, death remains in the foreground loop");
+    check(game.counters().total_jiffies == death_time + 30,
+          "CLOCK continues during death");
+    game.advance_jiffies(1);
+    check(!game.player().dead && has(game, "RESTART", "GAME after death"),
+          "timestamped key restarts through GAME");
+    check(game.cassette_image("QUEST") && *game.cassette_image("QUEST") == image,
+          "cassette survives COMINI");
+    check(game.line_buffer().empty(), "restart clears its triggering key");
+    game.advance_jiffies(100);
+    check(has(game, "ZLOAD", "QUEST"), "future typed ZLOAD restores the saved game");
+    check(game.player().dir == dag::Dir::East, "future command runs after reload");
+    check(has(game, "DEATH") && has(game, "ZSAVE"), "restart retains trace history");
+    check(game.counters().total_jiffies == death_time + 131,
+          "restart and ZLOAD preserve monotonic replay time");
+}
+
+void test_inserted_tape_loads_only_when_typed() {
+    // The cassette is outside RAM (COMMON.ASM:80-86, :102); D-20 lets a platform offer an earlier session's
+    // image before play (desktop saves). Only a typed ZLOAD reads it, and a
+    // save made this session shadows it.
+    dag::Game first(1, 0);
+    first.load_script(keys_for(10, {"ZSAVE QUEST"}));
+    first.advance_jiffies(80);
+    const std::string* saved = first.cassette_image("QUEST");
+    check(saved != nullptr, "first session writes QUEST");
+    if (saved == nullptr) return;
+    const std::string image = *saved;
+
+    dag::Game second(1, 0);
+    check(!second.insert_cassette_image("BAD", "not a ram image"), "a non-DAGRAM image is refused");
+    check(second.insert_cassette_image("QUEST", image), "a DAGRAM 1 image is accepted");
+    second.advance_jiffies(30);
+    check(!has(second, "ZLOAD"), "inserting a tape loads nothing");
+    second.load_script(keys_for(40, {"TURN RIGHT", "ZLOAD QUEST"}));
+    second.advance_jiffies(120);
+    check(has(second, "ZLOAD", "QUEST"), "typed ZLOAD reads the inserted tape");
+    check(second.player().dir == first.player().dir, "the load restores the saved facing");
+
+    dag::Game third(1, 0);
+    third.insert_cassette_image("QUEST", image);
+    third.load_script(keys_for(10, {"TURN RIGHT", "ZSAVE QUEST"}));
+    third.advance_jiffies(80);
+    check(third.cassette_image("QUEST") && *third.cassette_image("QUEST") != image,
+          "a later ZSAVE of the same name shadows the inserted image");
 }
 
 void test_death_line() {
@@ -588,59 +631,30 @@ void test_snapshot_round_trip_and_replay() {
     }
 }
 
-void test_fudge_harness_is_not_source_behaviour() {
-    dag::Game fresh;
-    check(fresh.incoming_damage_percent() == 100, "default Game is Original Mode incoming (100)");
-
-    std::string err;
-    const std::string body = "0 A\nFUDGE incoming 25\n10 FUDGE rest\n10 B\n";
-    const auto keys = dag::parse_script(body, err);
-    check(err.empty() && keys.size() == 2, "parse_script ignores FUDGE lines",
-          "n=" + std::to_string(keys.size()) + " err=" + err);
-    const auto ev = dag::parse_harness(body, err);
-    check(err.empty() && ev.size() == 2, "parse_harness collects FUDGE lines",
-          "n=" + std::to_string(ev.size()) + " err=" + err);
-
-    dag::Game rest;
-    rest.set_player_damage(200);
-    rest.load_harness(dag::parse_harness("0 FUDGE rest\n", err));
-    rest.advance_jiffies(1);
-    check(rest.player().damage == 63, "FUDGE rest writes the HSLOW floor",
-          std::to_string(rest.player().damage));
-
+void test_fudge_lines_are_rejected() {
+    // D-12 is retired (2026-09-28): the FUDGE harness was never source
+    // behaviour, and the Phase 5b WINNER baseline does not use it. A script
+    // that still carries FUDGE lines is refused instead of silently skipped.
+    for (const std::string body : {"0 A\nFUDGE incoming 25\n1 B\n", "0 A\n10 FUDGE rest\n"}) {
+        std::string err;
+        const auto keys = dag::parse_script(body, err);
+        check(!err.empty() && keys.empty(), "parse_script rejects a FUDGE line", err);
+    }
+    // DAGSNAP 1 keeps its layout: the retired incoming-damage field is written
+    // as 100 and ignored on restore, so a snapshot carrying 25 plays identically.
     dag::Game a;
-    int sl = -1;
-    for (int i = 0; i < dag::kCcbSlots; ++i)
-        if (a.creatures()[static_cast<std::size_t>(i)].in_use) {
-            sl = i;
-            break;
-        }
-    check(sl >= 0, "Original Mode births at least one creature");
-    if (sl < 0) return;
-    const dag::Ccb& c = a.creatures()[static_cast<std::size_t>(sl)];
-    a.place_player(c.row, c.col);
     const std::string snap = a.snapshot();
-    const auto first_hit_damage = [](dag::Game& g) {
-        const auto hits = [&g] {
-            std::size_t n = 0;
-            for (const auto& e : g.trace()) n += e.kind == "HIT";
-            return n;
-        };
-        const std::size_t seen = hits();
-        const std::uint16_t before = g.player().damage;
-        for (int i = 0; i < 400 && hits() == seen; ++i) g.advance_jiffies(1);
-        return static_cast<unsigned>(g.player().damage) - before;
-    };
-    const unsigned full = first_hit_damage(a);
-    dag::Game b;
+    const auto field = snap.rfind("\n100\n");
+    check(field != std::string::npos, "snapshot writes the retired field as 100");
+    if (field == std::string::npos) return;
+    std::string quartered = snap;
+    quartered.replace(field, 5, "\n25\n");
+    dag::Game b, c;
     b.restore_snapshot(snap);
-    check(b.incoming_damage_percent() == 100, "snapshot default incoming stays 100");
-    b.set_incoming_damage_percent(25);
-    const unsigned quarter = first_hit_damage(b);
-    check(full > 0, "a creature hit the player at 100%", "added=" + std::to_string(full));
-    check(quarter == full * 25u / 100u, "FUDGE incoming 25 scales creature-to-player damage",
-          "full=" + std::to_string(full) + " quarter=" + std::to_string(quarter));
-    check(fresh.incoming_damage_percent() == 100, "another Game() is still canonical 100");
+    c.restore_snapshot(quartered);
+    b.advance_jiffies(2000);
+    c.advance_jiffies(2000);
+    check(b.snapshot() == c.snapshot(), "the retired field has no effect on play");
 }
 
 }  // namespace
@@ -667,7 +681,8 @@ int main() {
     test_save_load_resumes_at_the_save();
     test_ram_image_is_the_whole_state();
     test_snapshot_round_trip_and_replay();
-    test_fudge_harness_is_not_source_behaviour();
+    test_fudge_lines_are_rejected();
+    test_inserted_tape_loads_only_when_typed();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";
     return g_failures == 0 ? 0 : 1;

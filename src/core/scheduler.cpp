@@ -84,7 +84,6 @@ void Scheduler::advance_clock_counters(std::uint32_t n) {
 }
 
 void Scheduler::interrupt(const std::vector<std::uint8_t>& keys_this_jiffy) {
-    if (halted_) return;
     ++counters_.total_jiffies;
     if (irq_hook_) {
         in_irq_ = true;
