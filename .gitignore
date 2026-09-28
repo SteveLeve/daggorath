@@ -32,3 +32,5 @@ __pycache__/
 
 # exclude chat transcripts used for documentation purposes
 docs/.transcripts
+# a worktree may symlink the pinned sources (a symlink is not a directory)
+third_party

@@ -242,6 +242,15 @@ std::optional<std::string> press_keyboard_key(PendingKind pending, std::string& 
     return std::nullopt;
 }
 
+std::string hand_verb_caption(const std::string& letter) {
+    if (letter == "S") return "STOW";
+    if (letter == "D") return "DROP";
+    if (letter == "U") return "USE";
+    if (letter == "R") return "REVEAL";
+    if (letter == "I") return "INCANT";
+    return {};
+}
+
 std::optional<ButtonId> picker_anchor(PendingKind pending, bool right_hand) {
     switch (pending) {
         case PendingKind::FloorPicker:

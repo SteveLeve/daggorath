@@ -370,9 +370,21 @@ void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char labe
 // is only 28 bytes (4 glyphs, the heart icon's sizes), not a general ASCII
 // font, so it cannot draw slot names, digits, or punctuation (confirmed
 // blank on screen when tried).
-void draw_text_line(SDL_Renderer* renderer, double x, double y, const std::string& text) {
+void draw_text_line(SDL_Renderer* renderer, double x, double y, const std::string& text,
+                    float scale = 1.0f) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderDebugText(renderer, static_cast<float>(x), static_cast<float>(y), text.c_str());
+    SDL_SetRenderScale(renderer, scale, scale);
+    SDL_RenderDebugText(renderer, static_cast<float>(x) / scale, static_cast<float>(y) / scale,
+                        text.c_str());
+    SDL_SetRenderScale(renderer, 1.0f, 1.0f);
+}
+
+// A label of 8x8 debug-font characters at `scale`, centred in `rect`.
+void draw_text_centered(SDL_Renderer* renderer, const dag::input::Rect& rect,
+                        const std::string& text, float scale) {
+    const double w = 8.0 * scale * static_cast<double>(text.size());
+    draw_text_line(renderer, rect.x + (rect.w - w) / 2, rect.y + (rect.h - 8.0 * scale) / 2, text,
+                   scale);
 }
 
 // crisp render style (8.6.3, ADR-0010 §2): device-scaled line/point drawing
@@ -621,12 +633,16 @@ int main(int argc, char** argv) {
                     // addendum) -- Esc, the physical keyboard, or the
                     // SystemMenu button are the only ways to act on it.
                 } else if (overlay.keyboard_open()) {
-                    // Taps off the keys do nothing; ✕ closes (Incant board).
+                    // Taps off the keys do nothing, except the two A buttons the
+                    // Incant board keeps up; ✕ closes.
+                    bool on_key = false;
                     for (const auto& k : keyboard.keys)
                         if (k.rect.contains(mx, my)) {
                             overlay.press_key(k.label, *held);
+                            on_key = true;
                             break;
                         }
+                    if (!on_key) overlay.handle_attack_tap(mx, my, *held);
                 } else if (overlay.picker_open()) {
                     bool chose = false;
                     for (const auto& [choice, rect] : picker_rects) {
@@ -1023,7 +1039,7 @@ int main(int argc, char** argv) {
                 const std::string shown =
                     (overlay.pending() == dag::input::PendingKind::IncantKeyboard ? ".I " : ".") +
                     overlay.typed() + "_";
-                draw_text_line(r, box.x + 12, box.y + box.h / 2 - 4, shown);
+                draw_text_line(r, box.x + 12, box.y + box.h / 2 - 8, shown, 2.0f);
                 for (const auto& k : keyboard.keys) {
                     const SDL_FRect kf{static_cast<float>(k.rect.x), static_cast<float>(k.rect.y),
                                        static_cast<float>(k.rect.w), static_cast<float>(k.rect.h)};
@@ -1036,10 +1052,13 @@ int main(int argc, char** argv) {
                     } else {
                         const std::string mark = k.label == "BACK" ? "<X" : k.label == "ENTER" ? "OK"
                                                : k.label == "SPACE" ? "SPC" : "X";
-                        draw_text_line(r, k.rect.x + (k.rect.w - 8.0 * mark.size()) / 2,
-                                       k.rect.y + k.rect.h / 2 - 4, mark);
+                        draw_text_centered(r, k.rect, mark, mark.size() > 2 ? 1.5f : 2.0f);
                     }
                 }
+                for (const auto& button : current_buttons)  // Incant board keeps A up
+                    if (button.id == dag::input::ButtonId::AttackLeft ||
+                        button.id == dag::input::ButtonId::AttackRight)
+                        draw_button(r, button.rect, 'A');
                 return;
             }
             // The buttons stay up under an open picker; the one that opened
@@ -1062,13 +1081,11 @@ int main(int argc, char** argv) {
                 SDL_RenderRect(r, &panel);
                 const bool named = overlay.pending() == dag::input::PendingKind::FloorPicker ||
                                    overlay.pending() == dag::input::PendingKind::PackPicker;
-                if (named) draw_text_line(r, rect.x + 12, rect.y + rect.h / 2 - 4, choice);
+                if (named) draw_text_line(r, rect.x + 12, rect.y + rect.h / 2 - 6, choice, 1.5f);
                 else draw_glyph(r, rect.x + rect.w / 2, rect.y + rect.h / 2, choice[0]);
                 if (overlay.pending() == dag::input::PendingKind::HandMenu) {
                     // Popup board: each letter captioned with its verb.
-                    const std::string word = choice == "S" ? "STOW" : choice == "D" ? "DROP"
-                                           : choice == "U" ? "USE" : choice == "R" ? "REVEAL"
-                                                                   : "INCANT";
+                    const std::string word = dag::input::hand_verb_caption(choice);
                     draw_text_line(r, rect.x + (rect.w - 8.0 * word.size()) / 2, rect.y + rect.h + 4, word);
                 }
             }

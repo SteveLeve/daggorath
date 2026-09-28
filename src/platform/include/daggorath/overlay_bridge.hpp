@@ -104,6 +104,10 @@ public:
     // CANCEL closes it pressing nothing.
     bool press_key(const std::string& key, dag::Game& game);
 
+    // While the keyboard is up only the two A buttons stay live (Incant
+    // board): a tap on one attacks, leaving the keyboard and its text alone.
+    bool handle_attack_tap(double x, double y, dag::Game& game);
+
     // Closes any open picker without pressing anything (a picker's "cancel").
     void cancel_picker() {
         pending_ = dag::input::PendingKind::None;
@@ -118,6 +122,7 @@ private:
     dag::input::PendingKind pending_ = dag::input::PendingKind::None;
     bool pending_right_hand_ = false;
     std::string typed_;
+    dag::input::OverlayState state_;  // the state buttons() last laid out
 };
 
 }  // namespace dag::platform

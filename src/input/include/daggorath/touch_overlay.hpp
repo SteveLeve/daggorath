@@ -169,6 +169,10 @@ KeyboardLayout keyboard_layout(OverlayLayout layout, double viewport_w, double v
 std::optional<std::string> press_keyboard_key(PendingKind pending, std::string& typed,
                                               const std::string& key, bool& closed);
 
+// The hand menu's verb for a letter, as the Popup board captions it
+// (S STOW, D DROP, U USE, R REVEAL, I INCANT); empty for anything else.
+std::string hand_verb_caption(const std::string& letter);
+
 // Finishes a pending picker: the floor/pack picker's chosen object name, or
 // the hand-menu's chosen verb letter ('S' stow, 'D' drop, 'U' use, 'R'
 // reveal — 'I' opens the incant keyboard instead of finishing here).

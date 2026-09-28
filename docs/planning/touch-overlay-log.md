@@ -50,15 +50,15 @@ Code paths are in `src/`.
 | T12 | Incant | `sdl_app.cpp`, `overlay_bridge` | fixed 4 | No on-screen QWERTY keyboard: hand-menu I and ⌨ fall back to the physical keyboard. |
 | T13 | Main | `sdl_app.cpp` `button_label` | fixed 3 | Buttons use placeholder letters; the mockups use ⇤↑⇥ ↶↻↷ ↓ ≡ ⌨ icons. |
 | T14 | Main / Legacy | `input/touch_overlay.cpp` layouts | fixed 3 | Compare each button's position with the phone and tablet boards. |
-| T15 | — | `platform/overlay_bridge.cpp` `handle_tap` | todo | `handle_tap` passes a default `OverlayState{}` to `resolve_tap`. It is harmless while `resolve_tap` ignores the state, but should pass the real one. |
-| T16 | touch-input.md §4–5 | docs | todo | §5 still calls GET/PULL/CLIMB UNIMPLEMENTED in the core; the core implements them now. |
+| T15 | — | `platform/overlay_bridge.cpp` `handle_tap` | fixed 5 | `handle_tap` passed a default `OverlayState{}` to `resolve_tap`; it now passes the state `buttons()` last laid out. |
+| T16 | touch-input.md §4–5 | docs | fixed 5 | §5 called GET/PULL/CLIMB UNIMPLEMENTED; a dated addendum now records that all 15 verbs are implemented. |
 | T18 | Picker | `sdl_app.cpp` | todo | The Picker board titles the menu ("Get left: on floor"); no title is drawn yet. |
 | T19 | — | `sdl_app.cpp` | todo | An empty floor or pack opens a picker with no rows. Consider showing "nothing here" or not opening it at all (ask Steve if unclear). |
-| T20 | — | `sdl_app.cpp` | todo | The hand-menu caption words are defined in `sdl_app.cpp`; they belong with the verb letters in `src/input`. |
+| T20 | — | `sdl_app.cpp` | fixed 5 | The hand-menu caption words are defined in `sdl_app.cpp`; they belong with the verb letters in `src/input`. |
 | T21 | Examine on tablet | `input/touch_overlay.cpp` `layout_tablet` | needs-steve | On the tablet the buttons float over the game, so the top ones (A, G, P) cover the EXAMINE listing's first lines. See Q4. |
 | T22 | Main (phone) | `layout_phone` | todo | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
-| T23 | Incant | `sdl_app.cpp` | todo | The text box and the ⌫ ↵ ✕ SPC labels use SDL's 8 px debug font, which is small next to the keys. |
-| T24 | Incant | `sdl_app.cpp` | todo | The Incant board keeps both A buttons visible over the keyboard; the keyboard currently hides every button. |
+| T23 | Incant | `sdl_app.cpp` | fixed 5 | The text box and the ⌫ ↵ ✕ SPC labels use SDL's 8 px debug font, which is small next to the keys. |
+| T24 | Incant | `sdl_app.cpp` | fixed 5 | The Incant board keeps both A buttons visible over the keyboard; the keyboard currently hides every button. |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
@@ -130,3 +130,14 @@ Code paths are in `src/`.
     `test_keyboard_types_a_line`. The incant test fails when the `I ` prefix is
     removed.
   - New rows: T23 and T24. Q4 and Q5 still open.
+- Run 5, 2026-09-28: T15, T16, T20, T23, T24.
+  - Keyboard labels and the text box are drawn 1.5–2× larger (T23).
+  - Both A buttons stay drawn and live over the keyboard, through
+    `OverlayBridge::handle_attack_tap` (T24).
+  - The hand-menu captions come from `dag::input::hand_verb_caption` (T20).
+  - `handle_tap` passes the real `OverlayState` (T15).
+  - `touch-input.md` §4–5 got dated addenda: pickers decided, and all 15 verbs
+    are now implemented in the core (T16).
+  - Screen checked: keyboard on tablet with typed text.
+  - The new bridge check fails without `handle_attack_tap`.
+  - Q4 and Q5 still open.

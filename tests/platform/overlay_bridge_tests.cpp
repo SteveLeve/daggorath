@@ -204,6 +204,18 @@ void test_keyboard_types_a_line() {
     check(!bridge.keyboard_open() && bridge.typed().empty() && render_trace(cancelled) == before,
           "CANCEL closes the keyboard pressing nothing");
 
+    dag::Game attacked;
+    bridge.handle_tap(kx, ky, attacked);
+    bridge.press_key("F", attacked);
+    const auto [ax, ay] = center_of(buttons, dag::input::ButtonId::AttackLeft);
+    check(bridge.handle_attack_tap(ax, ay, attacked) && bridge.keyboard_open() && bridge.typed() == "F",
+          "A stays live over the keyboard and leaves the typed text alone");
+    check(!bridge.handle_attack_tap(kx, ky, attacked), "other buttons stay dead over the keyboard");
+    bridge.cancel_picker();
+    attacked.advance_jiffies(200);
+    check(render_trace(attacked) == render_trace(typed_reference("A L", 200)),
+          "A over the keyboard matches typing A L");
+
     dag::Game incant;
     bridge.open_incant_keyboard();
     for (const char* key : {"F", "I", "R", "E"}) bridge.press_key(key, incant);

@@ -104,6 +104,16 @@ carried from the plan):**
   so the exact name strings are an 8.1/8.4 implementation detail, not decided
   here.
 
+**Addendum (2026-09-28, touch-overlay run 5):** The pickers are now built,
+with Steve deciding the one open question.
+- The floor picker lists the objects EXAMINE lists on the player's cell,
+  whether or not there is light, as EXAMINE itself does (Steve,
+  2026-09-28, answering Q1 in `docs/planning/touch-overlay-log.md`).
+- The pack picker lists the backpack names as EXAMINE gives them.
+- No new core accessor was needed. `dag::platform::overlay_state_from` reads
+  the existing `examine_snapshot_from` (presentation) and `vfind` (core; PCLIMB.ASM:13 `JSR VFIND`,
+  [SRC]).
+
 ## 5. Commands with unresolved effect
 
 `ATTACK`, `CLIMB`, `DROP`, `EXAMINE`, `GET`, `INCANT`, `PULL`, `REVEAL`,
@@ -113,6 +123,16 @@ touch to reach the same keystrokes a typist would use; it does not require the
 core to implement these verbs, and does not approximate them. Phase 8 adds no
 gameplay behaviour (`docs/prompts/phase-8-touch-input.md`: "do not build...
 rule changes").
+
+**Addendum (2026-09-28):** this section and the "core status" column of §1
+are out of date. `Game::dispatch_line` (src/core/game.cpp) now handles all 15
+verbs:
+- MOVE, TURN and LOOK;
+- ATTACK, CLIMB, DROP and EXAMINE;
+- GET, INCANT, PULL and REVEAL;
+- STOW, USE, ZLOAD and ZSAVE.
+
+The contract is unchanged: touch types the same keystrokes a typist would.
 
 ## 6. Coverage gate
 

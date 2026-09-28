@@ -35,6 +35,7 @@ dag::input::OverlayState overlay_state_from(const dag::Game& game) {
 const std::vector<dag::input::Button>& OverlayBridge::buttons(double viewport_w,
                                                                double viewport_h,
                                                                const dag::input::OverlayState& state) {
+    state_ = state;
     buttons_ = dag::input::layout_buttons(layout_, viewport_w, viewport_h, state);
     return buttons_;
 }
@@ -61,8 +62,7 @@ bool OverlayBridge::handle_tap(double x, double y, dag::Game& game) {
         return false;
     }
 
-    const dag::input::OverlayState dummy_state{};  // resolve_tap ignores state today
-    const dag::input::TapOutcome outcome = dag::input::resolve_tap(*hit, dummy_state);
+    const dag::input::TapOutcome outcome = dag::input::resolve_tap(*hit, state_);
     if (outcome.line) return press_line(*outcome.line, game);
     if (outcome.pending != PendingKind::None) {
         pending_ = outcome.pending;
@@ -77,6 +77,12 @@ bool OverlayBridge::press_key(const std::string& key, dag::Game& game) {
     const auto line = dag::input::press_keyboard_key(pending_, typed_, key, closed);
     if (closed) pending_ = PendingKind::None;
     return line && !line->empty() && press_line(*line, game);
+}
+
+bool OverlayBridge::handle_attack_tap(double x, double y, dag::Game& game) {
+    const auto hit = dag::input::hit_test(buttons_, x, y);
+    if (hit != ButtonId::AttackLeft && hit != ButtonId::AttackRight) return false;
+    return press_line(dag::input::gesture_attack(hit == ButtonId::AttackRight), game);
 }
 
 bool OverlayBridge::resolve_choice(const std::string& choice, dag::Game& game) {
