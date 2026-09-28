@@ -107,3 +107,7 @@ set_tests_properties(playthrough_power_on_to_winner PROPERTIES TIMEOUT 120 DISAB
 # Independent replay acceptance must reject incomplete or bypassed candidates.
 add_test(NAME playthrough_verifier_negatives
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/test_verify_playthrough.py)
+
+# Phase 5b search diagnostics (docs/planning/phase-5b-loop.md); not acceptance.
+add_test(NAME playthrough_search_summary
+  COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/test_summarize_candidate.py)
