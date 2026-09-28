@@ -1474,16 +1474,20 @@ struct Runner {
                     break;
                 }
                 case LightUp: {
+                    // Level 4 first: resting in LightUp until damage <= 63 while
+                    // occupy_tick flees each arrival never got there, since the
+                    // fleeing adds exertion (L001-b, L002-a: 800k+ jiffies).
+                    if (game.level_index() >= 4) {
+                        ensure_sword();
+                        relight();
+                        phase = Clear;
+                        break;
+                    }
                     if (rest_needed()) {
                         recover();
                         break;
                     }
                     ensure_sword();
-                    if (game.level_index() >= 4) {
-                        relight();
-                        phase = Clear;
-                        break;
-                    }
                     seed_bait();
                     bool lit = torch_live();
                     if (!lit && game.level_index() >= 2)
