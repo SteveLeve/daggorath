@@ -10,11 +10,22 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
 
 ## Frontier
 
-- **Best on the current core:** L002-c, `level-4` (rank 5) with level 4 cleared
-  except WIZ1: peak power 9660, save WIZARD at jiffy 356701, WIZ1 damage 3608/8000
-  (four ring hits of 902). 6 deaths, all recovered. Blocked: 1.2M-jiffy budget in
-  `KillWizard` after both rings were spent; the planner loops `PULL RIGHT JOULE
-  RING` / `INCANT ENERGY` (~50850 times) with no Joule ring left.
+- **WINNER on the current core:** L003-c, planner at run 3. `dplan --max-jiffies
+  1600000` reports won=1 at jiffy 381124 (179036 keys, script SHA-256
+  `54a2cc13…d049`). Saves POWERON, FLOORA, FLOORB, FLOORC, IMAGE, ENDGAM, FLOORD,
+  WIZARD; 6 deaths, each followed by RESTART and ZLOAD of the latest save; peak
+  power 10660; WIZ1 killed at jiffy 381100; WINNER at 381122.
+- **Independent qualification** (`tools/verify_playthrough.py`, two fresh default
+  `dcli` replays, byte-identical): at `--jiffies 381124`, trace SHA-256
+  `1628c7c8c99e2cb3c10981ecca7f53ac437a3b7fd299fbad310b77783cd87be4`; at any
+  `--jiffies` ≥ 381200 (tried 381200, 382000) the trace ends at jiffy 381139 and its
+  SHA-256 is `b56777eecb2c887c565bd0b55add00ed099e9ac085f3c3e6d28b0e7b753661d1`
+  (use this with margin). One replay takes about 8 s here. This proves deterministic
+  core replay under the documented deviations, not ROM conformance.
+- **Not done (supervised closure, prompt steps 5–7):** publish the script, record the
+  reason for replacing the old baseline, re-enable `playthrough_power_on_to_winner`
+  with verifier + hash, update phase-5 reconciliation and §13, evidence-auditor and
+  playthrough-reviewer closure reviews, `make all`.
 - **Best ever, on an older core:** candidate cm (`/tmp`, 2026-09-27 21:09), `level-4`,
   WIZ1 at power 10660, WIZ1 damage 5473 of 8000 before twelve recoveries failed from
   save WIZARD. Its script diverges on the current core (replays only to level 1),
@@ -38,29 +49,15 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
 | L002-a | level-4 stagnation hold in the Clear/search branch | level-4 | 7539 | 9 | same as L001-b: hold never reached (stall was in LightUp) | reverted |
 | L002-b | LightUp goes to Clear first on level 4, plus hold | level-4, L4 cleared | 9660 | 6 | budget 1.2M in KillWizard, rings spent | = c |
 | L002-c | LightUp goes to Clear first on level 4 (no hold) | level-4, L4 cleared | 9660 | 6 | budget 1.2M in KillWizard; ring re-incant loop | **kept** |
+| L003-a | sword on WIZ1 when no ring ready, damage < power/2; ring pull only if owned | wizard-killed | 10660 | 6 | GET typed before the queued leave move ran; INCANT FINAL failed | base for c |
+| L003-b | as a, damage < power/3 | wizard-killed | 10660 | 6 | same; WIZ1 dies 32k jiffies later | dropped |
+| L003-c | a + TakeSupreme idles 10 jiffies before trusting position | **winner** | 10660 | 6 | — | **kept, qualified** |
 
 ## Hypothesis queue (top first)
 
-1. **WIZ1 after the rings.** In L002-c, KillWizard keeps re-pulling a Joule ring
-   that no longer exists. Switch to the Elvish sword (magic channel, ~226/hit at
-   power 9660; 4392 damage left ≈ 20 hits) with hit-and-leave, and bound the ring
-   branch. Source-check first whether a creature's damage ever decreases (does
-   WIZ1 heal between exchanges?) and what WIZ1's hit does to the player.
-2. **More ring hits.** Only 4 ring hits landed of the charges carried; check where
-   the other charges went (level-4 clearing?) and whether saving them for WIZ1
-   gets closer to 8000.
-3. **Timing-offset search.** L001-c moved one wait by 16 jiffies and lost a whole
-   level: outcomes are highly sensitive to key timing (creature moves and RNG
-   draws key off the clock). A cheap search dimension: at a failing stage,
-   replay from the last save with small idle offsets (0–60 jiffies) before
-   the first command and keep the best. Legal: it changes only key timing.
-4. **WIZ1 finishing cycle.** Elvish sword magic channel 249/hit at power 10660
-   needs about 11 more hits after cm's 5473. Source-check whether WIZ1 heals
-   (creature damage recovery) before relying on attrition; save closer to the fight.
-5. **More power at WIZ1.** Farm kills (power ÷ 8 each) and THEWS before ENDGAM;
-   the magic channel scales with player power.
-6. **Ring allocation** across ENDGAM: hands survive, the reachable bag is cleared.
-7. **Strategy guides** for the final fight (ledger-recorded, strategy-only).
+Search is complete; the loop stopped at the WINNER. Remaining work is closure
+(see Frontier). Optional later: shorten the route (fewer deaths or jiffies) only
+if closure review asks for it.
 
 ## Facts
 
@@ -81,6 +78,10 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
   (damage > 63, never false in L001-b) plus `occupy_tick` fleeing each arrival,
   whose exertion kept damage high.
 - **Core-observed** (L002-c): one ring hit on WIZ1 at power ~9660 deals 902.
+- **Source-proven** (listing search): creature damage is written only by
+  `PATTK.ASM DAMAGE` (accumulates; P.CCDAM/P.ATDAM offset 10, no other writer), so
+  WIZ1 does not heal; only a ZLOAD restores the saved value.
+- **Core-observed** (L003): after the rings, Elvish-sword hits finish WIZ1.
 - **Core-observed** (L000/L001): during a timed NEWLVL (D-19) the new level's
   objects and creatures are not yet placed; a CLIMB shows `preparing()`, but
   ENDGAM's NEWLVL 3 does not, and `ENDGAM wizard` is emitted on WIZ1's death,
@@ -111,3 +112,6 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
 - 2026-09-28 run 2: level-4 stall traced to LightUp's rest check (L002-a's
   search-branch hold was the wrong place and never ran). LightUp now goes straight
   to Clear on level 4; L002-c clears level 4 except WIZ1, power 9660, WIZ1 3608/8000.
+- 2026-09-28 run 3: sword on WIZ1 after the rings, bounded ring re-pull, and a settle
+  wait before taking SUPREME. L003-c reaches WINNER at jiffy 381122 and qualifies
+  under the independent verifier. Loop stopped for supervised closure.
