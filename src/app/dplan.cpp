@@ -327,6 +327,26 @@ struct Runner {
                   << " p=" << game.player().power << " d=" << game.player().damage << "\n";
     }
 
+    // A CLIMB's build shows PREPARE!; ENDGAM's NEWLVL 3 does not, so read the
+    // (append-only) trace: busy from "ENDGAM image" until FNDCEL's RELOCATE,
+    // once level 3 exists. WIZOUT's 16 SYNCs follow; keys typed then are
+    // buffered. Waiting for PLAYER instead (L001-c) changed the route for the
+    // worse, so it is not adopted.
+    std::size_t build_cursor = 0;
+    bool endgam_building = false;
+    int build_idle = 0;
+    bool building() {
+        const auto& t = game.trace();
+        for (; build_cursor < t.size(); ++build_cursor) {
+            const auto& e = t[build_cursor];
+            if (e.kind == "ENDGAM" && e.detail == "image")
+                endgam_building = true;
+            else if (e.kind == "RELOCATE" || e.kind == "RESTART" || e.kind == "ZLOAD")
+                endgam_building = false;
+        }
+        return game.preparing() || endgam_building;
+    }
+
     bool reload_after_death() {
         if (latest_save.empty() || ++recoveries > 12) return false;
         // One restart key, then a separately typed cassette command. Retain all
@@ -1353,6 +1373,21 @@ struct Runner {
                 idle(20);
                 continue;
             }
+            // D-19: NEWLVL is timed; the new level's creatures and objects are
+            // not placed until it ends. Wait it out without counting it
+            // against any phase's wait bound.
+            if (building()) {
+                // The core fixes a build at roughly 400-600 jiffies (C-22).
+                if (++build_idle > 2000) {
+                    report_block("level build did not finish");
+                    return 1;
+                }
+                const int saved_waits = waits;
+                idle(1);
+                waits = saved_waits;
+                continue;
+            }
+            build_idle = 0;
             if (phase == DarkPark && here() >= 0) {
                 const dag::Ccb& parked =
                     game.creatures()[static_cast<std::size_t>(here())];
