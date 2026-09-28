@@ -191,6 +191,38 @@ void test_picker_choices_follow_game_state() {
           "a ring in the other hand does not");
 }
 
+void test_choices_sit_beside_their_anchor() {
+    using namespace dag::input;
+    constexpr double vw = 844, vh = 390;  // the boards' 19.5:9 canvas
+    // Picker board: G at (14,68) -> menu at left 68, top 68, width 200, rows 44.
+    const auto floor = place_choices(PendingKind::FloorPicker,
+                                     {"LEATHER SHIELD", "PINE TORCH", "FLASK"},
+                                     Rect{14, 68, 48, 48}, vw, vh);
+    check(floor.size() == 3 && floor[0].rect.x == 68 && floor[0].rect.y == 68 &&
+              floor[0].rect.w == 200 && floor[2].rect.y == 68 + 2 * 44,
+          "the floor picker is a column beside G, as on the Picker board");
+    // Popup board: right "≡" at (782,68) -> S D U R I at 506..722, top 68.
+    const auto hand = place_choices(PendingKind::HandMenu, {"S", "D", "U", "R", "I"},
+                                    Rect{782, 68, 48, 48}, vw, vh);
+    check(hand.size() == 5 && hand[0].rect.x == 506 && hand[4].rect.x == 722 &&
+              hand[0].rect.y == 68,
+          "the right hand menu is a row ending beside its ≡, as on the Popup board");
+    // Climb board: C at (728,274) -> U at (674,220), D at (674,274).
+    const auto climb = place_choices(PendingKind::ClimbChoice, {"U", "D"}, Rect{728, 274, 48, 48}, vw, vh);
+    check(climb.size() == 2 && climb[0].rect.x == 674 && climb[0].rect.y == 220 &&
+              climb[1].rect.y == 274,
+          "climb's U over D sits beside C, as on the Climb board");
+    // A long pack list near the bottom moves up to stay on screen.
+    const auto pack = place_choices(PendingKind::PackPicker,
+                                    {"A", "B", "C", "D", "E", "F", "G", "H"},
+                                    Rect{14, 122, 48, 48}, vw, vh);
+    check(pack.back().rect.y + pack.back().rect.h <= vh, "a long picker stays on screen");
+    check(picker_anchor(PendingKind::PackPicker, true) == ButtonId::PullRight &&
+              picker_anchor(PendingKind::HandMenu, false) == ButtonId::HandMenuLeft &&
+              picker_anchor(PendingKind::ClimbChoice, false) == ButtonId::Climb,
+          "each picker is anchored to the button that opens it");
+}
+
 void test_climb_confirmation() {
     using namespace dag::input;
     OverlayState state;
@@ -223,6 +255,7 @@ int main() {
     test_tap_dispatch_for_simple_commands();
     test_tap_dispatch_for_pickers_and_menus();
     test_picker_choices_follow_game_state();
+    test_choices_sit_beside_their_anchor();
     test_climb_confirmation();
     test_incant_keyboard_finish();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "

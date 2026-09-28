@@ -36,16 +36,19 @@ Code paths are in `src/`.
 | T4 | HandStates | `picker_choices` | fixed 1 | The ≡ menu offers I only when that hand holds a ring. |
 | T5 | Picker | `sdl_app.cpp` | fixed 1 | Choices showed only their first letter (SCROLL, SHIELD and SWORD all read "S"); they now show the full name. |
 | T6 | README "sequential entry" | `sdl_app.cpp` | fixed 1 | A tap outside an open picker now closes it. Before, an empty or unwanted picker was a dead end. |
-| T7 | Picker | `sdl_app.cpp` `picker_choice_rects` | todo | The picker should be a vertical menu anchored beside the button that opened it (left 68 / top 68 / w 200), titled e.g. "Get left: on floor". Today it is a bottom row. |
-| T8 | Popup | `picker_choice_rects` | todo | The hand menu should be a row of letters with captions beside the ≡ that opened it. |
-| T9 | Climb | `picker_choice_rects` | todo | The U/D choices should sit beside the C button. |
-| T10 | Picker | `sdl_app.cpp` drawing | todo | The button that opened a picker should be drawn pressed (inverted). |
+| T7 | Picker | `sdl_app.cpp` `picker_choice_rects` | fixed 2 | The picker should be a vertical menu anchored beside the button that opened it (left 68 / top 68 / w 200). The title is T18. |
+| T8 | Popup | `picker_choice_rects` | fixed 2 | The hand menu should be a row of letters with captions beside the ≡ that opened it. |
+| T9 | Climb | `picker_choice_rects` | fixed 2 | The U/D choices should sit beside the C button. |
+| T10 | Picker | `sdl_app.cpp` drawing | fixed 2 | The button that opened a picker should be drawn pressed (inverted). |
 | T11 | README "sequential entry" | command line | todo | The partial command (e.g. `.G L`) should be echoed while a picker is open. |
 | T12 | Incant | `sdl_app.cpp`, `overlay_bridge` | todo | No on-screen QWERTY keyboard: hand-menu I and ⌨ fall back to the physical keyboard. |
 | T13 | Main | `sdl_app.cpp` `button_label` | todo | Buttons use placeholder letters; the mockups use ⇤↑⇥ ↶↻↷ ↓ ≡ ⌨ icons. |
 | T14 | Main / Legacy | `input/touch_overlay.cpp` layouts | todo | Compare each button's position with the phone and tablet boards. |
 | T15 | — | `platform/overlay_bridge.cpp` `handle_tap` | todo | `handle_tap` passes a default `OverlayState{}` to `resolve_tap`. It is harmless while `resolve_tap` ignores the state, but should pass the real one. |
 | T16 | touch-input.md §4–5 | docs | todo | §5 still calls GET/PULL/CLIMB UNIMPLEMENTED in the core; the core implements them now. |
+| T18 | Picker | `sdl_app.cpp` | todo | The Picker board titles the menu ("Get left: on floor"); no title is drawn yet. |
+| T19 | — | `sdl_app.cpp` | todo | An empty floor or pack opens a picker with no rows. Consider showing "nothing here" or not opening it at all (ask Steve if unclear). |
+| T20 | — | `sdl_app.cpp` | todo | The hand-menu caption words are defined in `sdl_app.cpp`; they belong with the verb letters in `src/input`. |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
@@ -68,3 +71,16 @@ Code paths are in `src/`.
     fail.
   - `make all` passes.
   - Screen check not run: no display.
+- Run 2, 2026-09-28, T7–T10:
+  - `place_choices` and `picker_anchor` (`src/input`) now put each picker
+    beside the button that opened it, using the mockup coordinates:
+    - the Picker board's column at x 68,
+    - the Popup board's row at 506–722 with captions,
+    - the Climb board's U/D at 674.
+  - The buttons stay drawn under an open picker, with the opening button shown
+    pressed.
+  - Also fixed a run-1 bug: choice panels drew a "?" glyph behind each name.
+  - Tests are in `test_choices_sit_beside_their_anchor`; they fail when the
+    placement is reverted.
+  - `make all` passes. Screen check not run: no display.
+  - No answers to Q1–Q3 yet.

@@ -1,5 +1,7 @@
 #include "daggorath/touch_overlay.hpp"
 
+#include <algorithm>
+
 namespace dag::input {
 
 namespace {
@@ -252,6 +254,65 @@ std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
             return {};
     }
     return {};
+}
+
+std::optional<ButtonId> picker_anchor(PendingKind pending, bool right_hand) {
+    switch (pending) {
+        case PendingKind::FloorPicker:
+            return right_hand ? ButtonId::GetRight : ButtonId::GetLeft;
+        case PendingKind::PackPicker:
+            return right_hand ? ButtonId::PullRight : ButtonId::PullLeft;
+        case PendingKind::HandMenu:
+            return right_hand ? ButtonId::HandMenuRight : ButtonId::HandMenuLeft;
+        case PendingKind::ClimbChoice:
+            return ButtonId::Climb;
+        case PendingKind::IncantKeyboard:
+        case PendingKind::None:
+            return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+std::vector<Choice> place_choices(PendingKind pending, const std::vector<std::string>& labels,
+                                  const Rect& anchor, double viewport_w, double viewport_h) {
+    constexpr double kGap = 6, kSquare = 48, kStep = 54;
+    constexpr double kMenuW = 200, kRowH = 44;
+    const bool opens_right = anchor.x + anchor.w / 2 < viewport_w / 2;
+    std::vector<Choice> out;
+    const double n = static_cast<double>(labels.size());
+    switch (pending) {
+        case PendingKind::FloorPicker:
+        case PendingKind::PackPicker: {
+            const double x = opens_right ? anchor.x + anchor.w + kGap : anchor.x - kGap - kMenuW;
+            double top = anchor.y;
+            if (top + n * kRowH > viewport_h) top = std::max(0.0, viewport_h - n * kRowH);
+            for (std::size_t i = 0; i < labels.size(); ++i)
+                out.push_back({labels[i], Rect{x, top + static_cast<double>(i) * kRowH, kMenuW, kRowH}});
+            break;
+        }
+        case PendingKind::HandMenu: {
+            // Left hand: S D U R I reading outward from "≡". Right hand: the
+            // same order, the row ending beside "≡" (Popup board).
+            constexpr double kPopupGap = 12;  // Popup board: I ends at 770, "≡" at 782
+            const double first = opens_right ? anchor.x + anchor.w + kPopupGap
+                                             : anchor.x - kPopupGap - (n - 1) * kStep - kSquare;
+            for (std::size_t i = 0; i < labels.size(); ++i)
+                out.push_back({labels[i], Rect{first + static_cast<double>(i) * kStep, anchor.y,
+                                               kSquare, kSquare}});
+            break;
+        }
+        case PendingKind::ClimbChoice: {
+            const double x = opens_right ? anchor.x + anchor.w + kGap : anchor.x - kGap - kSquare;
+            const double top = anchor.y - (n - 1) * kStep;
+            for (std::size_t i = 0; i < labels.size(); ++i)
+                out.push_back({labels[i], Rect{x, top + static_cast<double>(i) * kStep, kSquare, kSquare}});
+            break;
+        }
+        case PendingKind::IncantKeyboard:
+        case PendingKind::None:
+            break;
+    }
+    return out;
 }
 
 std::optional<std::string> resolve_picker_choice(PendingKind pending, bool right_hand,

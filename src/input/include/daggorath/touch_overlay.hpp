@@ -127,6 +127,27 @@ TapOutcome resolve_tap(ButtonId id, const OverlayState& state);
 std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
                                         const OverlayState& state);
 
+// The button a pending picker opened from: G or P for the floor or pack
+// picker, "≡" for the hand menu, C for climb. nullopt for the keyboard.
+std::optional<ButtonId> picker_anchor(PendingKind pending, bool right_hand);
+
+struct Choice {
+    std::string label;
+    Rect rect;
+};
+
+// Places a picker's choices beside its anchor button, on the side facing the
+// middle of the viewport, as the mockup boards draw them:
+//  - floor/pack (Picker board): a 200-wide column of 44-high rows whose top
+//    lines up with the anchor, moved up if it would run off the bottom;
+//  - hand menu (Popup board): a row of 48-square letters level with "≡";
+//  - climb (Climb board): a column of U over D ending level with C.
+// The gap to the anchor is 6 (Picker, Climb boards) or 12 (Popup board).
+// The mirrored cases (a left-hand menu, a picker opening leftward) and the
+// upward shift for long lists are extrapolated; no board draws them.
+std::vector<Choice> place_choices(PendingKind pending, const std::vector<std::string>& labels,
+                                  const Rect& anchor, double viewport_w, double viewport_h);
+
 // Finishes a pending picker: the floor/pack picker's chosen object name, or
 // the hand-menu's chosen verb letter ('S' stow, 'D' drop, 'U' use, 'R'
 // reveal — 'I' opens the incant keyboard instead of finishing here).

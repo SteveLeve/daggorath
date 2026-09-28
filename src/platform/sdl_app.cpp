@@ -251,12 +251,16 @@ void draw_glyph(SDL_Renderer* renderer, double center_x, double center_y, char l
     }
 }
 
-void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char label) {
+void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char label,
+                 bool pressed = false) {
     const SDL_FRect r{static_cast<float>(rect.x), static_cast<float>(rect.y),
                       static_cast<float>(rect.w), static_cast<float>(rect.h)};
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderRect(renderer, &r);
+    if (pressed) SDL_RenderFillRect(renderer, &r);  // inverted, as the boards draw it
+    else SDL_RenderRect(renderer, &r);
+    if (pressed) SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     draw_glyph(renderer, rect.x + rect.w / 2, rect.y + rect.h / 2, label);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 }
 
 // 8.6.6: one line of left-aligned text for the system menu (Resume/Save/
@@ -320,25 +324,6 @@ void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int sc
     }
 }
 
-// Picker/menu choices: dag::input::picker_choices gives the names (floor and
-// pack as EXAMINE lists them, via overlay_state_from) or the hand-menu/climb
-// letters. Which floor objects the player can see in the dark is still open
-// (docs/architecture/touch-input.md §4). Laid out here as one evenly spaced
-// row; anchoring beside the opening button (Picker board) is a later step.
-// `game_x`/`game_w`/`game_h` place the row over the actual game view (not
-// the full window -- see present_frame's letterboxing comment), so it stays
-// centered over the visible corridor on PhoneLandscape's wider window too.
-std::vector<std::pair<std::string, dag::input::Rect>> picker_choice_rects(
-    const std::vector<std::string>& choices, double game_x, double game_w, double game_h) {
-    if (choices.empty()) return {};
-    std::vector<std::pair<std::string, dag::input::Rect>> out;
-    const double w = game_w / static_cast<double>(choices.size());
-    const double h = 40;
-    const double y = game_h - h - 60;  // clear of the status/command bands
-    for (std::size_t i = 0; i < choices.size(); ++i)
-        out.push_back({choices[i], dag::input::Rect{game_x + i * w, y, w - 4, h}});
-    return out;
-}
 
 }  // namespace
 
@@ -471,12 +456,19 @@ int main(int argc, char** argv) {
         // docs/architecture/touch-input.md §5).
         const dag::input::OverlayState overlay_state = dag::platform::overlay_state_from(*held);
         const auto& current_buttons = overlay.buttons(viewport_w, viewport_h, overlay_state);
-        const auto picker_rects = overlay.picker_open()
-                                       ? picker_choice_rects(dag::input::picker_choices(overlay.pending(),
-                                                                           overlay.pending_right_hand(),
-                                                                           overlay_state),
-                                                 game_x, kGameW, kGameH)
-                                       : std::vector<std::pair<std::string, dag::input::Rect>>{};
+        // The open picker's choices, placed beside the button that opened it.
+        std::optional<dag::input::Rect> picker_anchor_rect;
+        const auto picker_anchor_id = dag::input::picker_anchor(overlay.pending(), overlay.pending_right_hand());
+        std::vector<dag::input::Choice> picker_rects;
+        if (picker_anchor_id) {
+            for (const auto& b : current_buttons)
+                if (b.id == *picker_anchor_id) picker_anchor_rect = b.rect;
+        }
+        if (picker_anchor_rect)
+            picker_rects = dag::input::place_choices(
+                overlay.pending(),
+                dag::input::picker_choices(overlay.pending(), overlay.pending_right_hand(), overlay_state),
+                *picker_anchor_rect, viewport_w, viewport_h);
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
@@ -884,15 +876,30 @@ int main(int argc, char** argv) {
                         draw_button(r, button.rect, 'X');
                 return;
             }
-            if (overlay.picker_open()) {
-                for (const auto& [choice, rect] : picker_rects) {
-                    draw_button(r, rect, ' ');
-                    draw_text_line(r, rect.x + (rect.w - 8.0 * choice.size()) / 2,
-                                   rect.y + rect.h / 2 - 4, choice);
+            // The buttons stay up under an open picker; the one that opened
+            // it is drawn pressed (Picker, Popup boards).
+            for (const auto& button : current_buttons) {
+                const bool pressed = picker_anchor_id && button.id == *picker_anchor_id;
+                draw_button(r, button.rect, button_label(button.id), pressed);
+            }
+            for (const auto& [choice, rect] : picker_rects) {
+                const SDL_FRect panel{static_cast<float>(rect.x), static_cast<float>(rect.y),
+                                      static_cast<float>(rect.w), static_cast<float>(rect.h)};
+                SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+                SDL_RenderFillRect(r, &panel);
+                SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+                SDL_RenderRect(r, &panel);
+                const bool named = overlay.pending() == dag::input::PendingKind::FloorPicker ||
+                                   overlay.pending() == dag::input::PendingKind::PackPicker;
+                if (named) draw_text_line(r, rect.x + 12, rect.y + rect.h / 2 - 4, choice);
+                else draw_glyph(r, rect.x + rect.w / 2, rect.y + rect.h / 2, choice[0]);
+                if (overlay.pending() == dag::input::PendingKind::HandMenu) {
+                    // Popup board: each letter captioned with its verb.
+                    const std::string word = choice == "S" ? "STOW" : choice == "D" ? "DROP"
+                                           : choice == "U" ? "USE" : choice == "R" ? "REVEAL"
+                                                                   : "INCANT";
+                    draw_text_line(r, rect.x + (rect.w - 8.0 * word.size()) / 2, rect.y + rect.h + 4, word);
                 }
-            } else {
-                for (const auto& button : current_buttons)
-                    draw_button(r, button.rect, button_label(button.id));
             }
         });
         shown_row = game.player().row;
