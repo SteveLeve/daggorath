@@ -61,6 +61,8 @@ first. Write down, before running anything, what result would confirm or refute 
   and labelled source-proven / core-observed / inferred in Facts.
 - Strategy guides are strategy-only; record any you rely on in
   `docs/provenance/ledger.md`.
+- Scripted edits: chain the build on the edit's success (`python3 edit.py && make build`).
+  Run 1 rebuilt stale code after a failed assertion and misread the result.
 - Gate: `make build && (cd build && ctest --output-on-failure)` on exit code.
 - Planner diffs: run the `playthrough-reviewer` agent on the diff before committing;
   apply blocking items, log the rest. It is defined in this worktree's
