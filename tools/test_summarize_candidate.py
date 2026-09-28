@@ -12,13 +12,18 @@ def rows(*events):
 
 class SummaryTests(unittest.TestCase):
     def test_ladder_keeps_furthest_rung_through_death(self):
-        s = summarize(rows(('ZSAVE', 'A bytes=1'), ('CLIMB', 'level=1'), ('CLIMB', 'level=2'),
+        s = summarize(rows(('ZSAVE', 'A bytes=1'), ('CLIMB', 'level=1'), ('NEWLVL', 'level=1 second=5'),
+                           ('CLIMB', 'level=2'), ('NEWLVL', 'level=2 second=9'),
                            ('KILL', 'slot=3 type=10 matrix=0'), ('ENDGAM', 'image'),
-                           ('ENDGAM', 'wizard'), ('DEATH', 'power=1 damage=2'),
+                           ('NEWLVL', 'level=3 second=7'), ('DEATH', 'power=1 damage=2'),
                            ('RESTART', 'GAME after death'), ('ZLOAD', 'A')))
         self.assertEqual(s['milestone'], 'level-3')
         self.assertEqual(s['final_level'], 0)
         self.assertEqual(s['deaths'], 1)
+
+    def test_climb_without_build_is_not_a_rung(self):
+        s = summarize(rows(('CLIMB', 'level=1')))
+        self.assertEqual(s['milestone'], 'start')
 
     def test_load_restores_save_level(self):
         s = summarize(rows(('CLIMB', 'level=4'), ('ZSAVE', 'W bytes=1'),

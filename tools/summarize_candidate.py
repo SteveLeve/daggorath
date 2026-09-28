@@ -54,15 +54,16 @@ def summarize(lines):
         jiffy, _clock, kind, detail = fields
         jiffy = int(jiffy)
         last_jiffy = jiffy
-        if kind in {'CLIMB', 'ENDGAM', 'DEATH', 'RESTART', 'ZLOAD'}:
+        if kind in {'CLIMB', 'NEWLVL', 'DEATH', 'RESTART', 'ZLOAD'}:
             close_visit()
-        if kind == 'CLIMB':
-            level = int(detail.split('=')[1])
+        if kind == 'NEWLVL':
+            # Timed NEWLVL (D-19) for CLIMB and for ENDGAM's level 3. Note that
+            # "ENDGAM wizard" is the wizard's death, not a level change.
+            level = int(re.match(r'level=(\d+)', detail)[1])
             if 1 <= level <= 4:
                 reach(f'level-{level}', jiffy)
-        elif kind == 'ENDGAM' and detail == 'wizard':
-            level = 3
-            reach('level-3', jiffy)
+        elif kind == 'CLIMB':
+            level = int(detail.split('=')[1])
         elif kind == 'KILL':
             kill_type = int(re.search(r'type=(\d+)', detail)[1])
             visit.pop(int(re.search(r'slot=(\d+)', detail)[1]), None)
