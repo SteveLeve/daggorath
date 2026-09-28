@@ -706,7 +706,9 @@ int main(int argc, char** argv) {
         // inferred (phase-7 reconciliation; capture C-20).
         const bool map_up = game.display_mode() == dag::DisplayMode::Mapper;
         auto frame = map_up ? dag::rasterize_map(dag::map_snapshot_from(game)) : dag::rasterize(snap);
-        if (game.display_mode() == dag::DisplayMode::Examine)   // PEXAM.ASM EXAMIN over the viewport
+        if (game.preparing()) {
+            dag::paint_prepare(frame.data(), dag::kScreenWidth);   // MISC.ASM PREPAX
+        } else if (game.display_mode() == dag::DisplayMode::Examine)   // PEXAM.ASM EXAMIN over the viewport
             dag::paint_examine(frame.data(), dag::kScreenWidth,
                                dag::project_examine(dag::examine_snapshot_from(game)));
         dag::TextSnapshot chrome;
@@ -769,7 +771,7 @@ int main(int argc, char** argv) {
                 --fading.magic_light;
                 auto step = dag::rasterize(fading);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step, game.level_index(), game_x, kGameW, kGameH);
+                present_frame(renderer, texture, step, game.polarity_level(), game_x, kGameW, kGameH);
                 SDL_Delay(83);
                 --fading.regular_light;
             } while (fading.regular_light > -8);
@@ -787,7 +789,7 @@ int main(int argc, char** argv) {
                 for (int fade = 32; fade >= 0; fade -= 2) {
                     auto step = dag::rasterize_wizard(static_cast<std::uint8_t>(fade));
                     dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                    present_frame(renderer, texture, step, game.level_index(), game_x, kGameW, kGameH);
+                    present_frame(renderer, texture, step, game.polarity_level(), game_x, kGameW, kGameH);
                     SDL_Delay(300);
                 }
                 std::uint16_t noise = 1;
@@ -813,7 +815,7 @@ int main(int argc, char** argv) {
             do {
                 auto step = dag::rasterize(rising);
                 dag::paint_text_bands(step.data(), dag::kScreenWidth, dark, message, "");
-                present_frame(renderer, texture, step, game.level_index(), game_x, kGameW, kGameH);
+                present_frame(renderer, texture, step, game.polarity_level(), game_x, kGameW, kGameH);
                 SDL_Delay(83);
                 ++rising.magic_light;
                 ++rising.regular_light;
@@ -838,7 +840,7 @@ int main(int argc, char** argv) {
             leaving.scale = half_scale;
             auto midway = dag::rasterize(leaving);
             dag::paint_text_bands(midway.data(), dag::kScreenWidth, chrome, message, command_override);
-            present_frame(renderer, texture, midway, game.level_index(), game_x, kGameW, kGameH);
+            present_frame(renderer, texture, midway, game.polarity_level(), game_x, kGameW, kGameH);
             SDL_Delay(12);
         } else if (sidestep_bar >= 0 ||
                    (turned && have_shown && snap.mode == 0 &&
@@ -855,11 +857,11 @@ int main(int argc, char** argv) {
                 auto wipe = turn_wipe(bar);
                 dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
                                       command_override);
-                present_frame(renderer, texture, wipe, game.level_index(), game_x, kGameW, kGameH);
+                present_frame(renderer, texture, wipe, game.polarity_level(), game_x, kGameW, kGameH);
                 SDL_Delay(12);
             }
         }
-        present_frame(renderer, texture, frame, game.level_index(), game_x, kGameW, kGameH,
+        present_frame(renderer, texture, frame, game.polarity_level(), game_x, kGameW, kGameH,
                       [&](SDL_Renderer* r) {
             // 8.6.3: crisp overdraws the already-blitted pixel bitmap's
             // viewport band with device-scaled vector geometry (ADR-0010).

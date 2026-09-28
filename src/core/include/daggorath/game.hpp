@@ -101,6 +101,11 @@ public:
     const Maze& maze() const { return level_.maze; }
     const GeneratedLevel& level() const { return level_; }
     int level_index() const { return level_index_; }
+    // NLVL50 sets VDGINV at the end of NEWLVL; during a timed build the screen
+    // keeps the previous level's polarity.
+    int polarity_level() const { return polarity_level_; }
+    // PREPAR's "PREPARE!" is on the viewport while a CLIMB's NEWLVL builds.
+    bool preparing() const { return preparing_; }
     const std::vector<TraceEvent>& trace() const { return trace_; }
     // ADR-0004 rule 1: the ordered, stamped event stream. Read-only.
     const std::vector<CoreEvent>& events() const { return events_; }
@@ -288,6 +293,18 @@ private:
     // draw, 2 after WAIT (NEWLVL 3), 3 after WIZOUT (INIVU).
     int endgame_stage_ = 0;
     void endgame_resume();
+    void hman70();
+    // A timed NEWLVL (C-22): 0 none, 1 before the DGEN90 spin reads SECOND,
+    // 2 during the spin and the births-to-SCHED tail. build_then_ says what
+    // follows: 0 CLIMB's INIVU, 1 ENDGAM's FNDCEL and WIZOUT.
+    int build_stage_ = 0;
+    int build_target_ = 0;
+    int build_then_ = 0;
+    bool preparing_ = false;
+    int polarity_level_ = 0;
+    void begin_newlvl(int level, bool prepare, int then);
+    void build_resume();
+    void endgame_after_newlvl();
     int incoming_damage_percent_ = 100;
     std::vector<HarnessEvent> harness_;
     std::size_t harness_pos_ = 0;

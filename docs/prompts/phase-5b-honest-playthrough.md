@@ -2,7 +2,7 @@
 
 Read `CLAUDE.md`, `docs/project-instructions.md`, `docs/archaeology/phase-5/reconciliation.md`
 (the "Playthrough harness" section and the 2026-09-27 correction) and
-`docs/provenance/ledger.md` first. Work on `refinement/playthrough-and-discovery`.
+`docs/provenance/ledger.md` first. Work on its own branch from `main` (for example `phase-5b/honest-playthrough`).
 
 ## Why this phase exists
 

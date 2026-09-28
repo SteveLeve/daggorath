@@ -7,8 +7,10 @@ Every run starts from `docs/planning/refinement-log.md`; do not rely on conversa
 Goal: find where `src/` is missing or getting wrong behaviour of the original listing
 (`third_party/dod-asm/*.ASM`), fix what is provable, and ask about the rest.
 
-Working branch: `refinement/playthrough-and-discovery`. PR #21 (`cursor/desktop-demo-visible`)
-was merged to `main` on 2026-09-27 after runs 1–16.
+Working branch: `refinement/discovery-2`. PR #21 (runs 1–16) and PR #23 (runs 17–22,
+`refinement/playthrough-and-discovery`) were merged to `main` on 2026-09-27. Phase 8 work lands
+on `main` from other branches. Steve pulls it in by rebasing this branch onto `main`
+(then `git push --force-with-lease`); a run never rebases on its own.
 
 ## 1. Orient (under 2 minutes)
 - Run `git status`. If the tree has uncommitted changes that this loop did not make,
@@ -91,8 +93,9 @@ For each target:
   targets, findings, fixes, commits, and any "not run: <reason>".
 - Commit each fix separately, plus one commit for the log. Commit messages are one
   sentence in the repo's style.
-- `git push origin refinement/playthrough-and-discovery`. If the branch has no open PR
-  yet, open one as a draft against `main`. No force-push, no rebase.
+- `git push origin refinement/discovery-2`. If the branch has no open PR
+  yet, open one as a draft against `main`. A run does not rebase or force-push; only a
+  rebase Steve asks for, pushed with `--force-with-lease`.
 
 ## 8. Ping Steve (PushNotification) when
 - a question blocks progress,

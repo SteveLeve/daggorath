@@ -3,17 +3,17 @@
 Tracker for `refinement-loop.md`. Newest run last.
 
 ## Working branch
-`refinement/playthrough-and-discovery`, from `main` after PR #21 (runs 1–16) was merged on 2026-09-27. The playthrough rework is `docs/prompts/phase-5b-honest-playthrough.md`.
+`refinement/discovery-2`, from `main` after PR #23 (runs 17–22) was merged on 2026-09-27. Earlier: PR #21 (runs 1–16). The playthrough rework is `docs/prompts/phase-5b-honest-playthrough.md`.
 
 ## Reported symptoms
 Steve adds hand-play observations here. The loop works these first.
 - ~~Death animation too fast~~ fixed by C-17 (2026-09-26). Hand-play check pending.
 
 ## Open questions
-- **Q6 (2026-09-27, run 22): charge the level-build time on CLIMB?** [ROM] `descend-early`: `C D` is read at isr 1775, the level-1 spin reads `SECOND` at isr 2103 (41), `NEWLVL` exits at 2121 and `PLAYER` resumes at 2130. `C U` at 2280, spin at 2642 (`SECOND` 50). So the foreground is blocked about 330-360 interrupts while `PREPAR` shows "PREPARE!" and `DGNGEN` carves. The core builds instantly with `SECOND` 35, so level 1's creatures land elsewhere (ROM `0:5@28,1 1:5@20,31`, core `0:5@9,13 1:5@4,10`) and the return to level 0 differs too. Carving should be constant per level (fixed seed per level); the spin costs about 0.1 interrupt per draw. Proposal: block the foreground for a measured per-level pre-spin count, read `SECOND` then, and show PREPARE! in the window meanwhile; levels 0 and 1 are measured, levels 2-4 need capture C-22. This moves every climb baseline and the playthrough. Approve, and should C-22 be captured first?
 
 
 ## Answered
+- **Q6 (2026-09-27, run 22): charge the level-build time on CLIMB?** [ROM] `descend-early`: `C D` is read at isr 1775, the level-1 spin reads `SECOND` at isr 2103 (41), `NEWLVL` exits at 2121 and `PLAYER` resumes at 2130. `C U` at 2280, spin at 2642 (`SECOND` 50). So the foreground is blocked about 330-360 interrupts while `PREPAR` shows "PREPARE!" and `DGNGEN` carves. The core builds instantly with `SECOND` 35, so level 1's creatures land elsewhere (ROM `0:5@28,1 1:5@20,31`, core `0:5@9,13 1:5@4,10`) and the return to level 0 differs too. Carving should be constant per level (fixed seed per level); the spin costs about 0.1 interrupt per draw. Proposal: block the foreground for a measured per-level pre-spin count, read `SECOND` then, and show PREPARE! in the window meanwhile; levels 0 and 1 are measured, levels 2-4 need capture C-22. This moves every climb baseline and the playthrough. Approve, and should C-22 be captured first? **Answer (Steve, 2026-09-27):** accepted; try it and see how it lands, capture first. Done in run 26: C-22 captured, timed NEWLVL applied; descend-early's level 1 and level 0 now match the ROM's creatures.
 - **Q5 (2026-09-27, run 17): reverse-video band in a1df32c.** The listing inverts only the status line: NEWLVL.ASM:83-90 NLVL50 sets VDGINV and the P.TXINV flags of TXTPRI and TXTEXA to -(LEVEL&1), then stores the complement to TXTSTS (defaults COMDAT.ASM:96-106: TXTEXA 0, TXTSTS -1, TXTPRI 0). a1df32c inverts the command and message lines too, and the whole screen does not flip on odd levels. There is also no spec text or §13 entry for it. Options: (a) invert only the status line and model the odd-level VDGINV flip, or (b) keep the current look as a recorded deviation. Which? **Answer (Steve):** the status line is always reversed and flips with the level. Done in the polarity commit. The odd-level inversion moved to dag::apply_vdginv with a test in run 18.
 - **Q4 (loop 11): charge the GAME50 start-up INIVU?** `INIVU` now runs its whole `INIVUX`/`PLOOK` body: CLRPRI, viewer mode and the D-15 `PUPDAT` charge. The start-up call in `GAME50` is left uncharged, because the capture harness defines jiffy 0 as the first interrupt after `GAME50` is fetched. Charging it would shift every baseline by one jiffy at the start, and the alignment is already [INF]. Leave it, or charge it and regenerate every baseline?
   - **Answer (2026-09-27):** deferred to a start-up alignment task (capture C-21). The ROM's first PLAYER turn comes about 13 jiffies after the core's (t1), so one jiffy here cannot be checked alone. Take it up with the opening-timing work and regenerate the baselines once.
@@ -48,7 +48,7 @@ then the rest.
 | PATTK.ASM:PATTK | game.cpp cmd_attack | gap-fixed | 6 | Exertion (9-bit sum /8), SNDOBJ, ring auto-hit, darkness 25% gate, KLK2, !!! match. Spent ring was missing PREV00/OCBFIL, fixed on refinement/ring-charges (Q3). Kill path lacks the PUPDAT SYNC (Q2 class). |
 | PATTK.ASM:ATTACK | combat attack_hits | matches | 6 | Fixture-backed (combat fixtures). |
 | PATTK.ASM:DAMAGE | combat apply_damage | matches | 6 | SCAL16 magic then physical; fixture-backed. |
-| PATTK.ASM:ENDGAM | game.cpp endgame_image, endgame_resume | gap-fixed | 11, 21 | WIZIN (CLR HBEATF) and the closing INIVU added in run 11; messages, torch-only bag, weight 200, level 3, FNDCEL. |
+| PATTK.ASM:ENDGAM | game.cpp endgame_image, endgame_resume | gap-fixed | 11, 21, 23 | WIZIN (CLR HBEATF) and the closing INIVU added in run 11; messages, torch-only bag, weight 200, level 3, FNDCEL. |
 | HUPDAT.ASM:HUPDAX |  | gap-fixed | 1 | Fade pacing set from ROM capture C-17 (9e8d66c, ab91dc7). |
 | HUPDAT.ASM:HUPD30 |  | gap-fixed | 1 | 5 jiffies per step [ROM], C-17. |
 | HUPDAT.ASM:HUPD40 |  | gap-fixed | 3 | Wake-up fade-in climbs to the saved OLIGHT [SRC], 5 jiffies per step [ROM] C-18; the lighting drift of +1 is washed out by PUPSUB [SRC]. |
@@ -115,8 +115,20 @@ then the rest.
 | COMPLR.ASM:BURNER | game.cpp task_burner | gap-fixed | 20 | Timer, dead-torch at <=5, light clamps match. BURN99 DEC NEWLUK was missing (fixed; D-15 baselines regenerated, [ROM]-consistent with t1). |
 | COMPLR.ASM:LUKNEW | game.cpp task_luknew | matches | 20 | NEWLUK or map mode, CLR NEWLUK, PUPDAT, SCHED$ 3,Q.TEN. |
 | MISC.ASM:WIZIX, WIZOX, WIZZES, WAITX, PREPAX | game.cpp wizard_fade_in, endgame_image/endgame_resume | gap-fixed | 21 | ENDGAM's 1+81+16 SYNCs, both A$EXP1 and WIZIX0 CLRPRI were missing; NEWLVL 3 now uses the later SECOND. DEATH's 17-step fade stays D-14. Note: no test yet for DEATH's CLRPRI. PREPAX not yet traced to a caller. |
-| PCLIMB.ASM:PCLI20 + MISC.ASM:PREPAX | game.cpp cmd_climb | needs-human | 22 | PREPAR's PREPARE! and the NEWLVL build time are not modelled; the core generates at the command's SECOND (ROM: ~330 interrupts later). Q6, C-22. |
-| remaining .ASM files | | unreviewed | | Split into labels when reached. |
+| PCLIMB.ASM:PCLI20 + MISC.ASM:PREPAX | game.cpp cmd_climb, begin_newlvl; sdl_app PREPARE! | gap-fixed | 22, 26 | PREPAR's PREPARE! and a timed NEWLVL (D-19) since run 26 (Q6, C-22); descend-early's levels 1 and 0 match the ROM. |
+| OBIRTH.ASM:OBIRTX, GENVAL | population.cpp make_object | matches | 24 | Specific OCBFIL, then for GENVAL classes (shield, sword, torch) a generic OCBFIL that keeps P.OCREV and P.OCTYP; special bytes kept when the generic type has no XXXTAB entry. |
+| OBIRTH.ASM:OCBFIX | population.cpp ocbfil, fill_ocb_specific | matches | 24 | ODBTAB copy of OD.LEN bytes; OFIL10 writes P.OCXXX only on an XXXTAB match (run 6 fix). |
+| TOKEN.ASM (all tables) | lexicon_tables.hpp (generated from tokens.json) | matches | 24 | Fixture-generated from the listing (EXPAND.ASM decode); `make fixtures` checks it. |
+| COMTXT.ASM:TXTXXX, TXTBS, TXTCR, TXTSCR; TXTSER.ASM:TXTCHR, TXTSTR, TXTSTI | game.cpp out_char, text; examine.cpp Pad | gap-fixed | 25 | Primary text matches (BS wrap to 127, CR, scroll after the char). The EXAMINE pad dropped lines past row 19 instead of scrolling (fixed); the tab-to-608 status-line spill is a recorded quirk, not reproduced. TXTDPB glyphs are fixture-backed (phase 6). |
+| ONCE.ASM:GAME10-GAME50, SYSTCB, IRQSYN | game.cpp Game(), systcb, build_level | gap-fixed | 27 | Start position, PPOW, level-0 build, GAMDAT bag (specific refill is a no-op for wooden/pine), reveal, PROMPT match. P.OCLVL $0B quirk now reproduced. Demo/autoplay path (GAME40) not modelled. |
+| CLEAR.ASM:CLRSTX, CLRPRX, CLEAR, ZFLIPX | game.cpp clear_primary_text; raster/apply_vdginv | matches | 28 | CLRPRI homes the cursor and fills with P.TXINV; the core clears to 0 and the window applies polarity (run 17-18). CLRSTS: status line not modelled as a buffer. |
+| RANDOM.ASM:RANDOX | rng.hpp Rng::next | matches | 28 | Eight rounds of the $E1 feedback parity into a 24-bit ROL chain SEED, SEED+1, SEED+2; returns SEED. ROM-confirmed by DGEN90 seed captures (phase 1). |
+| PLOOK.ASM:INIVUX, PLOOK | game.cpp inivu | matches | 11, 28 | Reviewed in run 11 (CLRPRI, HUPDAT, heart flags, viewer, PUPDAT). |
+| PARSER.ASM:GETTOK, PAROBJ, PARSER | parser.cpp | matches | 17, 28 | GETTOK reviewed in run 17; the parse tables and prefixes are fixture-backed (phase-0b tokens.json, parser-prefixes.json). |
+| VARC, VERT, VOBJ, D3, D4, DTABAS (FWDOBJ/FWDCRE), SWCHAR (FLATAB), VIEWER (NORSCL/HLFSCL/BAKSCL), VCTLST (SETFAX), VECTOR (BITMSK) data | presentation vctlst/raster from vectors.json | matches | 29 | Fixture-extracted from the listing (phase-6 vectors.json, `make fixtures`); draw-level fixtures per level and light. |
+| DGNGEN.ASM | maze.cpp generate_level | matches | 29 | Maze bytes match ROM dumps for levels 0-4 (phase 1, C-22 maze.bin); spin draws and seeds ROM-confirmed. |
+| remaining .ASM files | | unreviewed | | Left: VIEWER/VECTOR/VCTLST code paths (drawing logic beyond the fixtures), CD/COMSWI/DAGGORATH/KSK (definitions only). |
+ | unreviewed | | Split into labels when reached. |
 
 ## Run history
 | Date | Loop | Targets | Findings | Fixes / commits | Not run |
@@ -144,3 +156,10 @@ then the rest.
 | 2026-09-27 | 20 | COMPLR BURNER, LUKNEW | BURNER never set NEWLUK | NEWLUK at BURN99 + test; t1-t5 and phase-3 fight traces regenerated under Q2 | f53cf22 was pushed with a failing test: the gate chain used `grep`, which succeeded on the FAIL line. Fixed in the next commit. Gate on `make all`'s exit code, never on grep. |
 | 2026-09-27 | 21 | MISC wizard/WAIT routines, ENDGAM timing; audit of 66e2b6f | ENDGAM ran instantly: no WIZIN/WAIT/WIZOUT SYNCs, no A$EXP1, level 3 built ~1.4 s early (different SECOND) | Staged ENDGAM + timing test; no baseline moved | — |
 | 2026-09-27 | 22 | PREPAR/PCLIMB build time; ENDGAM text | [ROM] CLIMB builds ~330 interrupts after the command, so level SECOND and creature placement differ (Q6, C-22). A test for WIZIN's CLRPRI showed DEATH's is unobservable (the faint's CLRPRI always runs first), and ENDGAM's staged text shows an unexplained extra dot row before its messages: likely the staged ENDGAM lets HMAN70's line handling run early (gap-open, next run). | none; edits reverted | ENDGAM text — not run: time |
+| 2026-09-27 | 23 | ENDGAM extra prompt line (from run 22) | Staged ENDGAM let HMAN70 prompt before its stages; INIVU then wiped it, leaving no prompt | HMAN70 deferred to ENDGAM's last stage + tests; audited | — |
+| 2026-09-27 | 24 | OBIRTH, TOKEN | Both match (TOKEN via fixtures) | log only | — |
+| 2026-09-27 | 25 | COMTXT, TXTSER | EXAMINE page never scrolled | Pad scroll + test; quirk recorded; audited | — |
+| 2026-09-27 | 26 | Q6: CLIMB/ENDGAM NEWLVL build time | C-22 captured (levels 1-4); timed NEWLVL + PREPARE! applied; SYSTCB tasks deferred to the build's end after the capture showed CREGEN must follow the births | Core, window, tests, reconciliation | — |
+| 2026-09-27 | 27 | ONCE game start | Starting objects' level byte was 0, listing leaves $0B | Quirk reproduced + test; audited | — |
+| 2026-09-27 | 28 | CLEAR, RANDOM, PLOOK, PARSER | All match | log only | — |
+| 2026-09-27 | 29 | Vector data files, DGNGEN | Covered by listing-extracted fixtures and ROM maze dumps | log only; second run in a row with no finding — stop suggested | — |
