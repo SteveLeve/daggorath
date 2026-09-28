@@ -173,3 +173,11 @@ remains untouched.
 Route search now runs as a self-paced loop: method in
 [`phase-5b-loop.md`](phase-5b-loop.md), state and results in
 [`phase-5b-search-log.md`](phase-5b-search-log.md). New progress goes there.
+
+## Closure (2026-09-28)
+
+The search loop found a qualified candidate (run 3, L003-c). Its script is now
+the committed baseline and the winner ctest runs the independent verifier with
+the recorded length, timeout and digest. Details and review outcomes are in
+[`phase-5b-search-log.md`](phase-5b-search-log.md) and phase-5 reconciliation
+("Playthrough status", "2026-09-28 — Phase 5b honest baseline").

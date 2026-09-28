@@ -22,10 +22,16 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
   SHA-256 is `b56777eecb2c887c565bd0b55add00ed099e9ac085f3c3e6d28b0e7b753661d1`
   (use this with margin). One replay takes about 8 s here. This proves deterministic
   core replay under the documented deviations, not ROM conformance.
-- **Not done (supervised closure, prompt steps 5–7):** publish the script, record the
-  reason for replacing the old baseline, re-enable `playthrough_power_on_to_winner`
-  with verifier + hash, update phase-5 reconciliation and §13, evidence-auditor and
-  playthrough-reviewer closure reviews, `make all`.
+- **Closure (2026-09-28, supervised):** script published at
+  `docs/archaeology/phase-5/traces/power-on-to-winner.script` (regenerated at
+  `5ac2c1b`, byte-identical to L003-c); replacement reason recorded first in
+  phase-5 reconciliation; `playthrough_power_on_to_winner` re-enabled through
+  `tools/verify_playthrough.py --jiffies 382000 --timeout 120 --sha256 b56777ee…`;
+  §13 D-12 independence note; `make all` passed (21/21 tests, 56 fixtures, nothing
+  else regenerated). Reviews: boundary-checker and playthrough-reviewer (no
+  blocking findings); evidence-auditor found two blocking §13 items (stale D-18 row;
+  the Phase 5b restart section lost in merge `aab6f49`), both fixed and re-audited
+  clean. `make all` re-run after the fixes: 21/21, 56 fixtures. Phase 5b complete.
 - **Best ever, on an older core:** candidate cm (`/tmp`, 2026-09-27 21:09), `level-4`,
   WIZ1 at power 10660, WIZ1 damage 5473 of 8000 before twelve recoveries failed from
   save WIZARD. Its script diverges on the current core (replays only to level 1),
@@ -115,3 +121,4 @@ if closure review asks for it.
 - 2026-09-28 run 3: sword on WIZ1 after the rings, bounded ring re-pull, and a settle
   wait before taking SUPREME. L003-c reaches WINNER at jiffy 381122 and qualifies
   under the independent verifier. Loop stopped for supervised closure.
+- 2026-09-28 closure: steps 5–7 of the prompt done in a supervised session; see Frontier.
