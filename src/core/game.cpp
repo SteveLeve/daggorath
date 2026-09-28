@@ -60,7 +60,7 @@ Game::Game(std::uint8_t second_at_entry, int level) {
 
 // Source-proven: CLOCK CLK50 redirects RTI to GAME; COMINI clears RAM,
 // including the triggering key buffered by CLK60. Cassette and replay state
-// are external. Inferred: reuse the startup clock alignment (see D-16).
+// are external. Inferred: reuse the startup clock alignment (see D-18).
 void Game::restart_after_death() {
     const auto absolute = sched_.counters().total_jiffies;
     sched_ = Scheduler{};
