@@ -40,14 +40,18 @@ the first `todo` goal, and only that goal. Statuses: `todo`, `done <commit>`,
        where the pixel style inverts them. The fix applies the view rule
        (source-proven) and the map rule (`[INF]`, raster.hpp).
 2. **Headless system-menu state machine.**
-   - Status: `todo`.
+   - Status: `done`. `dag::shell::MenuState` (src/shell/include/daggorath/system_menu.hpp),
+     tests/shell/system_menu_tests.cpp (27 checks; mutating back-out or N-cancel
+     fails them).
    - Move `MenuMode` (Top/ChooseSave/ChooseLoad, Y/N confirmations, Esc backing
      out one level) out of `sdl_app.cpp` into a unit with no SDL dependency, in
      the same style as `OverlayBridge`.
    - Acceptance: tests covering the overwrite, Restart and Quit confirmations,
      Esc back-out, and the slot 1–5 round trip.
 3. **Pause in the trace.**
-   - Status: `todo`.
+   - Status: `done`, already covered: tests/shell/shell_tests.cpp
+     test_pause_invariance checks the PAUSE/RESUME lines, the no-op ticks and an
+     identical core trace. No change needed.
    - Acceptance: a test shows that a shell pause/resume emits `PAUSE`/`RESUME`
      shell lines and does not advance the core clock (phase-8-plan item 8).
 4. **Hand test.**
@@ -79,3 +83,7 @@ Out of scope:
   - `make all` passed on e28d38a.
   - Fixed crisp overdraw on PREPARE!/EXAMINE and crisp polarity. Verified by
     reading the code; the on-screen check is part of goal 4.
+- 2026-09-27, goals 2–3:
+  - Menu key handling moved from `sdl_app.cpp` into `MenuState`; `make all`
+    passes.
+  - Goal 3 was found already tested. Next: goal 4 (`needs-steve`).

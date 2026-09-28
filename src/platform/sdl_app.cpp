@@ -6,6 +6,7 @@
 #include "daggorath/overlay_bridge.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/shell.hpp"
+#include "daggorath/system_menu.hpp"
 #include "daggorath/snapshot.hpp"
 #include "daggorath/snoise.hpp"
 #include "daggorath/sound_mix.hpp"
@@ -125,11 +126,6 @@ std::optional<std::string> read_save(const std::string& dir, const std::string& 
 }
 
 enum class DeathPrompt { Playing, Menu, LoadName };
-
-// 8.6.6: which sub-screen the system menu (ADR-0009 §6) shows while
-// shell->paused(); Shell::pending() (SaveOverwrite/Restart/Quit) layers a
-// confirmation on top of whichever of these is current.
-enum class MenuMode { Top, ChooseSave, ChooseLoad };
 
 std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int bar_x) {
     // PTURN.ASM LRTURN/RLTURN: two horizontal lines and a vertical bar.
@@ -435,7 +431,7 @@ int main(int argc, char** argv) {
     std::string message;
     bool running = true;
     bool crisp_style = false;  // 8.6.3: F1 toggles pixel (default) vs crisp (ADR-0010)
-    MenuMode menu_mode = MenuMode::Top;  // 8.6.6: system menu sub-screen
+    dag::shell::MenuState menu;  // 8.6.6: system menu sub-screen (src/shell/system_menu.hpp)
     int shown_row = 0;
     int shown_col = 0;
     int shown_dir = 0;
@@ -482,21 +478,9 @@ int main(int argc, char** argv) {
         was_dead = game.player().dead;
         seen_motion = game.events().size();
     };
-    // 8.6.6: SystemMenu's tap and Esc's key both back out one level at a
-    // time -- cancel a pending confirmation, then a sub-screen, then resume
-    // -- so neither leaves a stale confirmation showing next time the menu
-    // opens. Shared so the two input paths can't drift apart.
-    auto pause_or_back_out = [&]() {
-        if (!shell->paused()) {
-            shell->pause();
-        } else if (shell->pending() != dag::shell::ConfirmKind::None) {
-            shell->cancel();
-        } else if (menu_mode != MenuMode::Top) {
-            menu_mode = MenuMode::Top;
-        } else {
-            shell->resume();
-        }
-    };
+    // 8.6.6: SystemMenu's tap and Esc's key share MenuState::back_out, so
+    // the two input paths can't drift apart.
+    auto pause_or_back_out = [&]() { menu.back_out(*shell); };
     while (running) {
         // Computed before polling so a tap this frame hit-tests the same
         // rects drawn last frame (one-frame lag on a hand-state change is
@@ -607,37 +591,24 @@ int main(int argc, char** argv) {
                 // 8.6.1 (this build's only tested input path anyway, for
                 // lack of click/keypress-automation tooling to verify a
                 // touch equivalent).
-                const auto pending = shell->pending();
-                if (pending == dag::shell::ConfirmKind::Restart ||
-                    pending == dag::shell::ConfirmKind::Quit) {
-                    if (key == SDLK_Y) {
-                        shell->confirm();
-                        if (pending == dag::shell::ConfirmKind::Restart) {
-                            restart_game();  // re-emplaces held and shell (fresh, unpaused)
-                        } else {
-                            running = false;
-                        }
-                        menu_mode = MenuMode::Top;
-                    } else if (key == SDLK_N) {
-                        shell->cancel();
-                    }
-                    continue;
+                std::optional<dag::shell::MenuKey> menu_key;
+                std::size_t slot = 0;
+                if (key == SDLK_S) menu_key = dag::shell::MenuKey::Save;
+                else if (key == SDLK_L) menu_key = dag::shell::MenuKey::Load;
+                else if (key == SDLK_X) menu_key = dag::shell::MenuKey::Restart;
+                else if (key == SDLK_Q) menu_key = dag::shell::MenuKey::Quit;
+                else if (key == SDLK_Y) menu_key = dag::shell::MenuKey::Yes;
+                else if (key == SDLK_N) menu_key = dag::shell::MenuKey::No;
+                else if (key >= SDLK_1 && key <= SDLK_5) {
+                    menu_key = dag::shell::MenuKey::Slot;
+                    slot = static_cast<std::size_t>(key - SDLK_1);
                 }
-                if (pending == dag::shell::ConfirmKind::SaveOverwrite) {
-                    if (key == SDLK_Y) shell->confirm();
-                    else if (key == SDLK_N) shell->cancel();
-                    continue;
-                }
-                if (menu_mode == MenuMode::Top) {
-                    if (key == SDLK_S) menu_mode = MenuMode::ChooseSave;
-                    else if (key == SDLK_L) menu_mode = MenuMode::ChooseLoad;
-                    else if (key == SDLK_X) shell->request_restart();
-                    else if (key == SDLK_Q) shell->request_quit();
-                } else if (key >= SDLK_1 && key <= SDLK_5) {
-                    const std::size_t slot = static_cast<std::size_t>(key - SDLK_1);
-                    if (menu_mode == MenuMode::ChooseSave) shell->save_to_slot(slot);
-                    else shell->load_from_slot(slot);
-                    menu_mode = MenuMode::Top;
+                if (menu_key) {
+                    const auto effect = menu.press(*shell, *menu_key, slot);
+                    if (effect == dag::shell::MenuEffect::Restart)
+                        restart_game();  // re-emplaces held and shell (fresh, unpaused)
+                    else if (effect == dag::shell::MenuEffect::Quit)
+                        running = false;
                 }
                 continue;  // the system menu owns input while open
             }
@@ -898,7 +869,7 @@ int main(int argc, char** argv) {
                     draw_text_line(r, cx - 110, y, "QUIT? Y N");
                 } else if (pending == dag::shell::ConfirmKind::SaveOverwrite) {
                     draw_text_line(r, cx - 110, y, "OVERWRITE? Y N");
-                } else if (menu_mode == MenuMode::Top) {
+                } else if (menu.screen() == dag::shell::MenuScreen::Top) {
                     draw_text_line(r, cx - 110, y, "S SAVE");
                     y += 24;
                     draw_text_line(r, cx - 110, y, "L LOAD");
@@ -908,7 +879,7 @@ int main(int argc, char** argv) {
                     draw_text_line(r, cx - 110, y, "Q QUIT");
                 } else {
                     draw_text_line(r, cx - 110, y,
-                                   menu_mode == MenuMode::ChooseSave ? "SAVE SLOT 1-5" : "LOAD SLOT 1-5");
+                                   menu.screen() == dag::shell::MenuScreen::ChooseSave ? "SAVE SLOT 1-5" : "LOAD SLOT 1-5");
                     y += 24;
                     const auto& slots = shell->slots();
                     for (std::size_t i = 0; i < slots.size(); ++i) {
