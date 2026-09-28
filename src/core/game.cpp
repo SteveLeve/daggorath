@@ -98,7 +98,12 @@ void Game::start(bool rom_build, std::uint8_t second_at_entry, int level) {
     // GAME30 runs after NEWLVL, so these two are absent from the first attachment.
     int previous = -1;
     for (const std::uint8_t type : {std::uint8_t{17}, std::uint8_t{15}}) {  // WOODEN, PINE
-        Ocb bag = birth_player_object(type, 0);
+        // ONCE.ASM:305-308 GAME30 never loads B before SWI OBIRTH, so P.OCLVL
+        // (OBIRTH.ASM:22) gets the $0B left by GAME10's LDD #$100B (:286); the
+        // SWI dispatcher reloads and restores B (COMSWI.ASM:33,37). Source-
+        // proven; harmless in play, since owned objects are skipped by every
+        // level scan, but it is part of the RAM image. quirks.md.
+        Ocb bag = birth_player_object(type, 0x0B);
         bag.owner = 1;                       // INC of the zeroed ownership byte
         bag.reveal = 0;                      // GAME30 clears the reveal requirement
         objects_.push_back(bag);
