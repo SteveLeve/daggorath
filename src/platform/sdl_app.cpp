@@ -285,9 +285,9 @@ void draw_text_line(SDL_Renderer* renderer, double x, double y, const std::strin
 // only draw over the viewport band (rows 0..kViewportScanlineEnd), never the
 // status/command text bands below it.
 void draw_crisp_view(SDL_Renderer* renderer, const dag::RenderState& state, int scale,
-                     double x_offset) {
+                     double x_offset, std::uint8_t ink) {
     const dag::CrispFrame crisp = dag::build_crisp_frame(state);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, ink, ink, ink, 255);
     for (const auto& line : crisp.lines) {
         SDL_RenderLine(renderer, static_cast<float>(line.x0 * scale + x_offset),
                        static_cast<float>(line.y0 * scale), static_cast<float>(line.x1 * scale + x_offset),
@@ -302,9 +302,9 @@ void draw_crisp_view(SDL_Renderer* renderer, const dag::RenderState& state, int 
 }
 
 void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int scale,
-                    double x_offset) {
+                    double x_offset, std::uint8_t ink) {
     const dag::CrispMap crisp = dag::build_crisp_map(snap);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(renderer, ink, ink, ink, 255);
     for (const auto& wall : crisp.walls) {
         const SDL_FRect r{static_cast<float>(wall.x * scale + x_offset),
                           static_cast<float>(wall.y * scale), static_cast<float>(wall.w * scale),
@@ -867,16 +867,22 @@ int main(int argc, char** argv) {
             // viewport band with device-scaled vector geometry (ADR-0010).
             // Skipped for death/faint/menu frames, which use their own
             // presentation-only fades (D-14) this pass does not reproduce
-            // in crisp form.
+            // in crisp form, and for PREPARE! and EXAMINE, which replace
+            // the viewport with text crisp has no vector form of.
             if (crisp_style && prompt == DeathPrompt::Playing && !game.player().dead &&
-                !game.player().fainted) {
-                SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+                !game.player().fainted && !game.preparing() &&
+                game.display_mode() != dag::DisplayMode::Examine) {
+                // NLVL50 polarity, as present_frame's apply_vdginv gives the pixel style
+                // (source-proven for the view; the map screen is [INF], raster.hpp).
+                const std::uint8_t ink = dag::vdginv(game.polarity_level()) ? 0 : 255;
+                const std::uint8_t paper = static_cast<std::uint8_t>(255 - ink);
+                SDL_SetRenderDrawColor(r, paper, paper, paper, 255);
                 const SDL_FRect viewport_rect{static_cast<float>(game_x), 0,
                                               static_cast<float>(kGameW),
                                               static_cast<float>(dag::kViewportScanlineEnd * kScale)};
                 SDL_RenderFillRect(r, &viewport_rect);
-                if (map_up) draw_crisp_map(r, dag::map_snapshot_from(game), kScale, game_x);
-                else draw_crisp_view(r, dag::project(snap), kScale, game_x);
+                if (map_up) draw_crisp_map(r, dag::map_snapshot_from(game), kScale, game_x, ink);
+                else draw_crisp_view(r, dag::project(snap), kScale, game_x, ink);
             }
             if (prompt != DeathPrompt::Playing) return;  // death/load prompt owns the screen
             if (shell->paused()) {
