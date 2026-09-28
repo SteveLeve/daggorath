@@ -15,6 +15,7 @@
 #include <iostream>
 #include <queue>
 #include <set>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -201,8 +202,15 @@ struct Runner {
         Win
     } phase = Opening;
 
-    bool use_fudge = false;
-    bool allow_resume = true;
+    std::uint64_t jiffy_limit = 4000000;
+    unsigned recoveries = 0;
+    std::size_t recovery_cursor = 0;
+    std::string latest_save;
+    struct PlannerCheckpoint {
+        Phase phase; int camp_r, camp_c, last_floor;
+        std::uint64_t hold_since, phase_since;
+    };
+    PlannerCheckpoint saved_plan{};
     std::string cache_dir = ".cache/playthrough";
     std::set<std::string> saved_stages;
     struct Anno {
@@ -243,13 +251,15 @@ struct Runner {
         std::uint64_t span = extra;
         if (j + 1 > now) span = (j - now) + extra;
         if (span < extra) span = extra;
-        game.advance_jiffies(span == 0 ? 1 : span);
+        game.advance_jiffies(std::min(span == 0 ? 1 : span,
+            jiffy_limit > now ? jiffy_limit - now : 0));
         waits = 0;
     }
 
     void idle(std::uint64_t n) {
         game.load_script({});
-        game.advance_jiffies(n);
+        const auto now = game.counters().total_jiffies;
+        game.advance_jiffies(std::min(n, jiffy_limit > now ? jiffy_limit - now : 0));
         ++waits;
     }
 
@@ -257,23 +267,7 @@ struct Runner {
         annos.push_back({game.counters().total_jiffies, line});
     }
 
-    void apply_fudge_incoming(int percent) {
-        note("FUDGE incoming " + std::to_string(percent));
-        game.set_incoming_damage_percent(percent);
-    }
-
-    void fudge_rest_now() {
-        note("FUDGE rest");
-        game.set_player_damage(63);
-        waits = 0;
-    }
-
-    void recover() {
-        if (use_fudge)
-            fudge_rest_now();
-        else
-            idle(20);  // HSLOW heals damage fully; wait it out.
-    }
+    void recover() { idle(20); } // HSLOW; no direct damage edits.
 
     std::filesystem::path stage_path(const std::string& stage, const char* ext) const {
         return std::filesystem::path(cache_dir) / (stage + ext);
@@ -282,7 +276,7 @@ struct Runner {
     void write_script_to(const std::string& path) const {
         std::ofstream out(path);
         out << "# Original Mode power-on to WINNER. Authored by src/app/dplan.cpp.\n";
-        out << "# FUDGE lines are harness-only (D-12), not command-parser tokens.\n";
+        out << "# Candidate contains legal keys only; checkpoints use cassette commands.\n";
         std::size_t ai = 0;
         for (const auto& k : log) {
             while (ai < annos.size() && annos[ai].jiffy < k.jiffy) {
@@ -306,113 +300,78 @@ struct Runner {
         }
     }
 
-    void load_sidecar(const std::string& path) {
-        std::ifstream in(path);
-        if (!in) return;
-        std::ostringstream ss;
-        ss << in.rdbuf();
-        std::string err;
-        log = dag::parse_script(ss.str(), err);
-        const auto ev = dag::parse_harness(ss.str(), err);
-        annos.clear();
-        for (const auto& e : ev) {
-            if (e.kind == dag::Game::HarnessFudge::Incoming)
-                annos.push_back({e.jiffy, "FUDGE incoming " + std::to_string(e.percent)});
-            else
-                annos.push_back({e.jiffy, "FUDGE rest"});
-        }
-    }
-
     void checkpoint(const std::string& stage) {
         if (saved_stages.count(stage)) return;
-        std::filesystem::create_directories(cache_dir);
-        std::ofstream snap(stage_path(stage, ".snap"));
-        snap << game.snapshot();
-        std::ofstream meta(stage_path(stage, ".meta"));
-        meta << "phase " << static_cast<int>(phase) << "\n";
-        meta << "camp_r " << camp_r << "\n";
-        meta << "camp_c " << camp_c << "\n";
-        meta << "last_floor " << last_floor << "\n";
-        meta << "hold_since " << hold_since << "\n";
-        meta << "phase_since " << phase_since << "\n";
-        meta << "level " << game.level_index() << "\n";
-        std::string zname = stage;
-        if (zname.size() > 8) zname.resize(8);
-        for (char& c : zname)
-            if (c == '-') c = 'X';
-        type({"ZSAVE " + zname});
-        write_script_to(stage_path(stage, ".script").string());
+        static const std::map<std::string, std::string> names = {
+            {"power-on", "POWERON"}, {"cleared-0", "FLOORA"},
+            {"cleared-1", "FLOORB"}, {"cleared-2", "FLOORC"},
+            {"pre-image", "IMAGE"}, {"endgam", "ENDGAM"},
+            {"cleared-3", "FLOORD"}, {"pre-wizard", "WIZARD"}};
+        const std::string name = names.at(stage);
+        const auto from = game.trace().size();
+        type({"ZSAVE " + name}, 5);
+        bool saved = false;
+        for (std::size_t i = from; i < game.trace().size(); ++i)
+            if (game.trace()[i].kind == "ZSAVE" &&
+                game.trace()[i].detail.rfind(name + " bytes=", 0) == 0) saved = true;
+        if (!saved) {
+            std::cerr << "checkpoint failed " << name << "\n";
+            return;
+        }
+        latest_save = name;
+        saved_plan = {phase, camp_r, camp_c, last_floor, hold_since, phase_since};
         saved_stages.insert(stage);
-        std::cerr << "checkpoint " << stage << " j=" << game.counters().total_jiffies
+        std::filesystem::create_directories(cache_dir);
+        write_script_to(stage_path(stage, ".script").string());
+        std::cerr << "checkpoint " << name << " j=" << game.counters().total_jiffies
                   << " p=" << game.player().power << " d=" << game.player().damage << "\n";
     }
 
-    bool restore_stage(const std::string& stage) {
-        const auto snap_p = stage_path(stage, ".snap");
-        std::ifstream snap(snap_p);
-        if (!snap) return false;
-        std::ostringstream ss;
-        ss << snap.rdbuf();
-        game.restore_snapshot(ss.str());
-        seen = game.trace().size();
-        waits = 0;
-        std::ifstream meta(stage_path(stage, ".meta"));
-        std::string key;
-        int ph = static_cast<int>(phase);
-        while (meta >> key) {
-            if (key == "phase")
-                meta >> ph;
-            else if (key == "camp_r")
-                meta >> camp_r;
-            else if (key == "camp_c")
-                meta >> camp_c;
-            else if (key == "last_floor")
-                meta >> last_floor;
-            else if (key == "hold_since")
-                meta >> hold_since;
-            else if (key == "phase_since")
-                meta >> phase_since;
-            else {
-                std::string skip;
-                meta >> skip;
-            }
+    // A CLIMB's build shows PREPARE!; ENDGAM's NEWLVL 3 does not, so read the
+    // (append-only) trace: busy from "ENDGAM image" until FNDCEL's RELOCATE,
+    // once level 3 exists. WIZOUT's 16 SYNCs follow; keys typed then are
+    // buffered. Waiting for PLAYER instead (L001-c) changed the route for the
+    // worse, so it is not adopted.
+    std::size_t build_cursor = 0;
+    bool endgam_building = false;
+    int build_idle = 0;
+    int supreme_settled = 0;
+    bool building() {
+        const auto& t = game.trace();
+        for (; build_cursor < t.size(); ++build_cursor) {
+            const auto& e = t[build_cursor];
+            if (e.kind == "ENDGAM" && e.detail == "image")
+                endgam_building = true;
+            else if (e.kind == "RELOCATE" || e.kind == "RESTART" || e.kind == "ZLOAD")
+                endgam_building = false;
         }
-        phase = static_cast<Phase>(ph);
-        load_sidecar(stage_path(stage, ".script").string());
-        saved_stages.insert(stage);
-        std::cerr << "restore " << stage << " phase=" << ph
-                  << " lv=" << game.level_index() << " j=" << game.counters().total_jiffies
-                  << "\n";
-        return true;
+        return game.preparing() || endgam_building;
     }
 
-    bool resume_latest() {
-        if (!allow_resume) return false;
-        static const char* kOrder[] = {"cleared-0", "cleared-1", "cleared-2", "pre-image",
-                                       "cleared-3", "pre-wizard"};
-        std::string latest;
-        for (const char* s : kOrder)
-            if (std::filesystem::exists(stage_path(s, ".snap"))) latest = s;
-        if (latest.empty()) return false;
-        return restore_stage(latest);
-    }
-
-    bool fallback_l1_fudge() {
-        if (use_fudge) return false;
-        static const char* kOrder[] = {"pre-wizard", "cleared-3", "endgam", "pre-image",
-                                       "cleared-2", "cleared-1"};
-        std::string stage;
-        for (const char* s : kOrder)
-            if (std::filesystem::exists(stage_path(s, ".snap"))) {
-                stage = s;
-                break;
+    bool reload_after_death() {
+        if (latest_save.empty() || ++recoveries > 12) return false;
+        // One restart key, then a separately typed cassette command. Retain all
+        // candidate history; no snapshot supplies state to this execution.
+        if (game.player().dead) type({"X"}, 2);
+        const auto from = game.trace().size();
+        type({"ZLOAD " + latest_save}, 5);
+        bool loaded = false;
+        for (std::size_t i = from; i < game.trace().size(); ++i)
+            if (game.trace()[i].kind == "ZLOAD" && game.trace()[i].detail == latest_save) {
+                loaded = true;
+                recovery_cursor = i + 1;
             }
-        if (stage.empty()) return false;
-        if (!restore_stage(stage)) return false;
-        use_fudge = true;
-        apply_fudge_incoming(25);
-        fudge_rest_now();
-        std::cerr << "death without fudge; resuming latest checkpoint with FUDGE incoming 25\n";
+        if (!loaded) return false;
+        phase = saved_plan.phase;
+        camp_r = saved_plan.camp_r; camp_c = saved_plan.camp_c;
+        last_floor = saved_plan.last_floor;
+        hold_since = game.counters().total_jiffies;
+        phase_since = hold_since;
+        seen = game.trace().size(); waits = 0;
+        // Change relative timing after each failure, rather than repeating an
+        // identical deterministic attempt at a different absolute timestamp.
+        idle(recoveries * 7);
+        std::cerr << "recovery " << recoveries << " save=" << latest_save << "\n";
         return true;
     }
 
@@ -479,10 +438,21 @@ struct Runner {
         return charged_ring(hand_type(false)) || charged_ring(hand_type(true));
     }
 
+    // WIZ1 damage only accumulates (PATTK.ASM DAMAGE is its only writer), so
+    // sword hits made between heals are never lost unless a reload restores
+    // the save. Swing only with a margin for WIZ1's return hit; power/2 is a
+    // planner estimate (L003-a vs /3 in L003-b), not a source-derived bound.
+    static constexpr int kSwordMarginDiv = 2;
+    bool sword_safe() const {
+        const auto& p = game.player();
+        return p.damage < p.power / kSwordMarginDiv;
+    }
+
     bool ring_safe() const {
         const auto& p = game.player();
         const std::uint16_t effort = dag::scal16(p.power, 63);
-        return static_cast<unsigned>(p.damage) + effort < p.power;
+        return p.damage < p.power / 5 &&
+               static_cast<unsigned>(p.damage) + effort + 32 < p.power;
     }
 
     bool dest_ok(int rel, bool empty = true) const {
@@ -521,7 +491,7 @@ struct Runner {
             dag::step_ok(game.maze(), pr, pc, d, nr, nc);
             if (creature_at(game, nr, nc) >= 0) continue;
             int dist = camp_r < 0 ? i : std::abs(nr - camp_r) + std::abs(nc - camp_c);
-            if (game.level_index() >= 4) dist = cell_danger(nr, nc);
+            if (game.level_index() >= 3) dist = cell_danger(nr, nc);
             if (best == nullptr || dist < best_d) {
                 best = cmds[i];
                 best_d = dist;
@@ -743,14 +713,24 @@ struct Runner {
     // survives the swing and its 4-tenth sting connects.
     void ensure_sword() {
         const bool holding_elvish = hand_type(false) == kElvish || hand_type(true) == kElvish;
-        if (find_owned(game, kElvish) >= 0 && !holding_elvish) {
-            const bool left_ring = charged_ring(hand_type(false));
-            empty_hand(!left_ring);
-            type({left_ring ? "PULL RIGHT ELVISH SWORD" : "PULL LEFT ELVISH SWORD"});
+        // ENDGAM preserves both hands but drops the reachable bag chain.  Its
+        // discarded objects retain owner=player, so do not try to PULL one in
+        // preference to an iron weapon that survived in a hand.
+        if (holding_iron()) {
             reveal_held();
             return;
         }
-        if (holding_iron()) {
+        if (find_owned(game, kElvish) >= 0 && !holding_elvish) {
+            const bool left_ring = charged_ring(hand_type(false));
+            // A charged ring retained in the left hand needs the right hand
+            // cleared before the sword can be pulled there.
+            if (left_ring) {
+                empty_hand(true);
+                type({"PULL RIGHT ELVISH SWORD"});
+            } else {
+                empty_hand(false);
+                type({"PULL LEFT ELVISH SWORD"});
+            }
             reveal_held();
             return;
         }
@@ -889,7 +869,6 @@ struct Runner {
                 hit_run(false);
                 return false;
             }
-            if (use_fudge) fudge_rest_now();
             if (game.level_index() == 0) type({"TURN RIGHT"});
             type({"CLIMB DOWN", attack_cmd(false), "MOVE BACK"}, 1);
             return true;
@@ -1047,7 +1026,7 @@ struct Runner {
             type({leave_cmd()});
             return true;
         }
-        if (!torch_live() && !wimp(c) && !wizard(c)) {
+        if (!torch_live() && game.level_index() < 4 && !wimp(c) && !wizard(c)) {
             relight();
             if (!torch_live() && c.type >= 2) {
                 hit_run(false);
@@ -1065,7 +1044,7 @@ struct Runner {
         if (scorpion(c)) {
             // Do not PULL on this cell: that burns jiffies before the swing.
             // ATTACK has no SYNC, so ATTACK+MOVE leaves before CMOVE.
-            if (!torch_live()) {
+            if (!torch_live() && game.level_index() < 4) {
                 type({leave_cmd()});
                 return true;
             }
@@ -1074,10 +1053,10 @@ struct Runner {
         }
         if (wizard(c)) {
             if (phase == KillImage || phase == KillWizard) {
-                if (ring_ready() && ring_safe())
-                    hit_run(true);
-                else
-                    hit_run(false);
+                if (ring_ready() && ring_safe()) hit_run(true);
+                else if (phase == KillWizard && !ring_ready() && have_sword() && sword_safe())
+                    hit_run(false);   // any sword; in L003-c it is the Elvish, whose magic channel bites WIZ1
+                else type({leave_cmd()}, 3);
                 return true;
             }
             type({leave_cmd()});
@@ -1093,7 +1072,7 @@ struct Runner {
             idle(20);
             return true;
         }
-        if (!torch_live() && !wimp(c)) {
+        if (!torch_live() && game.level_index() < 4 && !wimp(c)) {
             type({leave_cmd()});
             return true;
         }
@@ -1103,7 +1082,11 @@ struct Runner {
             // delay (23 tenths for type 2). Sitting through EXAMINE lets them
             // swing. Wimps still wait on a pickup.
             if (c.type >= 2) {
-                if (!torch_live() && !wimp(c)) {
+                if (game.level_index() >= 3 && game.player().damage > game.player().power / 3) {
+                    type({leave_cmd()}, 3);
+                    return true;
+                }
+                if (!torch_live() && game.level_index() < 4 && !wimp(c)) {
                     type({leave_cmd()});
                     return true;
                 }
@@ -1126,7 +1109,7 @@ struct Runner {
         return true;
     }
 
-    void report_block(const char* why) const {
+    void report_block(const std::string& why) const {
         const auto& p = game.player();
         std::cerr << "BLOCKED: " << why << " phase=" << static_cast<int>(phase)
                   << " level=" << game.level_index() << " pos=" << p.row << "," << p.col
@@ -1214,15 +1197,176 @@ struct Runner {
         return owned_by_player(game, find_obj(game, obj_type));
     }
 
+    // Faithful scratch experiments only: candidate state is never restored.
+    // Predict one legal action plus an eight-jiffy advisory horizon, then
+    // execute only that action through the candidate's normal three-jiffy
+    // timestamped-key path. The scratch horizon never supplies game state.
+    void survival_search_tick() {
+        const auto state = game.snapshot();
+        const auto now = game.counters().total_jiffies;
+        std::vector<std::vector<std::string>> choices{{}};
+        const char* moves[] = {"MOVE", "MOVE RIGHT", "MOVE BACK", "MOVE LEFT"};
+        for (int rel = 0; rel < 4; ++rel) {
+            if (!dest_ok(rel)) continue;
+            choices.push_back({moves[rel]});
+            if (here() >= 0) {
+                choices.push_back({attack_cmd(false), moves[rel]});
+                if (ring_ready() && ring_safe() &&
+                    game.creatures()[static_cast<std::size_t>(here())].type >= 8)
+                    choices.push_back({attack_cmd(true), moves[rel]});
+            }
+        }
+        if (here() >= 0) choices.push_back({attack_cmd(false)});
+        // Preserve the weapon carried through ENDGAM while clearing the new
+        // level.  Loot is handled after the population is gone; opportunistic
+        // GET would STOW the only retained sword, leaving clearing without a
+        // retrieval choice.
+        if (here() < 0 && !holding_iron()) {
+            for (const auto& o : game.objects()) {
+                if (o.owner != 0 || o.level != game.level_index() ||
+                    o.row != game.player().row ||
+                    o.col != game.player().col) continue;
+                const char* name = o.type == kElvish ? "ELVISH SWORD" :
+                    o.type == kJoule ? "JOULE RING" :
+                    o.type == kMithril ? "MITHRIL SHIELD" :
+                    o.type == kThews ? "THEWS FLASK" : nullptr;
+                if (name) choices.push_back({"STOW RIGHT", std::string("GET RIGHT ") + name});
+            }
+            if (hand_type(true) == kThews) choices.push_back({"USE RIGHT"});
+            if (hand_type(true) == kElvish || hand_type(false) == kElvish)
+                choices.push_back({hand_type(true) == kElvish ? "REVEAL RIGHT" : "REVEAL LEFT"});
+        }
+        // Direct exploration toward the equipment carrier rather than merely
+        // orbiting the safest corner when no creature is immediately present.
+        int tr = -1, tc = -1;
+        for (int t : {kElvish, kJoule}) {
+            if (find_owned(game, t) >= 0) continue;
+            const int obj = find_obj(game, t);
+            if (obj >= 0 && object_cell(obj, tr, tc) != -2) break;
+            tr = tc = -1;
+        }
+        if (tr < 0) {
+            int nearest = 9999;
+            for (const auto& c : game.creatures()) {
+                if (!c.in_use) continue;
+                int d = std::abs(c.row - game.player().row) + std::abs(c.col - game.player().col);
+                if (d < nearest) { nearest = d; tr = c.row; tc = c.col; }
+            }
+        }
+        std::array<int, 1024> distance;
+        distance.fill(1000);
+        if (tr >= 0) {
+            std::queue<int> q;
+            distance[tr * 32 + tc] = 0; q.push(tr * 32 + tc);
+            while (!q.empty()) {
+                int cell = q.front(); q.pop();
+                for (int d = 0; d < 4; ++d) {
+                    int nr = 0, nc = 0;
+                    if (!dag::step_ok(game.maze(), cell / 32, cell % 32,
+                                     static_cast<dag::Dir>(d), nr, nc)) continue;
+                    if (distance[nr * 32 + nc] <= distance[cell] + 1) continue;
+                    distance[nr * 32 + nc] = distance[cell] + 1; q.push(nr * 32 + nc);
+                }
+            }
+        }
+        double best = -1e100;
+        std::size_t selected = 0;
+        for (std::size_t ci = 0; ci < choices.size(); ++ci) {
+            dag::Game scratch;
+            scratch.restore_snapshot(state);
+            std::vector<dag::KeyEvent> keys;
+            std::uint64_t j = now;
+            std::size_t used = 0;
+            for (const auto& cmd : choices[ci]) {
+                if (used + cmd.size() + 1 > 31) { ++j; used = 0; }
+                for (char c : cmd) keys.push_back({j, encode(c)});
+                keys.push_back({j, 0x0D}); used += cmd.size() + 1;
+            }
+            scratch.load_script(keys);
+            scratch.advance_jiffies(8);
+            // Predict an escape continuation if an idle horizon is dangerous.
+            // This scratch rollout is advisory; execute only the first choice.
+            for (int depth = 0; depth < 4 && !scratch.player().dead; ++depth) {
+                const auto prefix = scratch.snapshot();
+                double best_escape = -1e100;
+                std::string next_state;
+                for (int rel = -1; rel < 4; ++rel) {
+                    dag::Game probe;
+                    probe.restore_snapshot(prefix);
+                    std::vector<dag::KeyEvent> next_keys;
+                    if (rel >= 0) {
+                        int nr = 0, nc = 0;
+                        auto d = static_cast<dag::Dir>((static_cast<int>(probe.player().dir) + rel) & 3);
+                        if (!dag::step_ok(probe.maze(), probe.player().row, probe.player().col, d, nr, nc) ||
+                            creature_at(probe, nr, nc) >= 0) continue;
+                        for (char ch : std::string(moves[rel]))
+                            next_keys.push_back({probe.counters().total_jiffies, encode(ch)});
+                        next_keys.push_back({probe.counters().total_jiffies, 0x0D});
+                    }
+                    probe.load_script(next_keys);
+                    probe.advance_jiffies(8);
+                    double value = -static_cast<double>(probe.player().damage);
+                    if (probe.player().dead) value -= 1e9;
+                    if (probe.player().fainted) value -= 1e6;
+                    for (const auto& cr : probe.creatures()) {
+                        if (!cr.in_use) continue;
+                        int d = std::abs(cr.row - probe.player().row) + std::abs(cr.col - probe.player().col);
+                        value -= 100.0 / (d + 1);
+                    }
+                    if (value > best_escape) { best_escape = value; next_state = probe.snapshot(); }
+                }
+                if (next_state.empty()) break;
+                scratch.restore_snapshot(next_state);
+            }
+            double score = -1000.0 * scratch.player().damage / scratch.player().power;
+            if (scratch.player().dead) score -= 1e8;
+            if (scratch.player().fainted) score -= 10000;
+            score += (scratch.player().power - game.player().power) * 10;
+            for (int sl = 0; sl < dag::kCcbSlots; ++sl) {
+                const auto& before = game.creatures()[static_cast<std::size_t>(sl)];
+                const auto& after = scratch.creatures()[static_cast<std::size_t>(sl)];
+                if (!before.in_use) continue;
+                if (!after.in_use) score += 1500;
+                else score += 2500.0 * (static_cast<int>(after.damage) - before.damage) / before.power;
+            }
+            for (int t : {kElvish, kJoule, kMithril, kThews}) {
+                if (find_owned(scratch, t) >= 0 && find_owned(game, t) < 0) score += 2000;
+            }
+            const int elv = find_owned(scratch, kElvish);
+            if (elv >= 0 && scratch.objects()[static_cast<std::size_t>(elv)].reveal == 0 &&
+                game.objects()[static_cast<std::size_t>(elv)].reveal != 0) score += 1500;
+            score -= 8.0 * distance[scratch.player().row * 32 + scratch.player().col];
+            // Prefer separation from fast creatures when immediate outcomes tie.
+            for (const auto& c : scratch.creatures()) {
+                if (!c.in_use) continue;
+                const int d = std::abs(c.row - scratch.player().row) +
+                              std::abs(c.col - scratch.player().col);
+                score -= 20.0 / (d + 1);
+            }
+            if (score > best) { best = score; selected = ci; }
+        }
+        if (choices[selected].empty()) idle(8);
+        else type(choices[selected], 3);
+    }
+
     int play(std::uint64_t max_jiffies) {
+        jiffy_limit = max_jiffies;
         int ticks = 0;
         std::uint64_t last_j = 0;
-        resume_latest();
-        if (use_fudge && game.incoming_damage_percent() == 100) apply_fudge_incoming(25);
+        checkpoint("power-on");
+        // Demonstrate natural death and legal recovery from the latest save.
+        while (!game.player().dead && game.counters().total_jiffies < std::min<std::uint64_t>(10000, max_jiffies)) idle(20);
+        if (!game.player().dead || !reload_after_death()) {
+            report_block("initial death/recovery failed; last save=" + latest_save);
+            return 1;
+        }
         while (!game.player().won && game.counters().total_jiffies < max_jiffies) {
-            if (game.player().dead) {
-                if (fallback_l1_fudge()) continue;
-                report_block("player died");
+            bool pending_death = game.player().dead;
+            while (recovery_cursor < game.trace().size())
+                if (game.trace()[recovery_cursor++].kind == "DEATH") pending_death = true;
+            if (pending_death) {
+                if (reload_after_death()) continue;
+                report_block("recovery bound/failure; last save=" + latest_save);
                 return 1;
             }
             if ((++ticks % 200) == 0) {
@@ -1238,13 +1382,25 @@ struct Runner {
                 }
                 last_j = game.counters().total_jiffies;
             }
-            if (use_fudge && game.level_index() >= 4 && game.player().damage > 63)
-                fudge_rest_now();
             if (game.player().fainted) {
-                if (use_fudge && game.player().damage > 63) fudge_rest_now();
                 idle(20);
                 continue;
             }
+            // D-19: NEWLVL is timed; the new level's creatures and objects are
+            // not placed until it ends. Wait it out without counting it
+            // against any phase's wait bound.
+            if (building()) {
+                // The core fixes a build at roughly 400-600 jiffies (C-22).
+                if (++build_idle > 2000) {
+                    report_block("level build did not finish");
+                    return 1;
+                }
+                const int saved_waits = waits;
+                idle(1);
+                waits = saved_waits;
+                continue;
+            }
+            build_idle = 0;
             if (phase == DarkPark && here() >= 0) {
                 const dag::Ccb& parked =
                     game.creatures()[static_cast<std::size_t>(here())];
@@ -1252,6 +1408,21 @@ struct Runner {
                     hold_since = game.counters().total_jiffies;
                     phase = DarkHold;
                 }
+            }
+            if (phase == Survive3 && game.level_index() == 3 && mobs() > 0) {
+                survival_search_tick();
+                continue;
+            }
+            if (phase == Clear && game.level_index() >= 4 && mobs() > 0) {
+                if (!holding_iron()) {
+                    ensure_sword();
+                    continue;
+                }
+                // After ENDGAM the surviving torch can be dead.  Search and
+                // fight in darkness instead of stowing the right-hand sword
+                // for a torch that cannot be lit.
+                survival_search_tick();
+                continue;
             }
             if (occupy_tick()) continue;
 
@@ -1316,16 +1487,20 @@ struct Runner {
                     break;
                 }
                 case LightUp: {
+                    // Level 4 first: resting in LightUp until damage <= 63 while
+                    // occupy_tick flees each arrival never got there, since the
+                    // fleeing adds exertion (L001-b, L002-a: 800k+ jiffies).
+                    if (game.level_index() >= 4) {
+                        ensure_sword();
+                        relight();
+                        phase = Clear;
+                        break;
+                    }
                     if (rest_needed()) {
                         recover();
                         break;
                     }
                     ensure_sword();
-                    if (game.level_index() >= 4) {
-                        relight();
-                        phase = Clear;
-                        break;
-                    }
                     seed_bait();
                     bool lit = torch_live();
                     if (!lit && game.level_index() >= 2)
@@ -1367,7 +1542,6 @@ struct Runner {
                         break;
                     }
                     if (game.level_index() >= 4) {
-                        if (use_fudge && game.player().damage > 63) fudge_rest_now();
                         if (hand_type(false) != kElvish && find_owned(game, kElvish) >= 0)
                             ensure_sword();
                         if (hand_type(false) != kMithril && hand_type(true) != kMithril)
@@ -1553,7 +1727,7 @@ struct Runner {
                         break;
                     }
                     if (game.level_index() == 2) {
-                        if (game.player().power < 1000) {
+                        if (game.player().power < 4000) {
                             if (find_owned(game, kThews) < 0) {
                                 collect(kThews, "THEWS FLASK");
                                 break;
@@ -1569,6 +1743,22 @@ struct Runner {
                         break;
                     }
                     if (game.level_index() == 3) {
+                        // ENDGAM's rebuilt floor can contain a THEWS flask.
+                        // Take its source-backed +1000 power before committing
+                        // to the much denser final population.
+                        const int thews = find_obj(game, kThews);
+                        if (game.player().power < 7000 && thews >= 0 &&
+                            game.objects()[static_cast<std::size_t>(thews)].level == 3) {
+                            if (find_owned(game, kThews) < 0) {
+                                collect(kThews, "THEWS FLASK");
+                                break;
+                            }
+                            empty_hand(true);
+                            type({"PULL RIGHT THEWS FLASK"});
+                            if (hand_type(true) != kThews) type({"GET RIGHT THEWS FLASK"});
+                            if (hand_type(true) == kThews) type({"USE RIGHT"});
+                            break;
+                        }
                         if (find_owned(game, kJoule) < 0 && find_owned(game, kEnergy) < 0) {
                             collect(kJoule, "JOULE RING");
                             break;
@@ -1607,8 +1797,9 @@ struct Runner {
                     const int before = game.level_index();
                     if (before == 3) {
                         ensure_sword();
-                        ensure_mithril();
-                        if (use_fudge) fudge_rest_now();
+                        // Keep the sword and charged ring across the descent;
+                        // a shield would displace one of the two usable hands.
+                        if (!holding_iron()) ensure_mithril();
                     }
                     if (before == 2 && clearable() > 0 && slot_of_type(game, 10) >= 0) {
                         // Image is not last: do not fight it. Climb up to farm
@@ -1695,7 +1886,7 @@ struct Runner {
                         report_block("rings not ready");
                         return 1;
                     }
-                    type({"ZSAVE PREP"});
+                    relight();
                     checkpoint("pre-image");
                     phase = KillImage;
                     break;
@@ -1705,16 +1896,30 @@ struct Runner {
                         // ENDGAM relocates onto a new level-3 maze. The old
                         // hole camp is a different cell now.
                         mark_camp();
-                        if (use_fudge) fudge_rest_now();
-                        checkpoint("endgam");
                         phase = Survive3;
+                        checkpoint("endgam");
+                        break;
+                    }
+                    const int held_ring = game.player().left_hand;
+                    if (held_ring >= 0 && charged_ring(hand_type(false)) &&
+                        game.objects()[static_cast<std::size_t>(held_ring)].spec[0] == 1 &&
+                        find_owned(game, hand_type(false) == kIce ? kFire : kIce) >= 0) {
+                        const bool was_ice = hand_type(false) == kIce;
+                        empty_hand(false);
+                        type({was_ice ? "PULL LEFT FIRE RING" : "PULL LEFT ICE RING"});
                         break;
                     }
                     if (!ring_ready()) {
-                        phase = PrepRings;
+                        empty_hand(false);
+                        if (find_owned(game, kFire) >= 0) type({"PULL LEFT FIRE RING"});
+                        else if (find_owned(game, kIce) >= 0) type({"PULL LEFT ICE RING"});
+                        else {
+                            report_block("image fight exhausted attack rings");
+                            return 1;
+                        }
                         break;
                     }
-                    if (!ring_safe() || rest_needed()) {
+                    if (!ring_safe()) {
                         recover();
                         break;
                     }
@@ -1724,12 +1929,9 @@ struct Runner {
                         return 1;
                     }
                     const dag::Ccb& w = game.creatures()[static_cast<std::size_t>(sl)];
-                    if (std::abs(game.player().row - w.row) +
-                            std::abs(game.player().col - w.col) >
-                        0)
-                        if (!path_step(w.row, w.col, true) &&
-                            !path_step(w.row, w.col, false))
-                            idle(20);
+                    if (!adjacent_to(w.row, w.col)) {
+                        if (!go_adjacent(w.row, w.col)) idle(20);
+                    } else idle(8);
                     if (waits > 4000) {
                         report_block("cannot reach type 10");
                         return 1;
@@ -1745,7 +1947,6 @@ struct Runner {
                         phase = Loot;
                         break;
                     }
-                    if (use_fudge && game.player().damage > 63) fudge_rest_now();
                     mark_camp();
                     if (!torch_live()) light_named(kSolar, "SOLAR TORCH") || light_pine();
                     ensure_sword();
@@ -1757,8 +1958,7 @@ struct Runner {
                         return_camp();
                         break;
                     }
-                    seed_bait();
-                    idle(20);
+                    idle(8);
                     break;
                 }
                 case KillWizard: {
@@ -1772,12 +1972,11 @@ struct Runner {
                         phase = Clear;
                         break;
                     }
-                    if (use_fudge && game.player().damage > 63) fudge_rest_now();
                     ensure_sword();
-                    // Always type JOULE + INCANT so a power-on replay that
-                    // still holds the unincanted ring records the same keys
-                    // as a resume from a snap that already has ENERGY.
-                    if (!charged_ring(hand_type(false)) && !charged_ring(hand_type(true))) {
+                    // Prepare the ring through typed commands after a cassette
+                    // reload as well as during uninterrupted candidate progress.
+                    if (!charged_ring(hand_type(false)) && !charged_ring(hand_type(true)) &&
+                        (find_owned(game, kJoule) >= 0 || find_owned(game, kEnergy) >= 0)) {
                         empty_hand(true);
                         type({"PULL RIGHT JOULE RING"});
                         type({"INCANT ENERGY"});
@@ -1807,6 +2006,14 @@ struct Runner {
                     break;
                 }
                 case TakeSupreme: {
+                    // The killing hit_run also queued a leave move; let queued
+                    // keys run before trusting the position (L003-a typed GET
+                    // on the ring's cell, then MOVE LEFT carried it off).
+                    if (supreme_settled < 1) {
+                        ++supreme_settled;
+                        idle(10);
+                        break;
+                    }
                     const int idx = find_obj(game, kSupreme);
                     if (idx < 0) {
                         report_block("no SUPREME");
@@ -1834,7 +2041,8 @@ struct Runner {
 
         }
         if (!game.player().won) {
-            report_block(game.player().dead ? "player died" : "jiffy budget exhausted");
+            report_block(std::string(game.player().dead ? "player died" : "jiffy budget exhausted") +
+                         "; last save=" + latest_save);
             return 1;
         }
         return 0;
@@ -1846,7 +2054,7 @@ struct Runner {
 int usage() {
     std::cerr << "usage: dplan --dump\n"
                  "       dplan --script FILE [--max-jiffies N] [--cache DIR]\n"
-                 "              [--fudge] [--no-resume]\n";
+                 "              (always starts from power-on)\n";
     return 2;
 }
 
@@ -1856,8 +2064,6 @@ int main(int argc, char** argv) {
     std::string script;
     std::uint64_t max_jiffies = 4000000;
     bool dump = false;
-    bool fudge = false;
-    bool resume = true;
     std::string cache = ".cache/playthrough";
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -1873,18 +2079,12 @@ int main(int argc, char** argv) {
             max_jiffies = std::strtoull(next(), nullptr, 10);
         else if (a == "--cache")
             cache = next();
-        else if (a == "--fudge")
-            fudge = true;
-        else if (a == "--no-resume")
-            resume = false;
         else
             return usage();
     }
     if (dump) return dump_world();
     if (script.empty()) return usage();
     Runner r;
-    r.use_fudge = fudge;
-    r.allow_resume = resume;
     r.cache_dir = cache;
     const int rc = r.play(max_jiffies);
     r.write_script(script);

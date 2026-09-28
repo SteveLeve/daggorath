@@ -15,7 +15,7 @@ different agent and produce comparable work.
 | [`phase-3-combat.md`](phase-3-combat.md) | 3 — `PATTK`, `ATTACK`, `DAMAGE`, creature attack, faint, death | done — [reconciliation](../archaeology/phase-3/reconciliation.md) |
 | [`phase-4-objects-and-magic.md`](phase-4-objects-and-magic.md) | 4 — objects, inventory, torches, magic, `CLIMB` | done — [reconciliation](../archaeology/phase-4/reconciliation.md) |
 | [`phase-5-progression-and-save.md`](phase-5-progression-and-save.md) | 5 — endings, `ZSAVE`/`ZLOAD`; headless game complete | done — [reconciliation](../archaeology/phase-5/reconciliation.md) |
-| [`phase-5b-honest-playthrough.md`](phase-5b-honest-playthrough.md) | 5b — re-plan the WINNER playthrough without `FUDGE`, with real `ZSAVE`/`ZLOAD` | open |
+| [`phase-5b-honest-playthrough.md`](phase-5b-honest-playthrough.md) | 5b — re-plan the WINNER playthrough without `FUDGE`, with real `ZSAVE`/`ZLOAD` | done — [status](../archaeology/phase-5/reconciliation.md) |
 | [`phase-6-presentation-state.md`](phase-6-presentation-state.md) | 6 — render state, vector data, sound events (ADR-0004) | done — [reconciliation](../archaeology/phase-6/reconciliation.md) |
 | [`phase-7-desktop-sdl.md`](phase-7-desktop-sdl.md) | 7 — SDL3 desktop app, rasteriser, audio | done — [reconciliation](../archaeology/phase-7/reconciliation.md) |
 | [`phase-8-touch-input.md`](phase-8-touch-input.md) | 8 — touch adapters emitting keystrokes | planned |

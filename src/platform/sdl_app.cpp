@@ -118,7 +118,16 @@ std::optional<std::string> read_save(const std::string& dir, const std::string& 
     return image;
 }
 
-enum class DeathPrompt { Playing, Menu, LoadName };
+// Put every stored save on the core's cassette before play, like a tape that
+// already holds earlier ZSAVEs. The player still types ZLOAD <name>.
+void mount_saves(dag::Game& game, const std::string& dir) {
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+        if (entry.path().extension() != ".dagram") continue;
+        const std::string name = entry.path().stem().string();
+        if (auto image = read_save(dir, name)) game.insert_cassette_image(name, *image);
+    }
+}
 
 std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int bar_x) {
     // PTURN.ASM LRTURN/RLTURN: two horizontal lines and a vertical bar.
@@ -182,8 +191,7 @@ int main(int argc, char** argv) {
         save_dir = pref;
         SDL_free(pref);
     }
-    DeathPrompt prompt = DeathPrompt::Playing;
-    std::string load_name;
+    mount_saves(*held, save_dir);
     SDL_AudioSpec spec{};
     spec.format = SDL_AUDIO_U8;
     spec.channels = 1;
@@ -200,7 +208,7 @@ int main(int argc, char** argv) {
     std::size_t traced = 0;
     bool audio_level = false;
     std::uint64_t audio_jiffy = 0;
-    std::string message;
+    const std::string message;   // no platform message row; OUTSTI owns the text page
     bool running = true;
     int shown_row = 0;
     int shown_col = 0;
@@ -211,41 +219,16 @@ int main(int argc, char** argv) {
     int faint_magic = 0;   // MLIGHT at the same moment
     bool was_dead = false;
     std::size_t seen_motion = 0;
-    auto reset_view = [&]() {
-        heard = 0;
-        traced = 0;
-        audio_level = false;
-        audio_jiffy = 0;
-        heartbeat.clear();
-        effect_carry.clear();
-        message.clear();
-        mix = dag::SoundMix{};
-        prompt = DeathPrompt::Playing;
-        load_name.clear();
-        have_shown = false;
-        was_fainted = false;
-        was_dead = false;
-        seen_motion = 0;
-    };
-    auto restart_game = [&]() {
-        held.emplace();
-        reset_view();
-    };
-    auto resume_view = [&](dag::Game& game) {
-        heard = game.events().size();
-        traced = game.trace().size();
-        audio_level = game.heart().audio_level;
-        audio_jiffy = game.counters().total_jiffies;
-        heartbeat.clear();
-        effect_carry.clear();
-        mix.discard_through(game.events().size());
-        message.clear();
-        prompt = DeathPrompt::Playing;
-        load_name.clear();
-        have_shown = false;
-        was_fainted = game.player().fainted || game.player().dead;
-        was_dead = game.player().dead;
-        seen_motion = game.events().size();
+    // HUPDAT DEATH halts the foreground while CLOCK runs; any key restarts
+    // GAME in the core (D-18), which keeps the cassette and the trace. Only
+    // the view's own memory of the last frame starts over.
+    std::size_t seen_restart = 0;
+    auto restarted = [&](const dag::Game& game) {
+        bool any = false;
+        const auto& trace = game.trace();
+        for (; seen_restart < trace.size(); ++seen_restart)
+            any = any || trace[seen_restart].kind == "RESTART";
+        return any;
     };
     while (running) {
         SDL_Event event;
@@ -253,45 +236,6 @@ int main(int argc, char** argv) {
             if (event.type == SDL_EVENT_QUIT) running = false;
             if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) continue;
             const SDL_Keycode key = event.key.key;
-            if (prompt == DeathPrompt::Menu) {
-                if (key == SDLK_R) {
-                    restart_game();
-                    break;
-                }
-                else if (key == SDLK_L) {
-                    prompt = DeathPrompt::LoadName;
-                    load_name.clear();
-                }
-                continue;
-            }
-            if (prompt == DeathPrompt::LoadName) {
-                if (key == SDLK_ESCAPE) {
-                    prompt = DeathPrompt::Menu;
-                    load_name.clear();
-                } else if (key == SDLK_BACKSPACE) {
-                    if (!load_name.empty()) load_name.pop_back();
-                } else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
-                    std::optional<std::string> image = read_save(save_dir, load_name);
-                    if (!image) {
-                        if (const std::string* mem = held->cassette_image(load_name))
-                            if (mem->rfind("DAGRAM 1", 0) == 0) image = *mem;
-                    }
-                    if (!image) {
-                        message = "???";
-                        prompt = DeathPrompt::Menu;
-                        load_name.clear();
-                    } else {
-                        held->restore_ram_image(*image);
-                        if (held->player().dead) prompt = DeathPrompt::Menu;
-                        else resume_view(*held);
-                    }
-                } else if (key >= SDLK_A && key <= SDLK_Z && load_name.size() < 8) {
-                    load_name.push_back(static_cast<char>('A' + (key - SDLK_A)));
-                } else if (key >= SDLK_0 && key <= SDLK_9 && load_name.size() < 8) {
-                    load_name.push_back(static_cast<char>('0' + (key - SDLK_0)));
-                }
-                continue;
-            }
             // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
             if (key == SDLK_RETURN || key == SDLK_KP_ENTER) held->press(0x0D);
             else if (key == SDLK_SPACE) held->press(0x20);
@@ -304,10 +248,13 @@ int main(int argc, char** argv) {
         const std::uint64_t elapsed_us = now_ns > last_ns ? (now_ns - last_ns) / 1000 : 0;
         last_ns = now_ns;
         const int steps = dag::jiffies_due(elapsed_us, owed);
-        if (steps > 0 && prompt == DeathPrompt::Playing)
-            game.advance_jiffies(static_cast<std::uint64_t>(steps));
+        if (steps > 0) game.advance_jiffies(static_cast<std::uint64_t>(steps));
         persist_saves(game, traced, save_dir);
-        if (prompt == DeathPrompt::Playing && game.player().dead) prompt = DeathPrompt::Menu;
+        if (restarted(game)) {
+            have_shown = false;
+            was_fainted = false;
+            was_dead = false;
+        }
         auto snap = dag::snapshot_from(game);
         bool stepped = false;
         bool turned = false;
@@ -374,8 +321,7 @@ int main(int argc, char** argv) {
         const auto& events = game.events();
         while (heard < events.size()) {
             const dag::CoreEvent& ev = events[heard++];
-            // OUTSTI is already on the primary text page. The message row is
-            // only the post-death load failure, which the core does not print.
+            // OUTSTI is already on the primary text page.
             if (ev.kind != dag::CoreEventKind::Heartbeat) continue;
             const std::uint64_t span = ev.jiffy > audio_jiffy ? ev.jiffy - audio_jiffy : 0;
             const std::uint8_t sample = audio_level ? 0xFF : 0x00;
@@ -390,12 +336,7 @@ int main(int argc, char** argv) {
                 heartbeat.push_back(sample);
             audio_jiffy = now_jiffy;
         }
-        std::string command_override;
-        if (prompt == DeathPrompt::Menu) command_override = "R RESTART OR L LOAD";
-        else if (prompt == DeathPrompt::LoadName) {
-            command_override = "LOAD " + load_name;
-            if (command_override.size() < 32) command_override.push_back('_');
-        }
+        const std::string command_override;
         if (!map_up)
             dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
         const bool faint_now = game.player().fainted || game.player().dead;
