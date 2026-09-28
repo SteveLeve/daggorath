@@ -1,6 +1,6 @@
 # Phase 5 reconciliation
 
-Labels: **[SRC]** read from the pinned listing; **[INF]** inferred; **[OPEN]** unresolved. Nothing here is ROM-observed.
+Labels: **[SRC]** read from the pinned listing (also written "Source-proven"); **[INF]** inferred; **[OPEN]** unresolved; **Core-observed**: seen in a headless core trace, not a ROM capture. Sections before 2026-09-27 contain no ROM observations; later sections rely on D-19's ROM-measured build timing (capture C-22), which is labelled in §13.
 
 `ENDGAM`, the ring riddle, and `WINNER` replace the `DEFER` stubs from Phases 3 and 4 (D-8 and D-9 are retired in `clock-and-scheduler.md` §13). No verb reports `UNIMPLEMENTED`.
 
@@ -28,7 +28,7 @@ Labels: **[SRC]** read from the pinned listing; **[INF]** inferred; **[OPEN]** u
 | Id | Owner |
 |---|---|
 | D-11 `ZLOAD` of an absent name reports `???` | Permanent, Original Mode cassette substitute (ADR-0005) |
-| D-12 `FUDGE incoming` / `FUDGE rest` | **Not source behaviour.** Harness API only (ADR-0007). Default `Game()` stays at 100% incoming damage. `FUDGE incoming 25` multiplies creature-to-player damage by 1/4. `FUDGE rest` writes `PDAM = 63`, a harness value that skips waiting out recovery (the HSLOW stall at 63 was a core bug, corrected 2026-09-26; see phase-3 reconciliation). Player hits are not scaled. Checkpoints under `.cache/playthrough/` restore `snapshot()` and are not a game command. |
+| D-12 `FUDGE incoming` / `FUDGE rest` | **Not source behaviour.** Harness API only (ADR-0007). Used by the superseded 2026-09-26 route only; the Phase 5b baseline has no `FUDGE` lines. Default `Game()` stays at 100% incoming damage. `FUDGE incoming 25` multiplies creature-to-player damage by 1/4. `FUDGE rest` writes `PDAM = 63`, a harness value that skips waiting out recovery (the HSLOW stall at 63 was a core bug, corrected 2026-09-26; see phase-3 reconciliation). Player hits are not scaled. Checkpoints under `.cache/playthrough/` restore `snapshot()` and are not a game command. |
 | D-1, D-2 lap model | ADR-0002, Track R |
 | D-3 `HSLOW` zero-countdown clamp | Track R |
 | D-4 animation and sound durations | Phase 6 (listing-derived part), Track R (measured part) |
@@ -54,6 +54,14 @@ so a committed script can still be replayed by `dcli` / ctest:
 These are labeled **not source behaviour**. They do not change Original Mode
 combat unless a `FUDGE` line is replayed.
 
+**Superseded 2026-09-28 (Phase 5b).** The planner no longer uses either
+mechanism for the committed script. It emits no `FUDGE` lines; its checkpoints
+are typed `ZSAVE`s confirmed by the trace, and a death is recovered with a
+keypress RESTART and a typed `ZLOAD`, never a `.snap` restore. `Game::snapshot()`
+is used only on separate scratch `Game` copies for lookahead search, which never
+supply the candidate's state. The D-12 harness API remains for its own tests.
+See "Playthrough status" and "2026-09-28 — Phase 5b honest baseline".
+
 ## Open
 
 | Item | Label |
@@ -63,10 +71,27 @@ combat unless a `FUDGE` line is replayed.
 
 ## Playthrough status
 
-Authored by `src/app/dplan.cpp`. Committed script:
-`docs/archaeology/phase-5/traces/power-on-to-winner.script`.
-`ctest -R playthrough_power_on_to_winner` runs `dcli` twice; both traces emit
-`WINNER` and are byte-identical.
+Authored by `src/app/dplan.cpp` (Phase 5b, commit `c826dec`). Committed script:
+`docs/archaeology/phase-5/traces/power-on-to-winner.script`. `ctest -R
+playthrough_power_on_to_winner` runs `tools/verify_playthrough.py`: two fresh
+default-startup `dcli` replays must be byte-identical, pass the full-trace
+checks (no `FUDGE`, unique typed saves, every death followed by RESTART and a
+ZLOAD of the latest save, exactly one WINNER) and match the recorded digest.
+Replacement reason: see "2026-09-28 — Phase 5b honest baseline" below.
+
+| | |
+|---|---|
+| Keys | 179036 timestamped keystrokes; no `FUDGE` or other harness lines |
+| Jiffies at `WINNER` | 381122 (planner `won=1` at 381124) |
+| Saves | 8 typed `ZSAVE`: POWERON, FLOORA, FLOORB, FLOORC, IMAGE, ENDGAM, FLOORD, WIZARD |
+| Deaths | 6, each followed by the keypress RESTART and a typed `ZLOAD` of the latest save |
+| Replay length / timeout | `--jiffies 382000` (the trace's last event is at 381139); 120 s per replay (measured 8–15 s) |
+| Two-replay sha256 | `b56777eecb2c887c565bd0b55add00ed099e9ac085f3c3e6d28b0e7b753661d1` |
+
+Two matching core traces prove deterministic core replay under the recorded
+deviations, not ROM conformance.
+
+### Superseded baseline (2026-09-26, FUDGE)
 
 | | |
 |---|---|
@@ -145,3 +170,42 @@ were included to keep the imported test/evidence set coherent. `make all` passes
 it regenerates no fixture, trace baseline, or manifest. The power-on WINNER
 test remains disabled and Phase 5b remains open until a candidate passes the
 prompt's independent two-replay acceptance checks.
+
+## 2026-09-28 — Phase 5b honest baseline
+
+**Reason for replacing the baseline.** The 2026-09-26 script depended on the
+fire-ring charge wrap that the 2026-09-27 ring correction removed, and on
+`FUDGE incoming 25` and 2290 `FUDGE rest` lines (D-12, harness). It was
+superseded, not regenerated, on 2026-09-27 and its ctest disabled. The
+replacement was authored from scratch by the reworked planner under the Phase 5b
+prompt: no `FUDGE`, 100% creature damage, progress kept with typed `ZSAVE`, and
+deaths recovered through the core's source-proven AUTFLG restart (D-18) and a
+typed `ZLOAD` of the latest save. No expected value was edited to make a
+comparison pass: the digest is computed from the candidate's own two replays.
+
+**Route search** (`docs/planning/phase-5b-search-log.md`, runs 0–3). After
+the D-19 timed level builds were merged, older candidates no longer replayed.
+Three planner changes then reached WINNER: waiting out the timed CLIMB and
+ENDGAM builds; clearing level 4 instead of resting in LightUp; and finishing
+WIZ1 with the Elvish sword once the rings were spent, then taking SUPREME after
+queued keys settle. The replay verifier gained the `NEWLVL` event that D-19
+builds emit.
+
+**Source-proven:** within a level, creature damage (P.CCDAM/P.ATDAM, offset
+10) is changed only by `PATTK.ASM DAMAGE` (`PATTK.ASM:343-358`), which adds to
+it; `NEWLVL`'s `SWI ZERO` (`NEWLVL.ASM:30-33`) clears the CCB table when a level
+is built, and a `ZLOAD` restores RAM. So WIZ1 does not heal between exchanges.
+`PCLIMB.ASM PCLI10` (`:36-38`) needs `VF.LUP` to climb up, and `COMCRE.ASM`
+`VFTTAB` gives level 4 only hole-up entries (code 0, `:198-201`), so there is no
+retreat upstairs from level 4.
+
+**Core-observed** (committed route): WIZ1 is fought at player power 9660. Four
+charged-ring hits add 902 each (3608), then twenty Elvish-sword hits add 226
+each, taking WIZ1's damage to 8128 against its power 8000. The kill adds 1000
+power (`PATTK.ASM:132-137`, creature power ÷ 8), giving the recorded peak of 10660. Candidate qualification: `python3 tools/verify_playthrough.py --dcli
+build/src/app/dcli --script docs/archaeology/phase-5/traces/power-on-to-winner.script
+--jiffies 382000 --timeout 120` gives the digest above; at `--jiffies 381124`
+the shorter trace gives `1628c7c8c99e2cb3c10981ecca7f53ac437a3b7fd299fbad310b77783cd87be4`.
+
+Desktop recovery still uses its own death menu and file load (not changed here);
+headless core/dcli recovery is what this baseline exercises.
