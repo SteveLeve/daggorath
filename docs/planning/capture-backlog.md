@@ -16,7 +16,7 @@ a link to the reconciliation entry. Procedure: `archaeology/phase-0b/traces/READ
 | C-08 | `SNOISE` effect on `SEED` | RNG stream after sound | Phase 0b | captured — `SEED` unchanged. A creature sound was not separately captured |
 | C-09 | First creature move after level entry | `CBIRTH` queuing of `CMOVE`. Source trace: level 0, vipers (`CMOVE-6` onward) ready at jiffy 85 | Phase 2 | not captured |
 | C-10 | Two creatures and a keystroke expiring in one jiffy | ADR-0002 lap policy. Source order: jiffy queue (`PLAYER`) before `Q.TEN` (`CMOVE`) | Phase 2 | not captured |
-| C-11 | 10-minute idle run on level 0 | `CMOVE` priorities in aggregate. Core trace: `docs/archaeology/phase-2/traces/idle-10min.trace` | Phase 2 | not captured |
+| C-11 | 10-minute idle run on level 0 | `CMOVE` priorities in aggregate. Core trace: `docs/archaeology/phase-2/traces/idle-10min.trace` | Phase 2 | captured — [track-r reconciliation](../archaeology/track-r/reconciliation.md#c-11--10-minute-idle-run-on-level-0): aggregate dispatch counts diverge (PLAYER, CMOVE, HSLOW, LUKNEW), filed as #39 |
 | C-12 | Hit/miss sequence against a spider with the wooden sword | `ATTACK`, `DAMAGE`, `SCAL16` | Phase 3 (planned) | not captured |
 | C-13 | Faint and recovery timing | `HUPDAT` hysteresis, keyboard suspension | Phase 3 (planned) | not captured |
 | C-14 | Torch burn-out across minute boundaries | `BURNER` | Phase 4 (planned) | not captured |
