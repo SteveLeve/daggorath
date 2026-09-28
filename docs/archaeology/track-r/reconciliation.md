@@ -35,7 +35,7 @@ share a jiffy origin for a literal line-by-line diff, so this capture compares
 **aggregate dispatch counts over the full 10-minute window** rather than a
 per-line trace_diff, which sidesteps the offset entirely.
 
-**Observation — task dispatch counts over the run:**
+**Observation — task entries logged over the run:**
 
 | Task | Core (`dcli`) | ROM (`coco2b`) |
 |---|---|---|
@@ -52,43 +52,37 @@ one-count-short readings are consistent with the window's exact start/end
 falling a few jiffies either side of a re-queue, not a modelling divergence).
 `PLAYER`, `CMOVE`, `HSLOW`, and `LUKNEW` diverge substantially.
 
-**Divergence: `PLAYER` does not dispatch every idle jiffy in the ROM.** The
-core dispatches `PLAYER` in all 36000 jiffies of this idle script — with no
-keystrokes, `PLAYER` re-queues on `Q.JIF` and runs again every single jiffy.
-The ROM capture dispatches `PLAYER` in only 28444 of the 35990 jiffies between
-its first and last logged `TASK` line (jiffy 11 to 36000) — about 79%.
+**Divergence: the capture logs fewer `PLAYER` entries than the core trace.**
+The core logs `PLAYER` in all 36000 jiffies of this idle script — with no
+keystrokes, `PLAYER` re-queues on `Q.JIF` and runs again every single modeled
+jiffy. The ROM capture's `TASK` log contains `PLAYER` in only 28444 of the
+35990 jiffies between its first and last logged `TASK` line (jiffy 11 to
+36000) — about 79%.
 
-Looking at *any* task dispatch, not just `PLAYER`: the ROM trace has a `TASK`
-line in 29762 of those 35990 jiffies. **6228 jiffies (17%) show no task
-dispatch of any kind.** The remaining gap between "any task" (29762) and
-`PLAYER` alone (28444) — about 1318 jiffies — are jiffies where some other
-task (`CMOVE`, `HSLOW`, `LUKNEW`, `CREGEN`, `BURNER`) ran but `PLAYER` did
-not; 3948 jiffies had more than one task dispatch, so these aren't
-mutually exclusive categories.
+Looking at *any* task entry, not just `PLAYER`: the ROM trace has a `TASK`
+line in 29762 of those 35990 jiffies. **6228 jiffies (17%) show no `TASK`
+line.** The remaining gap between "any task" (29762) and `PLAYER` alone
+(28444) — about 1318 jiffies — are jiffies where the log has an entry for
+some other task (`CMOVE`, `HSLOW`, `LUKNEW`, `CREGEN`, `BURNER`) but no
+`PLAYER` entry; 3948 jiffies had more than one logged task dispatch, so these
+aren't mutually exclusive categories.
 
 **Reading, not yet a fix.** The core models `PLAYER` as always re-queuing and
-running on `Q.JIF` regardless of what else is ready that jiffy (consistent
-with `PLAYER` counting 36000/36000). The ROM data is consistent with a
-stricter reading of ADR-0002's "one bounded lap per jiffy": if `SCHED`
-dispatches at most one ready task per interrupt in priority order, and
-`PLAYER`'s `Q.JIF` slot can lose that single dispatch to a higher- or
-differently-ordered task the same jiffy, `PLAYER` would skip jiffies exactly
-when something else is ready — which is roughly, but not exactly, what the
-1318-jiffy overlap shows. It does **not** explain the 6228 completely silent
-jiffies: if `PLAYER` is unconditionally re-added to `Q.JIF` every jiffy (as
-the core assumes and as `docs/specification/clock-and-scheduler.md` states
-source-proven), some task should be ready and dispatched on every jiffy,
-never zero. Either `PLAYER`'s re-queue is not unconditional (a rule this
-project has treated as source-proven), or the capture's `SCHED_JSR` read tap
-(`tools/rom/capture.lua`, fires on opcode fetch of the JSR into a task's
-`P.TCRTN`) misses some dispatches — for instance if `SCHED` has more than one
-code path into a task and only one is tapped. Both are open; neither is
-confirmed here.
+running on `Q.JIF` every modeled jiffy (consistent with `PLAYER` counting
+36000/36000). An at-most-one-dispatch-per-jiffy explanation is ruled out:
+3948 jiffies have multiple logged task entries, and source-proven `SCHED` is
+an endless loop, not a bounded per-jiffy pass
+(`docs/specification/clock-and-scheduler.md` §5). What remains unresolved is
+whether foreground CPU/lap cost — how much scheduler and task work fits between
+interrupts — or incomplete `SCHED_JSR` read-tap coverage
+(`tools/rom/capture.lua`, which logs the routine at `P.TCRTN`) accounts for the
+missing `TASK` entries. These aggregate counts do not establish which
+explanation is correct.
 
-This is a reading of the raw counts, not a confirmed mechanism, and it is
-larger and less clean than C-09's finding. It needs its own capture (a watch
-on `Q.JIF`'s head pointer each jiffy, not just the dispatch PC) before any
-spec or core change. Filed as #39, spec-first per
+This is a reading of the logged counts, not a confirmed mechanism, and it is
+larger and less clean than C-09's finding. It needs its own capture (verify
+tap coverage and watch `Q.JIF`'s head pointer each jiffy, not just the
+dispatch PC) before any spec or core change. Filed as #39, spec-first per
 `docs/prompts/track-r-rom-observation.md` step 5. No core change in this
 commit.
 
