@@ -34,6 +34,11 @@
 
 namespace dag::platform {
 
+// The overlay's view of the running game: hands, ring-in-hand, whether a
+// ladder or hole is on this cell (VFIND, as CLIMB checks), and the floor and
+// pack names EXAMINE would list (examine_snapshot_from). Read-only.
+dag::input::OverlayState overlay_state_from(const dag::Game& game);
+
 class OverlayBridge {
 public:
     explicit OverlayBridge(dag::input::OverlayLayout layout) : layout_(layout) {}

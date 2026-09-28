@@ -6,7 +6,7 @@
 add_library(daggorath_platform STATIC overlay_bridge.cpp)
 add_library(daggorath::platform ALIAS daggorath_platform)
 target_include_directories(daggorath_platform PUBLIC include)
-target_link_libraries(daggorath_platform PUBLIC daggorath::input)
+target_link_libraries(daggorath_platform PUBLIC daggorath::input daggorath::presentation)
 
 # The desktop window is built only when SDL3 is installed. The core, the
 # offscreen rasterizer and the overlay bridge do not link it.

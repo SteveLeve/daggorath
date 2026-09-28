@@ -233,6 +233,27 @@ TapOutcome resolve_tap(ButtonId id, const OverlayState& state) {
     return out;
 }
 
+std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
+                                        const OverlayState& state) {
+    switch (pending) {
+        case PendingKind::FloorPicker:
+            return state.floor_items;
+        case PendingKind::PackPicker:
+            return state.pack_items;
+        case PendingKind::HandMenu: {
+            std::vector<std::string> out{"S", "D", "U", "R"};
+            if (right_hand ? state.right_hand_ring : state.left_hand_ring) out.push_back("I");
+            return out;
+        }
+        case PendingKind::ClimbChoice:
+            return {"U", "D"};
+        case PendingKind::IncantKeyboard:
+        case PendingKind::None:
+            return {};
+    }
+    return {};
+}
+
 std::optional<std::string> resolve_picker_choice(PendingKind pending, bool right_hand,
                                                  const std::string& choice) {
     switch (pending) {

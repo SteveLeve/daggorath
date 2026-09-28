@@ -320,34 +320,17 @@ void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int sc
     }
 }
 
-// Picker/menu choices (Phase 8.6.1): the design doc's floor/pack pickers and
-// hand menu are simple choice lists, not yet checked against the listing for
-// which objects are actually visible (docs/architecture/touch-input.md §4,
-// carried into a later workstream). This lays out GENTAB's six generic
-// names, or the hand-menu/climb letters, as one evenly spaced row -- a
-// working tap path to the keystrokes (Phase 8's own scope), not a claim
-// about which objects the player can actually see.
+// Picker/menu choices: dag::input::picker_choices gives the names (floor and
+// pack as EXAMINE lists them, via overlay_state_from) or the hand-menu/climb
+// letters. Which floor objects the player can see in the dark is still open
+// (docs/architecture/touch-input.md §4). Laid out here as one evenly spaced
+// row; anchoring beside the opening button (Picker board) is a later step.
 // `game_x`/`game_w`/`game_h` place the row over the actual game view (not
 // the full window -- see present_frame's letterboxing comment), so it stays
 // centered over the visible corridor on PhoneLandscape's wider window too.
 std::vector<std::pair<std::string, dag::input::Rect>> picker_choice_rects(
-    dag::input::PendingKind kind, double game_x, double game_w, double game_h) {
-    std::vector<std::string> choices;
-    switch (kind) {
-        case dag::input::PendingKind::FloorPicker:
-        case dag::input::PendingKind::PackPicker:
-            choices = {"FLASK", "RING", "SCROLL", "SHIELD", "SWORD", "TORCH"};
-            break;
-        case dag::input::PendingKind::HandMenu:
-            choices = {"S", "D", "U", "R", "I"};
-            break;
-        case dag::input::PendingKind::ClimbChoice:
-            choices = {"U", "D"};
-            break;
-        case dag::input::PendingKind::IncantKeyboard:
-        case dag::input::PendingKind::None:
-            return {};
-    }
+    const std::vector<std::string>& choices, double game_x, double game_w, double game_h) {
+    if (choices.empty()) return {};
     std::vector<std::pair<std::string, dag::input::Rect>> out;
     const double w = game_w / static_cast<double>(choices.size());
     const double h = 40;
@@ -486,11 +469,13 @@ int main(int argc, char** argv) {
         // rects drawn last frame (one-frame lag on a hand-state change is
         // harmless: GET/DROP/STOW/etc. are core-UNIMPLEMENTED today anyway,
         // docs/architecture/touch-input.md §5).
-        const dag::input::OverlayState overlay_state{
-            held->player().left_hand < 0, held->player().right_hand < 0, false};
+        const dag::input::OverlayState overlay_state = dag::platform::overlay_state_from(*held);
         const auto& current_buttons = overlay.buttons(viewport_w, viewport_h, overlay_state);
         const auto picker_rects = overlay.picker_open()
-                                       ? picker_choice_rects(overlay.pending(), game_x, kGameW, kGameH)
+                                       ? picker_choice_rects(dag::input::picker_choices(overlay.pending(),
+                                                                           overlay.pending_right_hand(),
+                                                                           overlay_state),
+                                                 game_x, kGameW, kGameH)
                                        : std::vector<std::pair<std::string, dag::input::Rect>>{};
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -513,8 +498,10 @@ int main(int argc, char** argv) {
                     // addendum) -- Esc, the physical keyboard, or the
                     // SystemMenu button are the only ways to act on it.
                 } else if (overlay.picker_open()) {
+                    bool chose = false;
                     for (const auto& [choice, rect] : picker_rects) {
                         if (!rect.contains(mx, my)) continue;
+                        chose = true;
                         // HandMenu's "I" opens the in-game keyboard (design
                         // doc: "I types I and opens an in-game keyboard").
                         // No on-screen QWERTY grid is built here (8.6.1
@@ -530,6 +517,9 @@ int main(int argc, char** argv) {
                         }
                         break;
                     }
+                    // A tap outside every choice closes the picker unchanged,
+                    // so an empty or unwanted picker is never a dead end.
+                    if (!chose) overlay.cancel_picker();
                 } else {
                     overlay.handle_tap(mx, my, *held);
                 }
@@ -895,7 +885,11 @@ int main(int argc, char** argv) {
                 return;
             }
             if (overlay.picker_open()) {
-                for (const auto& [choice, rect] : picker_rects) draw_button(r, rect, choice[0]);
+                for (const auto& [choice, rect] : picker_rects) {
+                    draw_button(r, rect, ' ');
+                    draw_text_line(r, rect.x + (rect.w - 8.0 * choice.size()) / 2,
+                                   rect.y + rect.h / 2 - 4, choice);
+                }
             } else {
                 for (const auto& button : current_buttons)
                     draw_button(r, button.rect, button_label(button.id));

@@ -1,11 +1,35 @@
 #include "daggorath/overlay_bridge.hpp"
 
+#include "daggorath/examine.hpp"
 #include "daggorath/gesture.hpp"
+#include "daggorath/population.hpp"
 
 namespace dag::platform {
 
 using dag::input::ButtonId;
 using dag::input::PendingKind;
+
+namespace {
+constexpr std::uint8_t kClassRing = 1;  // CD.ASM K.RING
+
+bool holds_ring(const dag::Game& game, int index) {
+    return index >= 0 && game.objects()[static_cast<std::size_t>(index)].cls == kClassRing;
+}
+}  // namespace
+
+dag::input::OverlayState overlay_state_from(const dag::Game& game) {
+    const auto& player = game.player();
+    dag::input::OverlayState state;
+    state.left_hand_empty = player.left_hand < 0;
+    state.right_hand_empty = player.right_hand < 0;
+    state.left_hand_ring = holds_ring(game, player.left_hand);
+    state.right_hand_ring = holds_ring(game, player.right_hand);
+    state.climb_available = dag::vfind(game.level_index(), player.row, player.col) >= 0;
+    const dag::ExamineSnapshot exam = dag::examine_snapshot_from(game);
+    state.floor_items = exam.floor;
+    state.pack_items = exam.bag;
+    return state;
+}
 
 const std::vector<dag::input::Button>& OverlayBridge::buttons(double viewport_w,
                                                                double viewport_h,

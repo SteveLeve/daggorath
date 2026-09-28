@@ -135,6 +135,34 @@ void test_get_left_floor_picker_two_tap_sequence() {
           "GetLeft -> TORCH matches typing \"G L TORCH\\r\" by hand, byte for byte");
 }
 
+void test_overlay_state_from_game() {
+    dag::Game game;
+    game.advance_jiffies(5);
+    const auto state = dag::platform::overlay_state_from(game);
+    check(state.left_hand_empty && state.right_hand_empty, "both hands start empty");
+    check(state.pack_items.size() == 2, "the pack picker lists the starting sword and torch",
+          std::to_string(state.pack_items.size()));
+    check(state.floor_items.empty(), "nothing lies on the starting cell");
+    check(!state.left_hand_ring && !state.right_hand_ring, "no ring is held at the start");
+
+    // PullRight -> the first listed name matches typing P R <name>.
+    dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+    const auto& buttons = bridge.buttons(kViewportW, kViewportH, state);
+    const auto [x, y] = center_of(buttons, dag::input::ButtonId::PullRight);
+    dag::Game tapped;
+    bridge.handle_tap(x, y, tapped);
+    const auto choices = dag::input::picker_choices(bridge.pending(), bridge.pending_right_hand(), state);
+    check(!choices.empty() && bridge.resolve_choice(choices.front(), tapped),
+          "the pack picker's first name finishes a PULL");
+    tapped.advance_jiffies(200);
+    const auto after = dag::platform::overlay_state_from(tapped);
+    check(!after.right_hand_empty && after.pack_items.size() == 1,
+          "the pulled item leaves the pack for the right hand");
+    if (!choices.empty())
+        check(render_trace(tapped) == render_trace(typed_reference("P R " + choices.front(), 200)),
+              "PullRight -> first pack name matches typing it by hand");
+}
+
 void test_miss_and_keyboard_and_system_menu_are_not_this_bridge() {
     dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
     const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
@@ -162,6 +190,7 @@ int main() {
     test_examine_tap_matches_typed();
     test_get_left_floor_picker_two_tap_sequence();
     test_miss_and_keyboard_and_system_menu_are_not_this_bridge();
+    test_overlay_state_from_game();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";
     return g_failures == 0 ? 0 : 1;

@@ -170,6 +170,27 @@ void test_tap_dispatch_for_pickers_and_menus() {
           "choosing I from the hand menu has no line yet (opens the incant keyboard)");
 }
 
+void test_picker_choices_follow_game_state() {
+    using namespace dag::input;
+    OverlayState state;
+    state.floor_items = {"LEATHER SHIELD", "PINE TORCH", "FLASK"};
+    state.pack_items = {"WOODEN SWORD"};
+    check(picker_choices(PendingKind::FloorPicker, false, state) == state.floor_items,
+          "the floor picker lists the floor names in order (Picker board)");
+    check(picker_choices(PendingKind::PackPicker, true, state) == state.pack_items,
+          "the pack picker lists the pack names");
+    check(picker_choices(PendingKind::FloorPicker, false, OverlayState{}).empty(),
+          "an empty floor gives an empty picker, not generic names");
+    const std::vector<std::string> sdur{"S", "D", "U", "R"};
+    check(picker_choices(PendingKind::HandMenu, true, state) == sdur,
+          "the hand menu offers no I without a ring (HandStates board)");
+    state.right_hand_ring = true;
+    check(picker_choices(PendingKind::HandMenu, true, state).back() == "I",
+          "a ring in that hand adds I");
+    check(picker_choices(PendingKind::HandMenu, false, state) == sdur,
+          "a ring in the other hand does not");
+}
+
 void test_climb_confirmation() {
     using namespace dag::input;
     OverlayState state;
@@ -201,6 +222,7 @@ int main() {
     test_mouse_as_touch_hit_testing();
     test_tap_dispatch_for_simple_commands();
     test_tap_dispatch_for_pickers_and_menus();
+    test_picker_choices_follow_game_state();
     test_climb_confirmation();
     test_incant_keyboard_finish();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "

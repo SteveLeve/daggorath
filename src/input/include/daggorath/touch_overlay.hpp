@@ -71,6 +71,14 @@ struct OverlayState {
     bool left_hand_empty = true;
     bool right_hand_empty = true;
     bool climb_available = false;
+    // Hands holding a ring: only then does "≡" offer I (HandStates board).
+    bool left_hand_ring = false;
+    bool right_hand_ring = false;
+    // Names as EXAMINE lists them: objects on the player's cell (G's
+    // picker) and in the pack (P's picker). Filled by the platform from the
+    // running game (overlay_state_from, overlay_bridge.hpp).
+    std::vector<std::string> floor_items;
+    std::vector<std::string> pack_items;
 };
 
 // Computes every visible button's hit rectangle for one viewport and hand
@@ -112,6 +120,12 @@ struct TapOutcome {
 // caller feeds a finished `line` to a `GestureLine` (gesture.hpp) the same
 // way for every source.
 TapOutcome resolve_tap(ButtonId id, const OverlayState& state);
+
+// The choices a pending picker offers, in display order: floor or pack item
+// names (Picker board: "Get left: on floor"), the hand menu's S D U R plus I
+// for a ring, or climb's U D. Empty when there is nothing to choose.
+std::vector<std::string> picker_choices(PendingKind pending, bool right_hand,
+                                        const OverlayState& state);
 
 // Finishes a pending picker: the floor/pack picker's chosen object name, or
 // the hand-menu's chosen verb letter ('S' stow, 'D' drop, 'U' use, 'R'
