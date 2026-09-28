@@ -1,5 +1,11 @@
 # Phase 5b search loop — per-run prompt
 
+**Closed 2026-09-28.** A candidate reached WINNER and qualified; the winner
+ctest (`playthrough_power_on_to_winner`) is enabled, not disabled, and closure
+(re-enable, hash reason, reconciliation, audits, `make all`) is done. This file
+is kept for its method, not as an open task list — do not start a new loop run
+against it without first checking `phase-5b-search-log.md`'s Frontier entry.
+
 Each run of the loop follows this prompt once and tests **one hypothesis**.
 Every run starts from [`phase-5b-search-log.md`](phase-5b-search-log.md); do not
 rely on conversation history. `CLAUDE.md`, `docs/project-instructions.md` and the
@@ -52,7 +58,8 @@ first. Write down, before running anything, what result would confirm or refute 
 
 ## 5. Rules and gate
 - No rule changes, FUDGE, snapshot recovery, fixture/baseline/hash/manifest edits,
-  or `make all` (it regenerates evidence). The winner ctest stays disabled.
+  or `make all` (it regenerates evidence). The winner ctest is enabled and must
+  keep passing; a run that would break it reverts instead.
 - Core (`src/core`) edits only for a source-proven bug found while searching: cite
   `FILE.ASM` label, add a regression test, run `evidence-auditor` (and
   `boundary-checker`). Otherwise record it as a question.

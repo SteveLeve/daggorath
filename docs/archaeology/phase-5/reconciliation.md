@@ -34,12 +34,14 @@ Labels: **[SRC]** read from the pinned listing (also written "Source-proven"); *
 | D-4 animation and sound durations | Phase 6 (listing-derived part), Track R (measured part) |
 | D-5 trace counter sampling | Permanent, trace format only |
 
-## Playthrough harness (not source behaviour)
+## Playthrough harness (historical; not source behaviour, superseded 2026-09-28)
 
 A closed-loop planner (`src/app/dplan.cpp`) records a power-on keystroke script.
 A pure power-on run can take hours of HSLOW recovery and dies to a single
-scorpion sting at Original Mode incoming damage. Two harness mechanisms exist
-so a committed script can still be replayed by `dcli` / ctest:
+scorpion sting at Original Mode incoming damage. The 2026-09-26 route used two
+harness mechanisms so a committed script could still be replayed by `dcli` /
+ctest; both were removed on 2026-09-28 (see below) and neither applies to the
+committed script:
 
 1. **Checkpoints.** After each cleared level, and before the type-10 and
    type-11 fights, `dplan` writes `Game::snapshot()` to

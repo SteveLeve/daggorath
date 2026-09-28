@@ -427,8 +427,9 @@ void Game::update_heart_rate() {
         player_.dead = true;
         // DEATH tail, HUPDAT.ASM:168: CLR FAINT (source-proven), so a player who
         // dies while unconscious is no longer fainted. The listing then does
-        // DEC AUTFLG (:169) so a keypress restarts GAME; the core halts instead
-        // (the restart is Phase 5b work).
+        // DEC AUTFLG (:169) so a keypress restarts GAME (D-18): the core halts
+        // here and restart_after_death() (below, triggered on the next key)
+        // does the restart.
         player_.fainted = false;
         sched_.set_faint(false);
         sched_.halt();
