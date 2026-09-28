@@ -121,6 +121,10 @@ then the rest.
 | TOKEN.ASM (all tables) | lexicon_tables.hpp (generated from tokens.json) | matches | 24 | Fixture-generated from the listing (EXPAND.ASM decode); `make fixtures` checks it. |
 | COMTXT.ASM:TXTXXX, TXTBS, TXTCR, TXTSCR; TXTSER.ASM:TXTCHR, TXTSTR, TXTSTI | game.cpp out_char, text; examine.cpp Pad | gap-fixed | 25 | Primary text matches (BS wrap to 127, CR, scroll after the char). The EXAMINE pad dropped lines past row 19 instead of scrolling (fixed); the tab-to-608 status-line spill is a recorded quirk, not reproduced. TXTDPB glyphs are fixture-backed (phase 6). |
 | ONCE.ASM:GAME10-GAME50, SYSTCB, IRQSYN | game.cpp Game(), systcb, build_level | gap-fixed | 27 | Start position, PPOW, level-0 build, GAMDAT bag (specific refill is a no-op for wooden/pine), reveal, PROMPT match. P.OCLVL $0B quirk now reproduced. Demo/autoplay path (GAME40) not modelled. |
+| CLEAR.ASM:CLRSTX, CLRPRX, CLEAR, ZFLIPX | game.cpp clear_primary_text; raster/apply_vdginv | matches | 28 | CLRPRI homes the cursor and fills with P.TXINV; the core clears to 0 and the window applies polarity (run 17-18). CLRSTS: status line not modelled as a buffer. |
+| RANDOM.ASM:RANDOX | rng.hpp Rng::next | matches | 28 | Eight rounds of the $E1 feedback parity into a 24-bit ROL chain SEED, SEED+1, SEED+2; returns SEED. ROM-confirmed by DGEN90 seed captures (phase 1). |
+| PLOOK.ASM:INIVUX, PLOOK | game.cpp inivu | matches | 11, 28 | Reviewed in run 11 (CLRPRI, HUPDAT, heart flags, viewer, PUPDAT). |
+| PARSER.ASM:GETTOK, PAROBJ, PARSER | parser.cpp | matches | 17, 28 | GETTOK reviewed in run 17; the parse tables and prefixes are fixture-backed (phase-0b tokens.json, parser-prefixes.json). |
 | remaining .ASM files | | unreviewed | | Split into labels when reached. |
 
 ## Run history
@@ -154,3 +158,4 @@ then the rest.
 | 2026-09-27 | 25 | COMTXT, TXTSER | EXAMINE page never scrolled | Pad scroll + test; quirk recorded; audited | — |
 | 2026-09-27 | 26 | Q6: CLIMB/ENDGAM NEWLVL build time | C-22 captured (levels 1-4); timed NEWLVL + PREPARE! applied; SYSTCB tasks deferred to the build's end after the capture showed CREGEN must follow the births | Core, window, tests, reconciliation | — |
 | 2026-09-27 | 27 | ONCE game start | Starting objects' level byte was 0, listing leaves $0B | Quirk reproduced + test; audited | — |
+| 2026-09-27 | 28 | CLEAR, RANDOM, PLOOK, PARSER | All match | log only | — |
