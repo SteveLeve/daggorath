@@ -72,8 +72,8 @@ the first `todo` goal, and only that goal. Statuses: `todo`, `done <commit>`,
      wasn't enough). Recorded in `docs/archaeology/phase-8/reconciliation.md`
      §8.6.7.
 6. **Ready to merge.**
-   - Status: `todo`.
-   - Update the PR body and `phase-8-plan.md`, then ask Steve to merge.
+   - Status: `in progress`. PR body and `phase-8-plan.md` updated; asking
+     Steve to merge next.
 
 Out of scope:
 - The Phase 9 backgrounding hook.
@@ -111,3 +111,12 @@ Out of scope:
     `--shots` key and tap injection, including a tap actually cancelling a
     pending overwrite and a tap opening the save-slot list.
   - Next: goal 6 (ready to merge), unchanged.
+- 2026-09-28, goal 6:
+  - PR body rewritten to describe the actual delivered shape (SDL wiring,
+    shell system menu, touch overlay, the refinement loop's findings, the
+    Video/Controls entries, the menu restyle) instead of the pre-loop
+    8.6.1/8.6.2/8.6.3 draft. `phase-8-plan.md` gained a "Closed (PR #32)"
+    section. No loop was left running against this branch (the
+    touch-overlay loop's runs were all done by hand, one per turn; nothing
+    was scheduled to fire on its own).
+  - Asking Steve to merge; issue #9 to close once that lands.
