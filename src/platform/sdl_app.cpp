@@ -397,7 +397,7 @@ void draw_text_centered(SDL_Renderer* renderer, const dag::input::Rect& rect,
                    scale);
 }
 
-// crisp render style (8.6.3, ADR-0010 §2): device-scaled line/point drawing
+// crisp render style (8.6.3, ADR-0010 §2): device-scaled line drawing
 // for the same draw list `pixel` rasterises into a bitmap. Coordinates from
 // dag::build_crisp_frame/build_crisp_map are source-256x192 space; this is
 // the "platform maps them to device pixels" half ADR-0010 leaves to the
@@ -405,19 +405,14 @@ void draw_text_centered(SDL_Renderer* renderer, const dag::input::Rect& rect,
 // only draw over the viewport band (rows 0..kViewportScanlineEnd), never the
 // status/command text bands below it.
 void draw_crisp_view(SDL_Renderer* renderer, const dag::RenderState& state, int scale,
-                     double x_offset, std::uint8_t ink) {
+                     double x_offset, std::uint8_t ink, std::uint8_t paper) {
     const dag::CrispFrame crisp = dag::build_crisp_frame(state);
-    SDL_SetRenderDrawColor(renderer, ink, ink, ink, 255);
     for (const auto& line : crisp.lines) {
+        const auto shade = dag::crisp_shade(line.fade, ink, paper);
+        SDL_SetRenderDrawColor(renderer, shade, shade, shade, 255);
         SDL_RenderLine(renderer, static_cast<float>(line.x0 * scale + x_offset),
                        static_cast<float>(line.y0 * scale), static_cast<float>(line.x1 * scale + x_offset),
                        static_cast<float>(line.y1 * scale));
-    }
-    for (const auto& dot : crisp.dots) {
-        const SDL_FRect px{static_cast<float>(dot.x * scale + x_offset),
-                           static_cast<float>(dot.y * scale), static_cast<float>(scale),
-                           static_cast<float>(scale)};
-        SDL_RenderFillRect(renderer, &px);
     }
 }
 
@@ -1047,7 +1042,7 @@ int main(int argc, char** argv) {
                                               static_cast<float>(dag::kViewportScanlineEnd * kScale)};
                 SDL_RenderFillRect(r, &viewport_rect);
                 if (map_up) draw_crisp_map(r, dag::map_snapshot_from(game), kScale, game_x, ink);
-                else draw_crisp_view(r, dag::project(snap), kScale, game_x, ink);
+                else draw_crisp_view(r, dag::project(snap), kScale, game_x, ink, paper);
             }
             if (shell->paused()) {
                 // 8.6.8: styled and hit-tested like the touch overlay's own
