@@ -10,6 +10,7 @@ This log goes with `touch-overlay-loop.md`.
 | `fixed <run>` | Fixed in that run. |
 | `needs-steve` | Waiting for an answer to an open question. |
 | `blocked: <reason>` | Cannot proceed, for the reason given. |
+| `deferred` | Answered, but the work is intentionally pushed to a later item. |
 
 ## Reported symptoms (Steve)
 
@@ -64,19 +65,12 @@ Code paths are in `src/`.
 | T22 | Main (phone) | `layout_phone` | fixed 6 | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
 | T23 | Incant | `sdl_app.cpp` | fixed 5 | The text box and the ⌫ ↵ ✕ SPC labels use SDL's 8 px debug font, which is small next to the keys. |
 | T24 | Incant | `sdl_app.cpp` | fixed 5 | The Incant board keeps both A buttons visible over the keyboard; the keyboard currently hides every button. |
-| T25 | Issue #34 | system menu | needs-steve | Add a delete action for the system menu's save slots. See Q8. |
+| T25 | Issue #34 | system menu | deferred | Add a delete action for the system menu's save slots. Steve chose option (c): deferred to the later "Tape" screen (issue #34). |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
 
-- Q8 (T25, run 7): the system menu (S/L/X/Q, `MenuState`) isn't in the touch
-  mockups — it's keyboard-only, per Q7. There's no mockup or ADR to decide a
-  delete action's UX. Options: (a) a `D` key on the ChooseSave/ChooseLoad
-  screen, then a slot number, with a Y/N confirm like overwrite; (b) fold
-  delete into overwrite (saving to an occupied slot already confirms
-  replacing it, so a separate delete may not earn its keep); (c) defer to
-  the "Tape" screen issue #34 already tracks, and drop T25 until then. No
-  code change made pending an answer.
+(none open)
 
 ## Run history
 
@@ -182,3 +176,6 @@ Code paths are in `src/`.
     auditor ran clean on the log/backlog wording.
   - Backlog is now empty of `todo` rows: T17 is out of scope for this loop,
     T25 is needs-steve. Stopping and notifying Steve.
+- 2026-09-28, answer from Steve:
+  - Q8: option (c). T25 stays with issue #34's "Tape" screen for later; no
+    delete action is added now.
