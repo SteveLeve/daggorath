@@ -63,10 +63,14 @@ the first `todo` goal, and only that goal. Statuses: `todo`, `done <commit>`,
      scope, and T25 (save-slot delete) is deferred to the later "Tape"
      screen, issue #34.
 5. **Video/Controls menu entries.**
-   - Status: `todo`, after goal 4.
-   - A Video entry that selects the render style (the F1 toggle) and a Controls
-     entry that selects the layout.
-   - Record them in the phase-8 reconciliation addendum.
+   - Status: `done`. `V VIDEO: PIXEL/CRISP` and `C CONTROLS: TABLET/PHONE`
+     on the system menu's Top screen (`src/platform/sdl_app.cpp`), handled
+     directly rather than through `MenuState` since both are
+     presentation-only. `C` resizes the live window
+     (`OverlayBridge::set_layout` plus a window/renderer/texture rebuild —
+     see the reconciliation addendum for why a plain `SDL_SetWindowSize`
+     wasn't enough). Recorded in `docs/archaeology/phase-8/reconciliation.md`
+     §8.6.7.
 6. **Ready to merge.**
    - Status: `todo`.
    - Update the PR body and `phase-8-plan.md`, then ask Steve to merge.
@@ -90,3 +94,11 @@ Out of scope:
   - Closed out through the touch-overlay loop rather than this list; see
     `touch-overlay-log.md` runs 1–7. Next: goal 5 (Video/Controls menu
     entries), still `todo`.
+- 2026-09-28, goal 5:
+  - Added `V`/`C` to the system menu's Top screen. `C`'s live layout switch
+    needed a window rebuild, not just `SDL_SetWindowSize` — see the
+    reconciliation addendum §8.6.7 for what didn't work and why.
+  - `make all` passes, 23/23. Verified on screen through `--shots` with
+    injected key presses, both toggle directions, plus a move afterward to
+    confirm the game still runs post-rebuild.
+  - Next: goal 6 (ready to merge).

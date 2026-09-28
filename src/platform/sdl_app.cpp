@@ -17,6 +17,7 @@
 #include <SDL3/SDL.h>
 
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -456,11 +457,11 @@ int main(int argc, char** argv) {
     constexpr int kScale = 3;
     constexpr double kGameW = dag::kScreenWidth * kScale;
     constexpr double kGameH = dag::kScreenHeight * kScale;
-    const double window_w = layout == dag::input::OverlayLayout::PhoneLandscape
-                                ? kGameH * 19.5 / 9.0
-                                : kGameW;
+    double window_w = layout == dag::input::OverlayLayout::PhoneLandscape
+                          ? kGameH * 19.5 / 9.0
+                          : kGameW;
     const double window_h = kGameH;
-    const double game_x = (window_w - kGameW) / 2.0;
+    double game_x = (window_w - kGameW) / 2.0;
     SDL_Window* window = SDL_CreateWindow("Dungeons of Daggorath", static_cast<int>(window_w),
                                           static_cast<int>(window_h), 0);
     if (window == nullptr) return 1;
@@ -470,14 +471,47 @@ int main(int argc, char** argv) {
                                              dag::kScreenWidth * kScale,
                                              dag::kScreenHeight * kScale);
     if (renderer == nullptr || texture == nullptr) return 1;
+    auto make_texture = [&]() {
+        return SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
+                                 dag::kScreenWidth * kScale, dag::kScreenHeight * kScale);
+    };
 
     dag::platform::OverlayBridge overlay(layout);
     // Buttons hit-test/render against the whole window (so PhoneLandscape's
     // corner buttons land in its side margins, per the design doc); pickers
     // and crisp stay bound to the game's own 768x576 render (game_x/kGameW/
     // kGameH below), never the margins.
-    const double viewport_w = window_w;
+    double viewport_w = window_w;
     const double viewport_h = window_h;
+    // 8.6.7 (Controls menu entry): re-derives window_w/game_x/viewport_w for
+    // the other layout and resizes the live window, so the Controls entry
+    // acts at once instead of only on the next launch's --layout flag.
+    auto set_layout = [&](dag::input::OverlayLayout next) {
+        layout = next;
+        window_w = layout == dag::input::OverlayLayout::PhoneLandscape ? kGameH * 19.5 / 9.0 : kGameW;
+        game_x = (window_w - kGameW) / 2.0;
+        viewport_w = window_w;
+        overlay.set_layout(layout);
+        // SDL_SetWindowSize alone left a stale, uninitialized margin on the
+        // offscreen test driver (confirmed here: SDL_GetRenderOutputSize
+        // reported the new size, but SDL_RenderClear's black never reached
+        // it, and recreating just the renderer against the same window
+        // didn't help either) -- the window itself has to be rebuilt at the
+        // new size for a reliably fresh backing surface across backends.
+        SDL_DestroyTexture(texture);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        window = SDL_CreateWindow("Dungeons of Daggorath", static_cast<int>(window_w),
+                                  static_cast<int>(window_h), 0);
+        renderer = window ? SDL_CreateRenderer(window, nullptr) : nullptr;
+        texture = renderer ? make_texture() : nullptr;
+        // Matches main()'s own start-up checks just above: a null here is
+        // unrecoverable (nothing left to render into), not worth a fallback.
+        if (window == nullptr || renderer == nullptr || texture == nullptr) {
+            std::cerr << "Controls: window/renderer/texture recreation failed\n";
+            std::exit(1);
+        }
+    };
 
     std::optional<dag::Game> held;
     held.emplace();
@@ -660,6 +694,25 @@ int main(int argc, char** argv) {
                 continue;
             }
             if (shell->paused()) {
+                // 8.6.7: Video/Controls sit on the same Top screen as
+                // Save/Load/Restart/Quit but are presentation-only (render
+                // style, window layout) -- neither Shell nor MenuState know
+                // about SDL, so these two are handled here directly instead
+                // of through MenuState::press, the same way F1 already
+                // toggles crisp_style outside the menu entirely.
+                if (menu.screen() == dag::shell::MenuScreen::Top &&
+                    shell->pending() == dag::shell::ConfirmKind::None) {
+                    if (key == SDLK_V) {
+                        crisp_style = !crisp_style;
+                        continue;
+                    }
+                    if (key == SDLK_C) {
+                        set_layout(layout == dag::input::OverlayLayout::PhoneLandscape
+                                       ? dag::input::OverlayLayout::Tablet4x3
+                                       : dag::input::OverlayLayout::PhoneLandscape);
+                        continue;
+                    }
+                }
                 // 8.6.6: Resume/Save/Load/Restart/Quit (ADR-0009 §6). No
                 // on-screen QWERTY grid for slot names -- keyboard shortcuts
                 // only, matching the incant-keyboard simplification in
@@ -948,6 +1001,13 @@ int main(int argc, char** argv) {
                     draw_text_line(r, cx - 110, y, "X RESTART");
                     y += 24;
                     draw_text_line(r, cx - 110, y, "Q QUIT");
+                    y += 24;
+                    draw_text_line(r, cx - 110, y,
+                                   std::string("V VIDEO: ") + (crisp_style ? "CRISP" : "PIXEL"));
+                    y += 24;
+                    draw_text_line(r, cx - 110, y,
+                                   std::string("C CONTROLS: ") +
+                                       (layout == dag::input::OverlayLayout::PhoneLandscape ? "PHONE" : "TABLET"));
                 } else {
                     draw_text_line(r, cx - 110, y,
                                    menu.screen() == dag::shell::MenuScreen::ChooseSave ? "SAVE SLOT 1-5" : "LOAD SLOT 1-5");

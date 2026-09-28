@@ -239,3 +239,48 @@ gap.
 `make build && ctest --test-dir build` (fixtures/traces/verify unaffected —
 no fixture drift): 19/19 active tests passing, `playthrough_power_on_to_winner`
 still disabled per Phase 5b, `overlay_bridge_tests` new and passing.
+
+**8.6.7 (Video/Controls menu entries, phase-8-goals.md goal 5): built in a
+follow-up session.** The system menu's Top screen (8.6.6) gained two more
+lines below Q QUIT: `V VIDEO: PIXEL/CRISP` and `C CONTROLS: TABLET/PHONE`.
+Both are presentation-only settings with no relation to `Shell`/`MenuState`
+(no core state, no confirmation, no trace line), so `V`/`C` are handled
+directly in `sdl_app.cpp`'s key loop rather than through
+`MenuState::press`/`MenuEffect` — the same pattern F1's existing
+pixel/crisp toggle already uses outside the menu entirely. `V` toggles
+`crisp_style` (identical effect to F1, just discoverable and readable from
+the menu). `C` toggles the touch-overlay layout (`OverlayBridge::set_layout`,
+already a runtime setter) between `Tablet4x3` and `PhoneLandscape` at once,
+not only on the next launch's `--layout` flag.
+
+Making Controls take effect live needs the window itself to change size and
+aspect ratio while running, which `--layout` had never done before (it was
+read once, at start-up, into a `const` window size). The first attempt —
+`SDL_SetWindowSize` on the existing window, keeping the same renderer and
+texture — rendered wrong under `SDL_VIDEODRIVER=offscreen` (the tool this
+project's `--shots` screenshot checks run under): `SDL_GetRenderOutputSize`
+correctly reported the new, larger size, but the newly exposed margin read
+back as `(0,0,0,0)` (RGBA), i.e. never actually touched by `SDL_RenderClear`,
+even several frames later. Destroying and recreating just the renderer
+against the same window did not help either. Destroying and recreating the
+window itself (then the renderer, then the texture, all at the new size)
+did. This may be an offscreen-driver-specific quirk rather than a real
+window manager's behaviour (a resize under X11/Wayland genuinely
+reallocates the surface), but rebuilding the window is correct under any
+backend and was the only approach confirmed correct under this one, so it
+is what shipped. `set_layout` checks all three recreated resources and
+exits with a message rather than continuing to render through a null
+pointer, matching the null checks `main()` already does for the original
+start-up window/renderer/texture just above it. Screenshots taken through `--shots` with injected `key C`
+events (not just static-state renders: this exercises live interaction,
+narrowing the "no input-automation tooling" gap recorded in 8.6.2/8.6.6
+above for keyboard-driven paths) confirm: the margin renders black with no
+stale content immediately after a live `C` toggle in either direction, the
+menu's own `C CONTROLS: ...` line updates to match, and the game keeps
+responding to input (a move key) after the window/renderer/texture swap.
+
+`make all`: 23/23 active tests passing (unchanged by this addition — pure
+`sdl_app.cpp` UI glue over an existing `OverlayBridge::set_layout` setter
+and the existing `crisp_style` toggle, not new core-adjacent behaviour
+needing its own headless test, the same judgement 8.6.6 made for the
+Save/Load/Restart/Quit screen).
