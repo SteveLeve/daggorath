@@ -125,7 +125,10 @@ then the rest.
 | RANDOM.ASM:RANDOX | rng.hpp Rng::next | matches | 28 | Eight rounds of the $E1 feedback parity into a 24-bit ROL chain SEED, SEED+1, SEED+2; returns SEED. ROM-confirmed by DGEN90 seed captures (phase 1). |
 | PLOOK.ASM:INIVUX, PLOOK | game.cpp inivu | matches | 11, 28 | Reviewed in run 11 (CLRPRI, HUPDAT, heart flags, viewer, PUPDAT). |
 | PARSER.ASM:GETTOK, PAROBJ, PARSER | parser.cpp | matches | 17, 28 | GETTOK reviewed in run 17; the parse tables and prefixes are fixture-backed (phase-0b tokens.json, parser-prefixes.json). |
-| remaining .ASM files | | unreviewed | | Split into labels when reached. |
+| VARC, VERT, VOBJ, D3, D4, DTABAS (FWDOBJ/FWDCRE), SWCHAR (FLATAB), VIEWER (NORSCL/HLFSCL/BAKSCL), VCTLST (SETFAX), VECTOR (BITMSK) data | presentation vctlst/raster from vectors.json | matches | 29 | Fixture-extracted from the listing (phase-6 vectors.json, `make fixtures`); draw-level fixtures per level and light. |
+| DGNGEN.ASM | maze.cpp generate_level | matches | 29 | Maze bytes match ROM dumps for levels 0-4 (phase 1, C-22 maze.bin); spin draws and seeds ROM-confirmed. |
+| remaining .ASM files | | unreviewed | | Left: VIEWER/VECTOR/VCTLST code paths (drawing logic beyond the fixtures), CD/COMSWI/DAGGORATH/KSK (definitions only). |
+ | unreviewed | | Split into labels when reached. |
 
 ## Run history
 | Date | Loop | Targets | Findings | Fixes / commits | Not run |
@@ -159,3 +162,4 @@ then the rest.
 | 2026-09-27 | 26 | Q6: CLIMB/ENDGAM NEWLVL build time | C-22 captured (levels 1-4); timed NEWLVL + PREPARE! applied; SYSTCB tasks deferred to the build's end after the capture showed CREGEN must follow the births | Core, window, tests, reconciliation | — |
 | 2026-09-27 | 27 | ONCE game start | Starting objects' level byte was 0, listing leaves $0B | Quirk reproduced + test; audited | — |
 | 2026-09-27 | 28 | CLEAR, RANDOM, PLOOK, PARSER | All match | log only | — |
+| 2026-09-27 | 29 | Vector data files, DGNGEN | Covered by listing-extracted fixtures and ROM maze dumps | log only; second run in a row with no finding — stop suggested | — |
