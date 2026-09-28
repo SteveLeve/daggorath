@@ -6,136 +6,63 @@ namespace dag::input {
 
 namespace {
 
-// This prototype's own layout constants (design choice, not source-derived):
-// button and gap sizes as a fraction of the shorter viewport dimension, so
-// both layouts scale to any device size.
-double button_size(double viewport_w, double viewport_h) {
-    return 0.12 * (viewport_w < viewport_h ? viewport_w : viewport_h);
-}
-double gap(double viewport_w, double viewport_h) {
-    return 0.03 * (viewport_w < viewport_h ? viewport_w : viewport_h);
+// Both layouts follow the Main (19.5:9) and Legacy (16:9) boards, which share
+// one arrangement in board units: 48-unit buttons on a 54-unit pitch, 14 from
+// the edges (docs/design/touch-controls/mockups/). Top corners: A, then G and
+// P or "≡". Bottom left: ⇤ ↑ ⇥ / ↶ ↻ ↷ / ↓. Bottom right: C over the E/L
+// toggle, ⌨ over the system menu. `unit` scales board units to pixels and
+// `bottom` is the line the bottom clusters sit on.
+std::vector<Button> layout_boards(double vw, double unit, double bottom, const OverlayState& state) {
+    std::vector<Button> out;
+    const double bs = 48 * unit, step = 54 * unit, m = 14 * unit;
+    auto at = [&](ButtonId id, double x, double y) { out.push_back({id, {x, y, bs, bs}}); };
+    const double right = vw - m - bs;
+
+    at(ButtonId::AttackLeft, m, m);
+    at(ButtonId::AttackRight, right, m);
+    if (state.left_hand_empty) {
+        at(ButtonId::GetLeft, m, m + step);
+        at(ButtonId::PullLeft, m, m + 2 * step);
+    } else {
+        at(ButtonId::HandMenuLeft, m, m + step);
+    }
+    if (state.right_hand_empty) {
+        at(ButtonId::GetRight, right, m + step);
+        at(ButtonId::PullRight, right, m + 2 * step);
+    } else {
+        at(ButtonId::HandMenuRight, right, m + step);
+    }
+
+    const double row3 = bottom - m - bs, row2 = row3 - step, row1 = row2 - step;
+    at(ButtonId::MoveLeft, m, row1);
+    at(ButtonId::MoveForward, m + step, row1);
+    at(ButtonId::MoveRight, m + 2 * step, row1);
+    at(ButtonId::TurnLeft, m, row2);
+    at(ButtonId::TurnAround, m + step, row2);
+    at(ButtonId::TurnRight, m + 2 * step, row2);
+    at(ButtonId::MoveBack, m + step, row3);
+
+    // E and L toggle (Steve, 2026-09-28): E while the view shows, L while
+    // the EXAMINE listing shows, in one slot. The boards draw both side by
+    // side; the system menu, which no board draws, takes the other slot.
+    at(state.examining ? ButtonId::Look : ButtonId::Examine, right - step, row3);
+    at(ButtonId::SystemMenu, right, row3);
+    at(ButtonId::Keyboard, right, row2);
+    if (state.climb_available) at(ButtonId::Climb, right - step, row2);
+    return out;
 }
 
-// Phone landscape (docs/design/touch-controls/README.md "Layout"): hand
-// controls in the top corners' margins, movement/turn at bottom left,
-// climb/examine/look/keyboard/system-menu at bottom right.
+// Phone landscape: the Main board, scaled by height; controls sit in the
+// side margins beside the 4:3 game.
 std::vector<Button> layout_phone(double vw, double vh, const OverlayState& state) {
-    std::vector<Button> out;
-    const double bs = button_size(vw, vh);
-    const double gp = gap(vw, vh);
-    const double margin = gp;
-
-    // Top corners: A (always), then G/P or the hand menu below it.
-    out.push_back({ButtonId::AttackLeft, {margin, margin, bs, bs}});
-    out.push_back({ButtonId::AttackRight, {vw - margin - bs, margin, bs, bs}});
-    const double below_a = margin + bs + gp;
-    if (state.left_hand_empty) {
-        out.push_back({ButtonId::GetLeft, {margin, below_a, bs, bs}});
-        out.push_back({ButtonId::PullLeft, {margin, below_a + bs + gp, bs, bs}});
-    } else {
-        out.push_back({ButtonId::HandMenuLeft, {margin, below_a, bs, bs}});
-    }
-    if (state.right_hand_empty) {
-        out.push_back({ButtonId::GetRight, {vw - margin - bs, below_a, bs, bs}});
-        out.push_back(
-            {ButtonId::PullRight, {vw - margin - bs, below_a + bs + gp, bs, bs}});
-    } else {
-        out.push_back({ButtonId::HandMenuRight, {vw - margin - bs, below_a, bs, bs}});
-    }
-
-    // Bottom left: movement arrows (a 2x2 cross-ish block), then turn arrows
-    // beside them.
-    const double bl_y = vh - margin - bs;
-    out.push_back({ButtonId::MoveForward, {margin + bs + gp, bl_y - bs - gp, bs, bs}});
-    out.push_back({ButtonId::MoveBack, {margin + bs + gp, bl_y, bs, bs}});
-    out.push_back({ButtonId::MoveLeft, {margin, bl_y, bs, bs}});
-    out.push_back({ButtonId::MoveRight, {margin + 2 * (bs + gp), bl_y, bs, bs}});
-    const double turn_x = margin + 3 * (bs + gp);
-    out.push_back({ButtonId::TurnLeft, {turn_x, bl_y, bs, bs}});
-    out.push_back({ButtonId::TurnRight, {turn_x + bs + gp, bl_y, bs, bs}});
-    out.push_back(
-        {ButtonId::TurnAround, {turn_x + 2 * (bs + gp), bl_y - bs - gp, bs, bs}});
-
-    // Bottom right: climb (when available), examine, look, keyboard, then
-    // the system menu, right-aligned.
-    double x = vw - margin - bs;
-    const double br_y = vh - margin - bs;
-    out.push_back({ButtonId::SystemMenu, {x, br_y, bs, bs}});
-    x -= bs + gp;
-    out.push_back({ButtonId::Keyboard, {x, br_y, bs, bs}});
-    x -= bs + gp;
-    out.push_back({ButtonId::Look, {x, br_y, bs, bs}});
-    x -= bs + gp;
-    out.push_back({ButtonId::Examine, {x, br_y, bs, bs}});
-    if (state.climb_available) {
-        x -= bs + gp;
-        out.push_back({ButtonId::Climb, {x, br_y, bs, bs}});
-    }
-    return out;
+    return layout_boards(vw, vh / 390.0, vh, state);
 }
 
-// Tablet 4:3 (decision 2026-09-27): controls float over the left/right
-// edges, never the bottom band (status/command lines). Hand controls sit in
-// the mostly-empty upper corners; everything else runs down the same edges
-// in the lower two-thirds, well clear of the bottom.
+// Tablet 4:3 (decision 2026-09-27): the same arrangement floating over the
+// game's edges, at board size for a 576-high view, with the bottom clusters
+// raised above the bottom quarter (the status/command band stays clear).
 std::vector<Button> layout_tablet(double vw, double vh, const OverlayState& state) {
-    std::vector<Button> out;
-    // A smaller fraction than the phone layout: with up to 7 secondary
-    // controls stacked per edge, a 2-column grid (below) keeps every
-    // cluster well clear of the bottom band even on a compact 4:3 tablet.
-    const double bs = 0.08 * (vw < vh ? vw : vh);
-    const double gp = 0.02 * (vw < vh ? vw : vh);
-    const double margin = gp;
-    // Everything stays above this line: the bottom quarter is the
-    // status/command band this layout must leave clear.
-    const double bottom_band = vh * 0.75;
-
-    out.push_back({ButtonId::AttackLeft, {margin, margin, bs, bs}});
-    out.push_back({ButtonId::AttackRight, {vw - margin - bs, margin, bs, bs}});
-    const double below_a = margin + bs + gp;
-    if (state.left_hand_empty) {
-        out.push_back({ButtonId::GetLeft, {margin, below_a, bs, bs}});
-        out.push_back({ButtonId::PullLeft, {margin, below_a + bs + gp, bs, bs}});
-    } else {
-        out.push_back({ButtonId::HandMenuLeft, {margin, below_a, bs, bs}});
-    }
-    if (state.right_hand_empty) {
-        out.push_back({ButtonId::GetRight, {vw - margin - bs, below_a, bs, bs}});
-        out.push_back(
-            {ButtonId::PullRight, {vw - margin - bs, below_a + bs + gp, bs, bs}});
-    } else {
-        out.push_back({ButtonId::HandMenuRight, {vw - margin - bs, below_a, bs, bs}});
-    }
-
-    // Movement/turn as a 2-column grid hugging the left edge; the
-    // climb/examine/look/keyboard/menu cluster as a 2-column grid hugging
-    // the right edge. Both stay clear of `bottom_band` by construction: two
-    // columns of up to 4 rows fit comfortably above it on any tablet-sized
-    // viewport, which a single-column stack of 7 would not.
-    const double grid_top = below_a + 2 * (bs + gp) + gp;
-    auto place_grid = [&](const std::vector<ButtonId>& ids, bool right_edge) {
-        for (std::size_t i = 0; i < ids.size(); ++i) {
-            const int col = static_cast<int>(i % 2);
-            const int row = static_cast<int>(i / 2);
-            const double y = grid_top + row * (bs + gp);
-            if (y + bs > bottom_band) break;  // stays clear of the band
-            const double x = right_edge ? (vw - margin - bs - col * (bs + gp))
-                                        : (margin + col * (bs + gp));
-            out.push_back({ids[i], {x, y, bs, bs}});
-        }
-    };
-    place_grid({ButtonId::MoveForward, ButtonId::MoveBack, ButtonId::MoveLeft,
-                ButtonId::MoveRight, ButtonId::TurnLeft, ButtonId::TurnRight,
-                ButtonId::TurnAround},
-               false);
-    std::vector<ButtonId> right_cluster;
-    if (state.climb_available) right_cluster.push_back(ButtonId::Climb);
-    right_cluster.push_back(ButtonId::Examine);
-    right_cluster.push_back(ButtonId::Look);
-    right_cluster.push_back(ButtonId::Keyboard);
-    right_cluster.push_back(ButtonId::SystemMenu);
-    place_grid(right_cluster, true);
-    return out;
+    return layout_boards(vw, vh / 576.0, vh * 0.75, state);
 }
 
 }  // namespace

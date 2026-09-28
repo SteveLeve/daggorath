@@ -23,6 +23,12 @@ Add what you see on screen here. The loop takes these first.
   options.
 - S4 (2026-09-28): Get and Pull should list the actual items by name, in a menu
   next to the Get/Pull button.
+- S5 (2026-09-28, fixed run 3): the movement buttons' positions and labels don't match the
+  mockup. Every move button reads "M" and every turn "T"; use arrow icons.
+- S6 (2026-09-28, fixed run 3): E and L should toggle. E appears only while looking (the
+  view), L only while examining (the pack and floor list).
+- S7 (2026-09-28): "K" seems to do nothing. It is the ⌨ Keyboard button (free
+  command line); see T12.
 
 ## Backlog
 
@@ -42,24 +48,29 @@ Code paths are in `src/`.
 | T10 | Picker | `sdl_app.cpp` drawing | fixed 2 | The button that opened a picker should be drawn pressed (inverted). |
 | T11 | README "sequential entry" | command line | todo | The partial command (e.g. `.G L`) should be echoed while a picker is open. |
 | T12 | Incant | `sdl_app.cpp`, `overlay_bridge` | todo | No on-screen QWERTY keyboard: hand-menu I and ⌨ fall back to the physical keyboard. |
-| T13 | Main | `sdl_app.cpp` `button_label` | todo | Buttons use placeholder letters; the mockups use ⇤↑⇥ ↶↻↷ ↓ ≡ ⌨ icons. |
-| T14 | Main / Legacy | `input/touch_overlay.cpp` layouts | todo | Compare each button's position with the phone and tablet boards. |
+| T13 | Main | `sdl_app.cpp` `button_label` | fixed 3 | Buttons use placeholder letters; the mockups use ⇤↑⇥ ↶↻↷ ↓ ≡ ⌨ icons. |
+| T14 | Main / Legacy | `input/touch_overlay.cpp` layouts | fixed 3 | Compare each button's position with the phone and tablet boards. |
 | T15 | — | `platform/overlay_bridge.cpp` `handle_tap` | todo | `handle_tap` passes a default `OverlayState{}` to `resolve_tap`. It is harmless while `resolve_tap` ignores the state, but should pass the real one. |
 | T16 | touch-input.md §4–5 | docs | todo | §5 still calls GET/PULL/CLIMB UNIMPLEMENTED in the core; the core implements them now. |
 | T18 | Picker | `sdl_app.cpp` | todo | The Picker board titles the menu ("Get left: on floor"); no title is drawn yet. |
 | T19 | — | `sdl_app.cpp` | todo | An empty floor or pack opens a picker with no rows. Consider showing "nothing here" or not opening it at all (ask Steve if unclear). |
 | T20 | — | `sdl_app.cpp` | todo | The hand-menu caption words are defined in `sdl_app.cpp`; they belong with the verb letters in `src/input`. |
+| T21 | Examine on tablet | `input/touch_overlay.cpp` `layout_tablet` | needs-steve | On the tablet the buttons float over the game, so the top ones (A, G, P) cover the EXAMINE listing's first lines. See Q4. |
+| T22 | Main (phone) | `layout_phone` | todo | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
 
-- Q1 (T3): should the floor picker list objects when the player has no light?
-  Today it lists what EXAMINE lists, whatever the light. The README says "none
-  in the dark", but `touch-input.md` §4 marks visibility as [INF].
-- Q2 (T6): tapping outside a picker now cancels it. Do you also want an
-  explicit ✕? No mockup shows one on the picker; the Incant board has one.
-- Q3 (S1): which transitions misbehave? For each, give the steps, what you
-  expected and what happened.
+- Q4 (T21): on the tablet, the buttons cover the top of the EXAMINE listing.
+  Options:
+  - hide the top-corner buttons while examining;
+  - dim them;
+  - shift the listing.
+  Which do you want?
+- Q5 (T19): what should Get or Pull show when the floor or pack is empty? The
+  picker currently opens with no rows. Options:
+  - don't open it, and flash the button;
+  - show one greyed "NOTHING" row.
 
 ## Run history
 
@@ -84,3 +95,23 @@ Code paths are in `src/`.
     placement is reverted.
   - `make all` passes. Screen check not run: no display.
   - No answers to Q1–Q3 yet.
+- 2026-09-28, answers from Steve:
+  - Q1: Get lists floor items even in the dark, as EXAMINE does. The current
+    behaviour stands.
+  - Q2: tap outside closes a menu, with no ✕ button. The current behaviour
+    stands.
+  - Q3 (S1): state transitions look better and there are no current bugs. S1 is
+    closed.
+- Run 3, 2026-09-28: S5, S6, T13, T14.
+  - Both layouts now come from one board arrangement (`layout_boards`):
+    - Main board coordinates at 844x390.
+    - Phone scaled by height.
+    - Tablet at board size with the bottom clusters above the status band.
+    - Movement is ⇤ ↑ ⇥ / ↶ ↻ ↷ / ↓ with line-drawn icons; ≡ and ⌨ are also
+      icons; the system menu is a pause sign.
+    - E and L are one toggle slot, chosen by `OverlayState::examining`.
+  - `dod --shots=<script>` now saves scripted screenshots through the offscreen
+    SDL driver. The loop can see the screen from now on.
+  - Screens checked: tablet main, picker, examine; phone main.
+  - New rows: T21 and T22. New questions: Q4 and Q5.
+  - `test_phone_matches_main_board` fails when the layout is reverted.

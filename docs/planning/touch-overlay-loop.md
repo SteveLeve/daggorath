@@ -26,8 +26,20 @@ the pinned sources. Never `git add` it; stage paths by name.
    - Read the mockup board and the README row for the item, then the code.
    - Record every concrete difference you find as a new backlog row, even ones
      you won't fix this run.
-   - Screen checks: try `SDL_VIDEODRIVER=offscreen` with a screenshot hook if one
-     exists. Otherwise write "not run: no display" and leave the check to Steve.
+   - Screen checks: write a shots script in the scratchpad, never in the repo.
+     Each line is one of `<ms> key <SDL key name>`, `<ms> tap <x> <y>`,
+     `<ms> shot <file.bmp>` or `<ms> quit`. Then run:
+
+     ```
+     SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy build/src/platform/dod [--layout=phone] --shots=<script>
+     ```
+
+     Convert each shot with `convert x.bmp x.png` and Read the PNG.
+     - Tablet coordinates: button pitch 54, margin 14, 48 square. At 768x576
+       the left G is centred at (38, 92).
+     - Phone: 1248x576, units scaled by 576/390.
+     - Look at every screen you change, in both layouts.
+     - Shots follow the wall clock, so they are for looking, never for traces.
 4. **Fix.**
    - Put decisions in the headless units: `src/input/touch_overlay.*` for
      choices, layout and resolution, and `src/platform/overlay_bridge.*` for

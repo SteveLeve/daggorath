@@ -71,6 +71,8 @@ struct OverlayState {
     bool left_hand_empty = true;
     bool right_hand_empty = true;
     bool climb_available = false;
+    // EXAMINE's listing is up: the E/L slot shows L (back to the view).
+    bool examining = false;
     // Hands holding a ring: only then does "≡" offer I (HandStates board).
     bool left_hand_ring = false;
     bool right_hand_ring = false;

@@ -24,6 +24,7 @@ dag::input::OverlayState overlay_state_from(const dag::Game& game) {
     state.right_hand_empty = player.right_hand < 0;
     state.left_hand_ring = holds_ring(game, player.left_hand);
     state.right_hand_ring = holds_ring(game, player.right_hand);
+    state.examining = game.display_mode() == dag::DisplayMode::Examine;
     state.climb_available = dag::vfind(game.level_index(), player.row, player.col) >= 0;
     const dag::ExamineSnapshot exam = dag::examine_snapshot_from(game);
     state.floor_items = exam.floor;

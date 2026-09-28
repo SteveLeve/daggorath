@@ -1,6 +1,7 @@
 // Phase 8.4 touch overlay regressions: pure layout, hit-testing and gesture
 // dispatch (no SDL). Mouse-as-touch: a click and a tap are the same
 // (x, y) -> hit_test path.
+#include <cmath>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -51,10 +52,19 @@ void test_always_present_controls() {
         for (ButtonId id : {ButtonId::AttackLeft, ButtonId::AttackRight,
                             ButtonId::MoveForward, ButtonId::MoveBack, ButtonId::MoveLeft,
                             ButtonId::MoveRight, ButtonId::TurnLeft, ButtonId::TurnRight,
-                            ButtonId::TurnAround, ButtonId::Examine, ButtonId::Look,
-                            ButtonId::Keyboard, ButtonId::SystemMenu}) {
+                            ButtonId::TurnAround, ButtonId::Keyboard, ButtonId::SystemMenu}) {
             check(has(buttons, id), "control is always present in both layouts");
         }
+        check(has(buttons, ButtonId::Examine) && !has(buttons, ButtonId::Look),
+              "the view offers E, not L");
+        OverlayState examining;
+        examining.examining = true;
+        const auto listing = layout_buttons(layout, vw, vh, examining);
+        check(has(listing, ButtonId::Look) && !has(listing, ButtonId::Examine),
+              "the EXAMINE listing offers L, not E");
+        check(rect_of(listing, ButtonId::Look).x == rect_of(buttons, ButtonId::Examine).x &&
+                  rect_of(listing, ButtonId::Look).y == rect_of(buttons, ButtonId::Examine).y,
+              "E and L share one slot");
         check(!has(buttons, ButtonId::Climb), "Climb is absent when not available");
     }
 }
@@ -79,6 +89,31 @@ void test_hand_state_swaps_controls() {
           "holding hands show the hand menu");
     check(!has(with_holding, ButtonId::GetLeft) && !has(with_holding, ButtonId::PullLeft),
           "holding hand has no G or P");
+}
+
+void test_phone_matches_main_board() {
+    using namespace dag::input;
+    // The Main board is 844x390; at that size a board unit is one pixel.
+    OverlayState state;
+    state.right_hand_empty = false;
+    state.climb_available = true;
+    const auto b = layout_buttons(OverlayLayout::PhoneLandscape, 844, 390, state);
+    auto at = [&](ButtonId id, double x, double y) {
+        const Rect& r = rect_of(b, id);
+        return std::abs(r.x - x) < 1e-9 && std::abs(r.y - y) < 1e-9 && std::abs(r.w - 48) < 1e-9;
+    };
+    check(at(ButtonId::AttackLeft, 14, 14) && at(ButtonId::GetLeft, 14, 68) &&
+              at(ButtonId::PullLeft, 14, 122) && at(ButtonId::AttackRight, 782, 14) &&
+              at(ButtonId::HandMenuRight, 782, 68),
+          "hand controls sit where the Main board puts them");
+    check(at(ButtonId::MoveLeft, 14, 220) && at(ButtonId::MoveForward, 68, 220) &&
+              at(ButtonId::MoveRight, 122, 220) && at(ButtonId::TurnLeft, 14, 274) &&
+              at(ButtonId::TurnAround, 68, 274) && at(ButtonId::TurnRight, 122, 274) &&
+              at(ButtonId::MoveBack, 68, 328),
+          "movement is ⇤ ↑ ⇥ / ↶ ↻ ↷ / ↓ as on the Main board");
+    check(at(ButtonId::Examine, 728, 328) && at(ButtonId::Keyboard, 782, 274) &&
+              at(ButtonId::Climb, 728, 274),
+          "E and ⌨ sit where the Main board puts them, C in the Legacy board's slot");
 }
 
 void test_climb_conditional() {
@@ -248,6 +283,7 @@ void test_incant_keyboard_finish() {
 int main() {
     test_always_present_controls();
     test_hand_state_swaps_controls();
+    test_phone_matches_main_board();
     test_climb_conditional();
     test_no_overlaps_within_a_layout();
     test_tablet_stays_clear_of_bottom_band();

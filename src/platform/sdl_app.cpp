@@ -21,6 +21,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <cmath>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -144,6 +145,46 @@ std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int b
     return pixels;
 }
 
+// --shots=<file>: a scripted session for looking at the window without a
+// display (run with SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy). Each
+// line is "<ms> key <SDL key name>", "<ms> tap <x> <y>", "<ms> shot <file.bmp>"
+// or "<ms> quit", ms counted from the first frame. Keys and taps go through
+// the same SDL event path as a real keyboard and mouse; a shot saves the
+// next presented frame. Development tooling only.
+struct ShotStep {
+    std::uint64_t ms = 0;
+    std::string verb;
+    std::string arg;
+    double x = 0, y = 0;
+};
+
+std::vector<ShotStep> load_shots(const std::string& path) {
+    std::vector<ShotStep> steps;
+    std::ifstream in(path);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream ls(line);
+        ShotStep step;
+        ls >> step.ms >> step.verb;
+        if (step.verb == "tap") ls >> step.x >> step.y;
+        else std::getline(ls >> std::ws, step.arg);
+        steps.push_back(step);
+    }
+    return steps;
+}
+
+std::string g_shot_path;  // set: save the next presented frame here
+
+void save_shot(SDL_Renderer* renderer) {
+    if (g_shot_path.empty()) return;
+    if (SDL_Surface* surface = SDL_RenderReadPixels(renderer, nullptr)) {
+        SDL_SaveBMP(surface, g_shot_path.c_str());
+        SDL_DestroySurface(surface);
+    }
+    g_shot_path.clear();
+}
+
 // Screen polarity follows VDGINV; see dag::apply_vdginv (NEWLVL.ASM NLVL50).
 // `game_x`/`game_w`/`game_h` place the fixed 4:3 game render within the
 // window: equal to the whole window for Tablet4x3 (no letterboxing), offset
@@ -176,16 +217,15 @@ void present_frame(SDL_Renderer* renderer, SDL_Texture* texture,
                         static_cast<float>(game_h)};
     SDL_RenderTexture(renderer, texture, nullptr, &dst);
     if (overlay) overlay(renderer);
+    save_shot(renderer);
     SDL_RenderPresent(renderer);
 }
 
-// Single-letter placeholder labels (Phase 8.6.1): the design doc
-// (docs/design/touch-controls/README.md) specifies arrow/icon glyphs the
-// original char generator's uppercase-only set (kSpcTab, text.cpp) cannot
-// draw; each button instead shows the first letter of the command it types,
-// which the coverage table (docs/architecture/touch-input.md §1) already
-// assigns uniquely per verb. Real icon art is a follow-up polish item, not
-// a correctness gap this validation pass needs to close.
+// Button labels: the boards' letters (A G P C E L) through the original char
+// generator, and line-drawn icons for the ones the boards draw as symbols
+// (⇤ ↑ ⇥ ↶ ↻ ↷ ↓ ≡ ⌨), which that uppercase-only set cannot draw. 0 means
+// "icon, no letter". The system menu, which no board draws, gets a pause
+// sign.
 char button_label(dag::input::ButtonId id) {
     using dag::input::ButtonId;
     switch (id) {
@@ -200,16 +240,15 @@ char button_label(dag::input::ButtonId id) {
             return 'P';
         case ButtonId::HandMenuLeft:
         case ButtonId::HandMenuRight:
-            return 'H';
+            return 0;
         case ButtonId::MoveForward:
         case ButtonId::MoveBack:
         case ButtonId::MoveLeft:
         case ButtonId::MoveRight:
-            return 'M';
         case ButtonId::TurnLeft:
         case ButtonId::TurnRight:
         case ButtonId::TurnAround:
-            return 'T';
+            return 0;
         case ButtonId::Climb:
             return 'C';
         case ButtonId::Examine:
@@ -217,11 +256,70 @@ char button_label(dag::input::ButtonId id) {
         case ButtonId::Look:
             return 'L';
         case ButtonId::Keyboard:
-            return 'K';
         case ButtonId::SystemMenu:
-            return 'X';
+            return 0;
     }
     return '?';
+}
+
+// Icon strokes in a unit box (-1..1, y down), scaled into the button.
+using Stroke = std::vector<std::pair<float, float>>;
+
+std::vector<Stroke> icon_strokes(dag::input::ButtonId id) {
+    using dag::input::ButtonId;
+    auto arc = [](float cx, float cy, float r, float from_deg, float to_deg) {
+        Stroke out;
+        constexpr int kSteps = 16;
+        for (int i = 0; i <= kSteps; ++i) {
+            const float a = (from_deg + (to_deg - from_deg) * i / kSteps) * 3.14159265f / 180.0f;
+            out.push_back({cx + r * std::cos(a), cy + r * std::sin(a)});
+        }
+        return out;
+    };
+    switch (id) {
+        case ButtonId::MoveForward:
+            return {{{0, 0.8f}, {0, -0.8f}}, {{-0.5f, -0.3f}, {0, -0.8f}, {0.5f, -0.3f}}};
+        case ButtonId::MoveBack:
+            return {{{0, -0.8f}, {0, 0.8f}}, {{-0.5f, 0.3f}, {0, 0.8f}, {0.5f, 0.3f}}};
+        case ButtonId::MoveLeft:
+            return {{{-0.8f, -0.6f}, {-0.8f, 0.6f}}, {{0.8f, 0}, {-0.65f, 0}},
+                    {{-0.15f, -0.5f}, {-0.65f, 0}, {-0.15f, 0.5f}}};
+        case ButtonId::MoveRight:
+            return {{{0.8f, -0.6f}, {0.8f, 0.6f}}, {{-0.8f, 0}, {0.65f, 0}},
+                    {{0.15f, -0.5f}, {0.65f, 0}, {0.15f, 0.5f}}};
+        case ButtonId::TurnLeft:  // ↶: over the top, ending pointing down at the left
+            return {arc(0, 0.2f, 0.65f, 0, -180), {{-1.0f, -0.15f}, {-0.65f, 0.3f}, {-0.3f, -0.15f}}};
+        case ButtonId::TurnRight:  // ↷
+            return {arc(0, 0.2f, 0.65f, 180, 360), {{1.0f, -0.15f}, {0.65f, 0.3f}, {0.3f, -0.15f}}};
+        case ButtonId::TurnAround:  // ↻: most of a circle, head at the top
+            return {arc(0, 0, 0.7f, -60, 240), {{-0.05f, -0.95f}, {0.35f, -0.6f}, {-0.05f, -0.3f}}};
+        case ButtonId::HandMenuLeft:
+        case ButtonId::HandMenuRight:  // ≡
+            return {{{-0.7f, -0.5f}, {0.7f, -0.5f}}, {{-0.7f, 0}, {0.7f, 0}}, {{-0.7f, 0.5f}, {0.7f, 0.5f}}};
+        case ButtonId::Keyboard:  // ⌨: a key block with a space bar
+            return {{{-0.85f, -0.55f}, {0.85f, -0.55f}, {0.85f, 0.55f}, {-0.85f, 0.55f}, {-0.85f, -0.55f}},
+                    {{-0.55f, -0.2f}, {-0.45f, -0.2f}}, {{-0.15f, -0.2f}, {-0.05f, -0.2f}},
+                    {{0.25f, -0.2f}, {0.35f, -0.2f}}, {{-0.4f, 0.25f}, {0.4f, 0.25f}}};
+        case ButtonId::SystemMenu:  // pause sign
+            return {{{-0.3f, -0.6f}, {-0.3f, 0.6f}}, {{0.3f, -0.6f}, {0.3f, 0.6f}}};
+        default:
+            return {};
+    }
+}
+
+void draw_icon(SDL_Renderer* renderer, const dag::input::Rect& rect, dag::input::ButtonId id) {
+    const float cx = static_cast<float>(rect.x + rect.w / 2);
+    const float cy = static_cast<float>(rect.y + rect.h / 2);
+    const float half = static_cast<float>(rect.w * 0.32);
+    for (const auto& stroke : icon_strokes(id)) {
+        for (std::size_t i = 1; i < stroke.size(); ++i) {
+            const float x0 = cx + stroke[i - 1].first * half, y0 = cy + stroke[i - 1].second * half;
+            const float x1 = cx + stroke[i].first * half, y1 = cy + stroke[i].second * half;
+            for (int dx = -1; dx <= 1; ++dx)  // three pixels wide, like the letters' dots
+                for (int dy = -1; dy <= 1; ++dy)
+                    SDL_RenderLine(renderer, x0 + dx, y0 + dy, x1 + dx, y1 + dy);
+        }
+    }
 }
 
 // glyph_rows takes the original char generator's own codes (text.cpp's
@@ -259,7 +357,7 @@ void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char labe
     if (pressed) SDL_RenderFillRect(renderer, &r);  // inverted, as the boards draw it
     else SDL_RenderRect(renderer, &r);
     if (pressed) SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    draw_glyph(renderer, rect.x + rect.w / 2, rect.y + rect.h / 2, label);
+    if (label != 0) draw_glyph(renderer, rect.x + rect.w / 2, rect.y + rect.h / 2, label);
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 }
 
@@ -334,11 +432,16 @@ int main(int argc, char** argv) {
     // controls sit in the black side margins"); default stays Tablet4x3,
     // which the fixed 4:3 window already matches without letterboxing.
     dag::input::OverlayLayout layout = dag::input::OverlayLayout::Tablet4x3;
+    std::string shots_path;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--layout=phone") layout = dag::input::OverlayLayout::PhoneLandscape;
         else if (arg == "--layout=tablet") layout = dag::input::OverlayLayout::Tablet4x3;
+        else if (arg.rfind("--shots=", 0) == 0) shots_path = arg.substr(8);
     }
+    std::vector<ShotStep> shots = shots_path.empty() ? std::vector<ShotStep>{} : load_shots(shots_path);
+    std::size_t next_shot = 0;
+    std::uint64_t shots_start_ms = 0;
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) return 1;
     constexpr int kScale = 3;
     constexpr double kGameW = dag::kScreenWidth * kScale;
@@ -469,6 +572,29 @@ int main(int argc, char** argv) {
                 overlay.pending(),
                 dag::input::picker_choices(overlay.pending(), overlay.pending_right_hand(), overlay_state),
                 *picker_anchor_rect, viewport_w, viewport_h);
+        if (next_shot < shots.size()) {
+            if (shots_start_ms == 0) shots_start_ms = SDL_GetTicks();
+            const std::uint64_t now_ms = SDL_GetTicks() - shots_start_ms;
+            while (next_shot < shots.size() && shots[next_shot].ms <= now_ms) {
+                const ShotStep& step = shots[next_shot++];
+                SDL_Event injected{};
+                if (step.verb == "key") {
+                    injected.type = SDL_EVENT_KEY_DOWN;
+                    injected.key.key = SDL_GetKeyFromName(step.arg.c_str());
+                    SDL_PushEvent(&injected);
+                } else if (step.verb == "tap") {
+                    injected.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+                    injected.button.button = SDL_BUTTON_LEFT;
+                    injected.button.x = static_cast<float>(step.x);
+                    injected.button.y = static_cast<float>(step.y);
+                    SDL_PushEvent(&injected);
+                } else if (step.verb == "shot") {
+                    g_shot_path = step.arg;
+                } else if (step.verb == "quit") {
+                    running = false;
+                }
+            }
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) running = false;
@@ -873,7 +999,10 @@ int main(int argc, char** argv) {
                 }
                 for (const auto& button : current_buttons)
                     if (button.id == dag::input::ButtonId::SystemMenu)
-                        draw_button(r, button.rect, 'X');
+                    {
+                        draw_button(r, button.rect, 0);
+                        draw_icon(r, button.rect, button.id);
+                    }
                 return;
             }
             // The buttons stay up under an open picker; the one that opened
@@ -881,6 +1010,11 @@ int main(int argc, char** argv) {
             for (const auto& button : current_buttons) {
                 const bool pressed = picker_anchor_id && button.id == *picker_anchor_id;
                 draw_button(r, button.rect, button_label(button.id), pressed);
+                if (button_label(button.id) == 0) {
+                    const std::uint8_t ink = pressed ? 0 : 255;
+                    SDL_SetRenderDrawColor(r, ink, ink, ink, 255);
+                    draw_icon(r, button.rect, button.id);
+                }
             }
             for (const auto& [choice, rect] : picker_rects) {
                 const SDL_FRect panel{static_cast<float>(rect.x), static_cast<float>(rect.y),
