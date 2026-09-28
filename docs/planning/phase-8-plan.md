@@ -89,22 +89,22 @@ prototype" row: it also carries the SDL platform wiring for 8.2's shell and
 10. **8.3** Dim segments stay dotted in `crisp` (ADR-0010 §8). The web
     port's colour blend is rejected.
 
-## Ready to merge (2026-09-28): PR #32, phase 8.6
+## Closed (2026-09-28): PR #32, phase 8.6
 
 8.4/8.5's carried-over scope (SDL platform wiring for the shell and `crisp`,
 the touch overlay itself, and the Video/Controls menu entries the table's
-8.2 row named but 8.2's own PR deferred) has landed as PR #32
-(`phase-8/sdl-platform-wiring`), tracked as its own wrap-up goal list in
-`docs/planning/phase-8-goals.md` once SDL3 became available in this
-environment. Also folded in: a headless system-menu state machine
-(`dag::shell::MenuState`), a touch-overlay refinement loop answering the
-gaps a hand test found against the mockups
+8.2 row named but 8.2's own PR deferred) landed as PR #32
+(`phase-8/sdl-platform-wiring`, merged `d239175`), tracked as its own
+wrap-up goal list in `docs/planning/phase-8-goals.md` once SDL3 became
+available in this environment. Also folded in: a headless system-menu
+state machine (`dag::shell::MenuState`), a touch-overlay refinement loop
+answering the gaps a hand test found against the mockups
 (`docs/planning/touch-overlay-log.md`, runs 1–7), and a system-menu restyle
 to match the overlay's own picker boxes with every row tappable. Full
 account, including what a `--shots` screenshot run actually confirmed at
 each step, is in `docs/archaeology/phase-8/reconciliation.md`'s dated
 addenda (8.6.1 through 8.6.8). `make all`: 23/23 tests passing, no fixture
-drift. Not yet merged; will close issue #9 once it is.
+drift. Closes issue #9 (auto-closed by the merge).
 
 Deferred, tracked separately: a delete action for system-menu save slots
 and a possible "Tape" screen for touch-reachable `ZSAVE`/`ZLOAD` (issue

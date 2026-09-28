@@ -72,8 +72,9 @@ the first `todo` goal, and only that goal. Statuses: `todo`, `done <commit>`,
      wasn't enough). Recorded in `docs/archaeology/phase-8/reconciliation.md`
      §8.6.7.
 6. **Ready to merge.**
-   - Status: `in progress`. PR body and `phase-8-plan.md` updated; asking
-     Steve to merge next.
+   - Status: `done d239175`. PR #32 merged to `main`; issue #9 auto-closed
+     by the merge (the PR body's "Closes #9"), with a `make all` output
+     comment posted and its acceptance checklist checked off.
 
 Out of scope:
 - The Phase 9 backgrounding hook.
@@ -119,4 +120,6 @@ Out of scope:
     section. No loop was left running against this branch (the
     touch-overlay loop's runs were all done by hand, one per turn; nothing
     was scheduled to fire on its own).
-  - Asking Steve to merge; issue #9 to close once that lands.
+  - Merged `d239175`. Issue #9 auto-closed by the merge; comment with the
+    post-merge `make all` output and the checked acceptance boxes at
+    github.com/SteveLeve/daggorath/issues/9.
