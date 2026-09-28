@@ -28,7 +28,7 @@ Labels: **[SRC]** read from the pinned listing (also written "Source-proven"); *
 | Id | Owner |
 |---|---|
 | D-11 `ZLOAD` of an absent name reports `???` | Permanent, Original Mode cassette substitute (ADR-0005) |
-| D-12 `FUDGE incoming` / `FUDGE rest` | **Not source behaviour.** Harness API only (ADR-0007). Used by the superseded 2026-09-26 route only; the Phase 5b baseline has no `FUDGE` lines. Default `Game()` stays at 100% incoming damage. `FUDGE incoming 25` multiplies creature-to-player damage by 1/4. `FUDGE rest` writes `PDAM = 63`, a harness value that skips waiting out recovery (the HSLOW stall at 63 was a core bug, corrected 2026-09-26; see phase-3 reconciliation). Player hits are not scaled. Checkpoints under `.cache/playthrough/` restore `snapshot()` and are not a game command. |
+| D-12 `FUDGE incoming` / `FUDGE rest` | **Retired 2026-09-28.** Not source behaviour; used only by the superseded 2026-09-26 route. Removed from the core, `dcli` and the script parser (see "2026-09-28 — FUDGE removed; desktop uses the core restart"). |
 | D-1, D-2 lap model | ADR-0002, Track R |
 | D-3 `HSLOW` zero-countdown clamp | Track R |
 | D-4 animation and sound durations | Phase 6 (listing-derived part), Track R (measured part) |
@@ -59,7 +59,7 @@ mechanism for the committed script. It emits no `FUDGE` lines; its checkpoints
 are typed `ZSAVE`s confirmed by the trace, and a death is recovered with a
 keypress RESTART and a typed `ZLOAD`, never a `.snap` restore. `Game::snapshot()`
 is used only on separate scratch `Game` copies for lookahead search, which never
-supply the candidate's state. The D-12 harness API remains for its own tests.
+supply the candidate's state. The D-12 harness itself was removed on 2026-09-28.
 See "Playthrough status" and "2026-09-28 — Phase 5b honest baseline".
 
 ## Open
@@ -207,5 +207,31 @@ build/src/app/dcli --script docs/archaeology/phase-5/traces/power-on-to-winner.s
 --jiffies 382000 --timeout 120` gives the digest above; at `--jiffies 381124`
 the shorter trace gives `1628c7c8c99e2cb3c10981ecca7f53ac437a3b7fd299fbad310b77783cd87be4`.
 
-Desktop recovery still uses its own death menu and file load (not changed here);
-headless core/dcli recovery is what this baseline exercises.
+Headless core/dcli recovery is what this baseline exercises; the desktop's own
+death menu was replaced by the core restart afterwards (next section).
+
+## 2026-09-28 — FUDGE removed; desktop uses the core restart
+
+**D-12 retired.** Nothing but its own test and the superseded script used the
+`FUDGE` harness. `Game::set_incoming_damage_percent`, `load_harness`,
+`parse_harness` and the creature-hit scaling are removed; `parse_script` now
+rejects a `FUDGE` line instead of skipping it, so the superseded script (kept in
+git history) no longer replays. `DAGSNAP 1` keeps its layout: the retired field
+is written as 100 and ignored on restore (regression test in
+`progression_regressions.cpp`). The scaling only ran for a percent other than the
+default 100, which Original Mode never set, so removing it cannot change Original
+Mode play; the unchanged Phase 5b baseline digest is consistent with that. `set_player_damage` is a separate test
+set-up call and stays.
+
+**Desktop death.** The desktop no longer shows `R RESTART OR L LOAD`, rebuilds the
+`Game`, or calls `restore_ram_image` from a file. As in the listing (D-18), the
+window keeps running after DEATH, any key restarts `GAME` in the core, and the
+player types `ZLOAD <name>`. **[SRC]** The cassette is outside RAM: `SAVE` writes
+only `DP.BEG` through `MM.END` to tape (`COMMON.ASM:80-86`) and `LOAD` reads it back
+(`:102`). So the platform puts stored `.dagram` saves on the core's cassette at start-up
+through `Game::insert_cassette_image`, which accepts only DAGRAM 1 images and
+places them behind any save made in the session. Nothing is loaded until a typed
+`ZLOAD`. **Inferred:** offering earlier saves this way stands in for a tape that
+already holds them; it is a platform convenience, not source behaviour, and adds
+no input path; recorded as D-20 in §13. Regression: `test_inserted_tape_loads_only_when_typed`. Not run:
+an interactive desktop check (no display in this session).
