@@ -10,11 +10,11 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
 
 ## Frontier
 
-- **Best on the current core:** L001-b, `level-4` (rank 5), peak power 7539,
-  level 4 first built at jiffy 297846. Saves POWERON, FLOORA, FLOORB, FLOORC,
-  IMAGE, ENDGAM, FLOORD; 9 deaths, all recovered (6 of them on level 4 from FLOORD).
-  Blocked: 800000-jiffy budget exhausted in phase 3 (`LightUp`) on level 4, 30 live,
-  power 7360, holding a dead torch; ~160k planner ticks spent there.
+- **Best on the current core:** L002-c, `level-4` (rank 5) with level 4 cleared
+  except WIZ1: peak power 9660, save WIZARD at jiffy 356701, WIZ1 damage 3608/8000
+  (four ring hits of 902). 6 deaths, all recovered. Blocked: 1.2M-jiffy budget in
+  `KillWizard` after both rings were spent; the planner loops `PULL RIGHT JOULE
+  RING` / `INCANT ENERGY` (~50850 times) with no Joule ring left.
 - **Best ever, on an older core:** candidate cm (`/tmp`, 2026-09-27 21:09), `level-4`,
   WIZ1 at power 10660, WIZ1 damage 5473 of 8000 before twelve recoveries failed from
   save WIZARD. Its script diverges on the current core (replays only to level 1),
@@ -35,16 +35,20 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
 | L001-c | review note: wait to first PLAYER after RELOCATE (+16 jiffies) | level-3 | 5310 | 13 | 12 recoveries from ENDGAM on lv 3 | reverted |
 | L001-d | intended revert of c; the edit script failed its assertion, so it rebuilt c | level-3 | 5310 | 13 | same as c (dplan confirmed deterministic) | void |
 | L001-e | L001-b window, plus review notes 2–3 (build-wait bound, int type) | level-4 | 7539 | 9 | script byte-identical to L001-b | **kept** |
+| L002-a | level-4 stagnation hold in the Clear/search branch | level-4 | 7539 | 9 | same as L001-b: hold never reached (stall was in LightUp) | reverted |
+| L002-b | LightUp goes to Clear first on level 4, plus hold | level-4, L4 cleared | 9660 | 6 | budget 1.2M in KillWizard, rings spent | = c |
+| L002-c | LightUp goes to Clear first on level 4 (no hold) | level-4, L4 cleared | 9660 | 6 | budget 1.2M in KillWizard; ring re-incant loop | **kept** |
 
 ## Hypothesis queue (top first)
 
-1. **Level-4 LightUp loop.** After FLOORD reloads, L001-b spends its budget in
-   `LightUp` with a dead torch (torch object 25, DEAD) and 30 creatures. Find what
-   LightUp waits for on level 4 (a live torch that does not exist?) and route to
-   the Clear/dark-combat path the handoff describes ("level-4 occupancy fallback").
-   Confirm from `build/search/L001-b/dplan.out` and the cache's `cleared-3` prefix.
-2. **Level-4 survival.** Six deaths on level 4 from FLOORD at power ~7300–7500
-   (damage 7337–7862 at death). Save placement, retreat choice and resting.
+1. **WIZ1 after the rings.** In L002-c, KillWizard keeps re-pulling a Joule ring
+   that no longer exists. Switch to the Elvish sword (magic channel, ~226/hit at
+   power 9660; 4392 damage left ≈ 20 hits) with hit-and-leave, and bound the ring
+   branch. Source-check first whether a creature's damage ever decreases (does
+   WIZ1 heal between exchanges?) and what WIZ1's hit does to the player.
+2. **More ring hits.** Only 4 ring hits landed of the charges carried; check where
+   the other charges went (level-4 clearing?) and whether saving them for WIZ1
+   gets closer to 8000.
 3. **Timing-offset search.** L001-c moved one wait by 16 jiffies and lost a whole
    level: outcomes are highly sensitive to key timing (creature moves and RNG
    draws key off the clock). A cheap search dimension: at a failing stage,
@@ -68,6 +72,15 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
 - **Source-proven** (`PATTK.ASM PATT42`): a kill adds creature power ÷ 8.
 - **Core-observed** (2026-09-27): dplan and dcli replays of a ~190k-jiffy
   candidate each take under a second headless; runs are cheap.
+- **Source-proven** (`PCLIMB.ASM PCLI10`): CLIMB UP needs VF.LUP; level 4 has only
+  VF.HUP cells, so there is no retreat upstairs from level 4.
+- **Source-proven**: each move costs (weight ÷ 8) + 3 exertion (`PTURN.ASM:197-201`);
+  ENDGAM sets the weight to 200 (`PATTK.ASM:258-259`); HSLOW removes
+  ceil(damage ÷ 64), at least 1, per run (`COMPLR.ASM:71-75`, `game.cpp task_hslow`).
+- **Core-observed** (L001-b, L002-a): the level-4 stall was LightUp's rest check
+  (damage > 63, never false in L001-b) plus `occupy_tick` fleeing each arrival,
+  whose exertion kept damage high.
+- **Core-observed** (L002-c): one ring hit on WIZ1 at power ~9660 deals 902.
 - **Core-observed** (L000/L001): during a timed NEWLVL (D-19) the new level's
   objects and creatures are not yet placed; a CLIMB shows `preparing()`, but
   ENDGAM's NEWLVL 3 does not, and `ENDGAM wizard` is emitted on WIZ1's death,
@@ -95,3 +108,6 @@ At equal rank, compare peak power, then level-4 unkilled damage (WIZ1 power 8000
   vocabulary gains NEWLVL; summariser levels now from NEWLVL. Review:
   playthrough-reviewer instructions given to a general-purpose agent (native role
   not discoverable from the main-checkout session).
+- 2026-09-28 run 2: level-4 stall traced to LightUp's rest check (L002-a's
+  search-branch hold was the wrong place and never ran). LightUp now goes straight
+  to Clear on level 4; L002-c clears level 4 except WIZ1, power 9660, WIZ1 3608/8000.
