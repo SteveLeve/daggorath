@@ -160,12 +160,20 @@ which blocks the whole foreground **[SRC]**:
   (`PTURN.ASM PTUR90`, `PMOV90`).
 - `WAITX` (`MISC.ASM`) is `81 × SYNC` ≈ 1.35 s of blocked foreground, despite its
   "1.5 second" comment.
+- `NEWLVL` on a `CLIMB` (and `ENDGAM`'s level 3) is CPU time with the foreground
+  blocked: **[ROM]** C-22 measures the interrupts from the command to the `DGEN90`
+  spin's `LDB SECOND` per level built (0: 362, 1: 326, 2: 378, 3: 377, 4: 339), about
+  one interrupt per ten spin draws **[INF]**, and 22-27 more to the first `PLAYER`.
+  `PCLIMB` shows `PREPAR`'s PREPARE! meanwhile. `SYSTCB`'s tasks wait in `Q.SCD` until
+  the build returns. The core charges these as blocked jiffies
+  (phase-7 reconciliation §C-22).
 - `ENDGAM` (`PATTK.ASM`) blocks the foreground across its wizard: `WIZIN` with
   `FADFLG` clear clears the text (`WIZIX0` `CLRPRI`), draws once (`MISC.ASM`
   `WIZZES`, one `SYNC`) and sounds `A$EXP1`,
   then the two messages and `WAIT` (81 `SYNC`s), then `NEWLVL 3` with the
   `SECOND` current at that point, then `WIZOUT` (`CLRPRI`, `A$EXP1`, 16 `WIZZES` `SYNC`s)
-  and `INIVU`. **[SRC]** The core runs these as stages resumed when the pending
+  and `INIVU`; `ENDGAM`'s `RTS` then returns into `HUMAN`, whose `HMAN70` prompts
+  (`HUMAN.ASM:181-188`). **[SRC]** The core runs these as stages resumed when the pending
   `SYNC`s are spent. **[INF]** each `SYNC` is charged as one lost scheduler pass,
   like D-15; the stage is not in the RAM image, which is safe because `PLAYER`
   cannot reach `ZSAVE` while it is blocked.
@@ -342,6 +350,7 @@ Creature tasks are inserted into `Q.TEN` (`COMCRE.ASM`), and creature delays in
 | D-16 | Shell pause (planned): while the system menu is open or the app is backgrounded, the platform delivers no jiffies, and none are owed for that wall time | **Not source behaviour; platform only, no simulated time.** **[INF]** the original offers the player no pause command; the listing has not been searched for BREAK handling. It does stop counting jiffies during tape I/O (`PIATAP` masks the IRQ, ADR-0005 §3 **[SRC]**), which is a game action and unrelated to this deviation. The core is untouched: the shell stops calling it and restarts D-10's host-time accounting at resume. **[INF]** the same keystrokes on the same jiffies give the same trace with or without pauses; this is the Phase 8 pause-invariance gate (ADR-0009 §4). For debugging, the shell marks each pause and resume in the trace as shell lines, not core events. In-play touch overlays do not pause. ADR-0009. **Implemented (Phase 8, 8.2):** `src/shell/shell.{hpp,cpp}` (`Shell::pause`/`resume`/`tick`); the pause-invariance test is `tests/shell/shell_tests.cpp` `test_pause_invariance`, which compares a paused and an unpaused run's `Game::trace()` for identity. The SDL menu UI (Esc key, backgrounding hook) is deferred to 8.4. |
 | D-17 | Touch gestures (planned) hand their whole command line to the keyboard buffer in one jiffy | **Not source behaviour; input adapter only.** **[SRC]** the ROM takes at most one character per interrupt (§2 step 8, `CLK50`). A touch line instead arrives as one burst, the same way the scripted traces `t3-burst-one-jiffy` and `t5-keyboard-overrun` already feed it. Per §12.2, timestamping whole commands gives up queue saturation, the 32-byte overrun and mid-burst dispatch. Touch gives up all three for its own lines. Typed input keeps them. **Adapter requirement:** a touch line is at most 31 characters including CR, because a 32-character burst leaves head == tail (§4.1, `KBDPUT`). The 8.0 command contract checks this. Follows the web port's pad (port comparison). The Phase 8 replay test compares a touch session with the same bursts scripted on the same jiffies. **Implemented (Phase 8, 8.1):** `src/input/gesture.hpp`/`gesture.cpp`, `dag::input::GestureLine`; per-gesture fixtures in `docs/archaeology/phase-8/fixtures/gesture-lines.txt`. **Replay-equivalence test (Phase 8.5):** `tests/input/replay_equivalence_tests.cpp` drives a fresh `Game` from a gesture's own `KeyEvent`s and requires the resulting trace to match the committed `t3-burst-one-jiffy` fixture byte for byte — the same command, replayed from a touch origin, is the same trace as the scripted keystroke transcript. |
 | D-18 | Death halts the core instead of arming the keypress restart | **[SRC]** `DEATH` ends `CLR FAINT` (`HUPDAT.ASM:168`), `DEC AUTFLG` (:169), `BRA *` (:170). With `FAINT` clear, `CLK50` polls the keyboard again, and with `AUTFLG` set `CLOCK` transfers to `GAME` on any key (`COMMON.ASM:490`), with the cassette outside RAM. The core clears `FAINT` but then halts the scheduler, so no key restarts the game; the desktop fakes a restart menu in `sdl_app.cpp`. Modelling the restart is Phase 5b work (`docs/prompts/phase-5b-honest-playthrough.md`). |
+| D-19 | A `CLIMB` or `ENDGAM` `NEWLVL` is charged as fixed per-level blocked jiffies | **[ROM]** C-22 and `descend-early` (phase-7 reconciliation §C-22) measure the build; the core approximates it: one pre-spin count per level (level 1: 326 in C-22, 328 in `descend-early`), a spin of `(draws + 5) / 10` jiffies **[INF]** (±1 against the seven samples), and one tail per level (level 1: 22, 23, 24 measured, 23 used). **[SRC]** `SYSTCB` clears the queues at `NEWLVL` entry and its TCBs wait in `Q.SCD`; the core clears at the command and adds them at the build's end, before `CBIRTH`'s, which gives the same run order (**[ROM]** `CREGEN` after the births). During the build `level_index()` already holds the new level while the maze is the old one; PREPARE! covers the viewport, so nothing shows it **[INF]**. |
 
 ### Initial clock (applied)
 

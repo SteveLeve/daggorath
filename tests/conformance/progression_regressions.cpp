@@ -145,6 +145,22 @@ void test_luknew_pupdat_costs_a_sync() {
     check(each_followed, "each LUKNEW PUPDAT gives up the next jiffy to SYNC");
 }
 
+// ONCE.ASM GAME30: OBIRTH without loading B, so the starting objects keep
+// GAME10's $0B (LDD #$100B) as P.OCLVL; COMSWI.ASM's SWI frame restores B.
+void test_starting_bag_level_byte() {
+    dag::Game game(1, 0);
+    int n = 0;
+    bool all = true;
+    for (int i = game.player().bag_head; i >= 0; i = game.objects()[static_cast<std::size_t>(i)].next) {
+        ++n;
+        if (game.objects()[static_cast<std::size_t>(i)].level != 0x0B) all = false;
+    }
+    check(n == 2 && all, "the starting sword and torch carry P.OCLVL $0B");
+    dag::Game deeper(1, 2);
+    const auto& first = deeper.objects()[static_cast<std::size_t>(deeper.player().bag_head)];
+    check(first.level == 0x0B, "the $0B does not depend on the starting level");
+}
+
 // COMPLR.ASM:43 BURN99: BURNER ends in DEC NEWLUK on every run, torch or not,
 // so LUKNEW redraws even with the creatures frozen and no torch lit.
 void test_burner_requests_redraw() {
@@ -289,10 +305,28 @@ void test_inivu_returns_to_the_viewer() {
     climb.place_player(0, 23);   // level 0 ladder down (VFTTAB)
     const std::size_t from = climb.trace().size();
     run(climb, {"CLIMB DOWN"});
+    climb.advance_jiffies(500);
     bool inivu = false;
-    for (std::size_t i = from; i < climb.trace().size(); ++i)
-        if (climb.trace()[i].kind == "PUPDAT" && climb.trace()[i].detail == "inivu") inivu = true;
+    std::uint64_t climbed = 0, built = 0, redrawn = 0;
+    for (std::size_t i = from; i < climb.trace().size(); ++i) {
+        const auto& e = climb.trace()[i];
+        if (e.kind == "CLIMB") climbed = e.jiffy;
+        if (e.kind == "NEWLVL") built = e.jiffy;
+        if (e.kind == "PUPDAT" && e.detail == "inivu") { inivu = true; redrawn = e.jiffy; }
+    }
     check(climb.level_index() == 1 && inivu, "CLIMB runs INIVU after NEWLVL");
+    // [ROM] C-22 / descend-early: level 1's DGEN90 spin reads SECOND 326
+    // interrupts after the command; the tail to PLAYER is 22-24 (+ spin).
+    check(built - climbed == 326, "NEWLVL 1 reads SECOND 326 jiffies after CLIMB");
+    // D-19: spin (draws + 5) / 10 [INF], then level 1's tail of 23 [ROM], whose
+    // last jiffy is INIVU's SYNC.
+    int second = -1;
+    for (const auto& e : climb.trace())
+        if (e.kind == "NEWLVL") second = std::stoi(e.detail.substr(e.detail.find("second=") + 7));
+    const int draws = second == 0 ? 256 : second;
+    check(second >= 0 && redrawn - built == static_cast<std::uint64_t>((draws + 5) / 10 + 22),
+          "INIVU follows the spin and level 1's 23-jiffy tail");
+    check(climb.polarity_level() == 1 && !climb.preparing(), "the build is over: NLVL50 ran, PREPARE! is gone");
 }
 
 void test_examine_costs_a_sync() {
@@ -339,7 +373,15 @@ void test_image_ending() {
     for (std::size_t i = 0; i + 2 < lines.size(); ++i)
         if (lines[i] != "!!!") hits_marked = false;
     check(hits_marked, "each connecting swing prints OUTSTI !!! before ENDGAM");
-    game.advance_jiffies(200);
+    // MISC.ASM WIZIX0 CLRPRI wipes the swings' !!! before ENDGAM's messages, and
+    // HMAN70's prompt waits until ENDGAM returns (HUMAN.ASM), so row 0 is blank
+    // and only ENOUGH! and DOOM!!! carry bangs.
+    const auto& text = game.primary_text();
+    check(game.level_index() == 2 &&
+              std::all_of(text.begin(), text.begin() + 32, [](std::uint8_t c) { return c == 0; }) &&
+              std::count(text.begin(), text.end(), std::uint8_t{0x1B}) == 4,
+          "WIZIN clears the text and no prompt precedes ENDGAM's messages");
+    game.advance_jiffies(800);
     // PATTK.ASM ENDGAM / MISC.ASM: WIZIN's one WIZZES SYNC and WAITX's 81 SYNCs
     // come before NEWLVL; WIZOUT's 16 WIZZES SYNCs come before INIVU.
     std::uint64_t start = 0, relocate = 0, inivu_at = 0;
@@ -349,9 +391,16 @@ void test_image_ending() {
         if (e.kind == "PUPDAT" && e.detail == "inivu" && relocate != 0 && inivu_at == 0)
             inivu_at = e.jiffy;
     }
-    // From the kill: PATT40's PUPDAT SYNC, WIZIN's WIZZES SYNC, WAITX's 81.
-    check(relocate - start == 83, "NEWLVL 3 waits for PATT40's, WIZIN's and WAITX's SYNCs");
+    // From the kill: PATT40's PUPDAT SYNC, WIZIN's WIZZES SYNC, WAITX's 81,
+    // then NEWLVL 3's pre-spin build time (C-22: 377).
+    std::uint64_t built = 0;
+    for (const auto& e : game.trace())
+        if (e.kind == "NEWLVL") built = e.jiffy;
+    check(built - start == 83 + 377, "NEWLVL 3 reads SECOND after the SYNCs and its build time");
+    check(relocate > built, "FNDCEL relocates after NEWLVL 3 is built");
     check(inivu_at - relocate == 16, "INIVU waits for WIZOUT's 16 WIZZES SYNCs");
+    check(std::count(text.begin(), text.end(), std::uint8_t{0x1E}) == 1,
+          "HMAN70 prompts once, after ENDGAM's closing INIVU");
     check(game.level_index() == 3, "ENDGAM rebuilds level 3");
     check(game.display_mode() == dag::DisplayMode::Viewer && game.heart().hbeatf == 0xFF,
           "ENDGAM's WIZIN clears HBEATF and its closing INIVU sets it to $FF, in the viewer");
@@ -599,6 +648,7 @@ void test_fudge_harness_is_not_source_behaviour() {
 int main() {
     test_spent_ring_becomes_a_plain_gold_ring();
     test_luknew_pupdat_costs_a_sync();
+    test_starting_bag_level_byte();
     test_burner_requests_redraw();
     test_death_clears_faint();
     test_no_pupdat_while_fainted();
