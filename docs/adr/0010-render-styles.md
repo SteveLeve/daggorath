@@ -64,6 +64,19 @@ gitignored). Golden-image tests (`viewer_regressions`, `text_regressions`,
 thickness/smoothing (still "Open for Phase 8" above) — lines are drawn at
 1 device pixel regardless of screen size.
 
+**Addendum (2026-09-28, crisp shading refinement, issue #37):** The §8
+decision to represent dim segments as dots is reversed for `crisp` only.
+Every visible projected segment now remains continuous and carries its existing
+fade value. The SDL viewer shades its ink toward the level background using
+`1 / (fade / 2 + 1)`, observed in the reference-only cognitivegears web port.
+This makes distant vectors legible as lines while preserving the project's
+geometry and fade timing. A fade of `$FF` remains hidden. The Phase 8 crisp
+segment fixture changes format to record fade per line for this reason;
+Phase 6/7 pixel golden images and the historical pixel raster remain unchanged.
+This is a presentation choice [INF], not a claim that the original hardware
+used blended line shades. The earlier resolution and §8 remain as the dated
+record of the prior choice.
+
 ## Context
 
 The desktop window rasterises the viewer's vector draw list onto a 256×192

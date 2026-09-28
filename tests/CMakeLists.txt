@@ -65,6 +65,9 @@ target_link_libraries(crisp_fixture_gen PRIVATE daggorath::core daggorath::prese
 set(CRISP_FIXTURE ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-8/fixtures/crisp-segments.txt)
 add_test(NAME crisp_segment_fixtures
   COMMAND sh -c "\"$<TARGET_FILE:crisp_fixture_gen>\" > \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" && cmp \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" \"${CRISP_FIXTURE}\"")
+add_executable(crisp_shading_tests presentation/crisp_shading_tests.cpp)
+target_link_libraries(crisp_shading_tests PRIVATE daggorath::presentation)
+add_test(NAME crisp_shading_tests COMMAND crisp_shading_tests)
 
 add_executable(touch_overlay_tests input/touch_overlay_tests.cpp)
 target_link_libraries(touch_overlay_tests PRIVATE daggorath::input)

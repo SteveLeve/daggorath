@@ -1,9 +1,8 @@
 // The `crisp` render style (ADR-0010): the same logical draw list `pixel`
-// rasterises, mapped to line segments and dots instead of a fixed-scale
+// rasterises, mapped to continuous line segments instead of a fixed-scale
 // bitmap. No second geometry source — every coordinate here comes from
-// `RenderState::segments` (the listing's VECTOR/VCTLST data, ADR-0006) or
-// `raster.hpp`'s `walk_segment`, the same walk `pixel`'s `draw_segment`
-// uses. Coordinates stay in source 256x192 space; the platform (SDL3) scales
+// `RenderState::segments` (the listing's VECTOR/VCTLST data, ADR-0006).
+// Coordinates stay in source 256x192 space; the platform (SDL3) scales
 // to real device pixels and sets line thickness there (ADR-0010 §2), which
 // this headless module does not do.
 #pragma once
@@ -17,24 +16,19 @@
 
 namespace dag {
 
-// A fully-lit segment (fade == 0): draw_segment plots every step, so crisp
-// draws one continuous line instead of individually dotting it.
+// A visible segment has one continuous line. Fade controls its shade in crisp mode.
 struct CrispLine {
     double x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     std::string kind;  // DrawSegment::kind, carried through for the platform
-};
-
-// A dim segment (0 < fade < 0xFF): the same dot draw_segment would plot,
-// carried at source resolution (ADR-0010 §8 — dotted, not a colour blend).
-struct CrispDot {
-    double x = 0, y = 0;
-    std::string kind;
+    std::uint8_t fade = 0;
 };
 
 struct CrispFrame {
     std::vector<CrispLine> lines;
-    std::vector<CrispDot> dots;
 };
+
+// Reference-only web port brightness curve; blend toward the level's paper.
+std::uint8_t crisp_shade(std::uint8_t fade, std::uint8_t ink, std::uint8_t paper);
 
 // Builds the crisp draw list from `state.segments`. A segment with
 // fade == 0xFF (draw_segment's "draw nothing") contributes nothing, matching

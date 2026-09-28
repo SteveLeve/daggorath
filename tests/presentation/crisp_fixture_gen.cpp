@@ -16,14 +16,10 @@
 namespace {
 
 void print_frame(const std::string& label, const dag::CrispFrame& frame) {
-    std::cout << "FRAME " << label << " lines=" << frame.lines.size()
-              << " dots=" << frame.dots.size() << '\n';
+    std::cout << "FRAME " << label << " lines=" << frame.lines.size() << '\n';
     for (const auto& line : frame.lines) {
         std::cout << "LINE " << line.kind << ' ' << line.x0 << ' ' << line.y0 << ' '
-                  << line.x1 << ' ' << line.y1 << '\n';
-    }
-    for (const auto& dot : frame.dots) {
-        std::cout << "DOT " << dot.kind << ' ' << dot.x << ' ' << dot.y << '\n';
+                  << line.x1 << ' ' << line.y1 << ' ' << static_cast<int>(line.fade) << '\n';
     }
 }
 
