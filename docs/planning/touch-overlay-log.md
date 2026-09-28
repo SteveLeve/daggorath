@@ -57,19 +57,26 @@ Code paths are in `src/`.
 | T14 | Main / Legacy | `input/touch_overlay.cpp` layouts | fixed 3 | Compare each button's position with the phone and tablet boards. |
 | T15 | — | `platform/overlay_bridge.cpp` `handle_tap` | fixed 5 | `handle_tap` passed a default `OverlayState{}` to `resolve_tap`; it now passes the state `buttons()` last laid out. |
 | T16 | touch-input.md §4–5 | docs | fixed 5 | §5 called GET/PULL/CLIMB UNIMPLEMENTED; a dated addendum now records that all 15 verbs are implemented. |
-| T18 | Picker | `sdl_app.cpp` | todo | The Picker board titles the menu ("Get left: on floor"); no title is drawn yet. |
+| T18 | Picker | `sdl_app.cpp` | fixed 7 | Not a gap: `Picker.dc.html`'s "Get left: on floor" is the `<div role="menu" aria-label="...">` attribute, a screen-reader name with no visible glyph in the mockup — no menu-item row draws it. SDL has no accessibility tree, so there is nothing to render. |
 | T19 | — | `sdl_app.cpp` | fixed 6 | An empty picker used to open with no rows. Now G and P appear in ≡ only when there is something to get or pull, and a ≡ with nothing to offer does not open (Q5). |
 | T20 | — | `sdl_app.cpp` | fixed 5 | The hand-menu caption words are defined in `sdl_app.cpp`; they belong with the verb letters in `src/input`. |
 | T21 | Examine on tablet | `input/touch_overlay.cpp` `layout_tablet` | fixed 6 | On the tablet the buttons float over the game, so the top ones (A, G, P) cover the EXAMINE listing's first lines. See Q4. |
 | T22 | Main (phone) | `layout_phone` | fixed 6 | At 1248x576 the ⇥ ↷ column reaches 11 px into the game, as the Main board's own 170 vs 162 does. Check whether that is wanted or should be scaled down to fit the margin. |
 | T23 | Incant | `sdl_app.cpp` | fixed 5 | The text box and the ⌫ ↵ ✕ SPC labels use SDL's 8 px debug font, which is small next to the keys. |
 | T24 | Incant | `sdl_app.cpp` | fixed 5 | The Incant board keeps both A buttons visible over the keyboard; the keyboard currently hides every button. |
-| T25 | Issue #34 | system menu | todo | Add a delete action for the system menu's save slots. |
+| T25 | Issue #34 | system menu | needs-steve | Add a delete action for the system menu's save slots. See Q8. |
 | T17 | — | system menu | todo | The Video/Controls menu entries (goal 5 of `phase-8-goals.md`). Out of scope for this loop; tracked here. |
 
 ## Open questions for Steve
 
-(none open)
+- Q8 (T25, run 7): the system menu (S/L/X/Q, `MenuState`) isn't in the touch
+  mockups — it's keyboard-only, per Q7. There's no mockup or ADR to decide a
+  delete action's UX. Options: (a) a `D` key on the ChooseSave/ChooseLoad
+  screen, then a slot number, with a Y/N confirm like overwrite; (b) fold
+  delete into overwrite (saving to an occupied slot already confirms
+  replacing it, so a separate delete may not earn its keep); (c) defer to
+  the "Tape" screen issue #34 already tracks, and drop T25 until then. No
+  code change made pending an answer.
 
 ## Run history
 
@@ -162,3 +169,16 @@ Code paths are in `src/`.
     stay original and keyboard-only on touch.
   - Issue #34 records the options, including a possible later "Tape" screen.
     Delete-slot is added to the backlog as T25.
+- Run 7, 2026-09-28: T18, T25.
+  - Merged main (PR #33) into #32 first (separate from the loop; see the
+    project-state memory and the merge commit).
+  - T18 turned out not to be a gap: the Picker mockup's "Get left: on floor"
+    title is an `aria-label`, not a drawn row, so there is nothing to
+    render. Closed with no code change.
+  - T25 has no mockup or ADR to decide its UX (the system menu is
+    keyboard-only and outside the touch mockups, per Q7); classified
+    needs-steve as Q8, no code change.
+  - No code changed this run, so `make all` was not re-run; the evidence-
+    auditor ran clean on the log/backlog wording.
+  - Backlog is now empty of `todo` rows: T17 is out of scope for this loop,
+    T25 is needs-steve. Stopping and notifying Steve.
