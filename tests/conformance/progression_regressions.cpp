@@ -145,6 +145,22 @@ void test_luknew_pupdat_costs_a_sync() {
     check(each_followed, "each LUKNEW PUPDAT gives up the next jiffy to SYNC");
 }
 
+// ONCE.ASM GAME30: OBIRTH without loading B, so the starting objects keep
+// GAME10's $0B (LDD #$100B) as P.OCLVL; COMSWI.ASM's SWI frame restores B.
+void test_starting_bag_level_byte() {
+    dag::Game game(1, 0);
+    int n = 0;
+    bool all = true;
+    for (int i = game.player().bag_head; i >= 0; i = game.objects()[static_cast<std::size_t>(i)].next) {
+        ++n;
+        if (game.objects()[static_cast<std::size_t>(i)].level != 0x0B) all = false;
+    }
+    check(n == 2 && all, "the starting sword and torch carry P.OCLVL $0B");
+    dag::Game deeper(1, 2);
+    const auto& first = deeper.objects()[static_cast<std::size_t>(deeper.player().bag_head)];
+    check(first.level == 0x0B, "the $0B does not depend on the starting level");
+}
+
 // COMPLR.ASM:43 BURN99: BURNER ends in DEC NEWLUK on every run, torch or not,
 // so LUKNEW redraws even with the creatures frozen and no torch lit.
 void test_burner_requests_redraw() {
@@ -632,6 +648,7 @@ void test_fudge_harness_is_not_source_behaviour() {
 int main() {
     test_spent_ring_becomes_a_plain_gold_ring();
     test_luknew_pupdat_costs_a_sync();
+    test_starting_bag_level_byte();
     test_burner_requests_redraw();
     test_death_clears_faint();
     test_no_pupdat_while_fainted();
