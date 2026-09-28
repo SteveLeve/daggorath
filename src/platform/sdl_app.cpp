@@ -168,6 +168,17 @@ struct ShotStep {
     double x = 0, y = 0;
 };
 
+// 8.6.8: one row of the system menu (Top/ChooseSave/ChooseLoad/a
+// confirmation), styled and hit-tested like the touch overlay's own pickers
+// (input/touch_overlay.hpp's Choice) instead of plain unboxed text. `activate`
+// is empty for a heading row (e.g. "SAVE SLOT 1-5"), which draws without a
+// box and never hit-tests.
+struct MenuRow {
+    std::string label;
+    dag::input::Rect rect;
+    std::function<void()> activate;
+};
+
 std::vector<ShotStep> load_shots(const std::string& path) {
     std::vector<ShotStep> steps;
     std::ifstream in(path);
@@ -588,6 +599,70 @@ int main(int argc, char** argv) {
     // 8.6.6: SystemMenu's tap and Esc's key share MenuState::back_out, so
     // the two input paths can't drift apart.
     auto pause_or_back_out = [&]() { menu.back_out(*shell); };
+    // Shared by the S/L/X/Q/1-5/Y/N key handling below and the menu row
+    // taps (8.6.8): one place decides what a MenuState::press effect does
+    // to the running app.
+    auto apply_menu_key = [&](dag::shell::MenuKey key, std::size_t slot = 0) {
+        const auto effect = menu.press(*shell, key, slot);
+        if (effect == dag::shell::MenuEffect::Restart)
+            restart_game();  // re-emplaces held and shell (fresh, unpaused)
+        else if (effect == dag::shell::MenuEffect::Quit)
+            running = false;
+    };
+    // 8.6.7's Video/Controls toggles, shared the same way: the F1 key, the
+    // menu's V/C keys and their row taps all call these two.
+    auto toggle_video = [&]() { crisp_style = !crisp_style; };
+    auto toggle_controls = [&]() {
+        set_layout(layout == dag::input::OverlayLayout::PhoneLandscape
+                       ? dag::input::OverlayLayout::Tablet4x3
+                       : dag::input::OverlayLayout::PhoneLandscape);
+    };
+    // 8.6.8: the system menu's current screen as clickable rows, styled
+    // like the touch overlay's own pickers (200 wide, 44-tall boxes) instead
+    // of plain unboxed text -- both the tap hit-test and the draw call use
+    // this same list, one-frame-lag-consistent with current_buttons/
+    // picker_rects above. A heading row (e.g. "SAVE SLOT 1-5") has no
+    // `activate` and draws without a box.
+    auto menu_rows = [&]() -> std::vector<MenuRow> {
+        std::vector<MenuRow> rows;
+        if (!shell->paused()) return rows;
+        constexpr double kRowW = 200, kRowH = 44;
+        const double x = game_x + kGameW / 2 - kRowW / 2;
+        double y = 60;
+        auto add = [&](std::string label, std::function<void()> activate) {
+            rows.push_back(MenuRow{std::move(label), dag::input::Rect{x, y, kRowW, kRowH},
+                                   std::move(activate)});
+            y += kRowH;
+        };
+        const auto pending = shell->pending();
+        if (pending != dag::shell::ConfirmKind::None) {
+            const char* question = pending == dag::shell::ConfirmKind::Restart   ? "RESTART?"
+                                   : pending == dag::shell::ConfirmKind::Quit    ? "QUIT?"
+                                                                                 : "OVERWRITE?";
+            add(question, nullptr);
+            add("Y  YES", [&] { apply_menu_key(dag::shell::MenuKey::Yes); });
+            add("N  NO", [&] { apply_menu_key(dag::shell::MenuKey::No); });
+        } else if (menu.screen() == dag::shell::MenuScreen::Top) {
+            add("S  SAVE", [&] { apply_menu_key(dag::shell::MenuKey::Save); });
+            add("L  LOAD", [&] { apply_menu_key(dag::shell::MenuKey::Load); });
+            add("X  RESTART", [&] { apply_menu_key(dag::shell::MenuKey::Restart); });
+            add("Q  QUIT", [&] { apply_menu_key(dag::shell::MenuKey::Quit); });
+            add(std::string("V  VIDEO: ") + (crisp_style ? "CRISP" : "PIXEL"), toggle_video);
+            add(std::string("C  CONTROLS: ") +
+                   (layout == dag::input::OverlayLayout::PhoneLandscape ? "PHONE" : "TABLET"),
+               toggle_controls);
+        } else {
+            add(menu.screen() == dag::shell::MenuScreen::ChooseSave ? "SAVE SLOT 1-5" : "LOAD SLOT 1-5",
+               nullptr);
+            const auto& slots = shell->slots();
+            for (std::size_t i = 0; i < slots.size(); ++i) {
+                const std::string label =
+                    std::to_string(i + 1) + "  " + (slots[i].occupied() ? slots[i].name : "EMPTY");
+                add(label, [&, i] { apply_menu_key(dag::shell::MenuKey::Slot, i); });
+            }
+        }
+        return rows;
+    };
     while (running) {
         // Computed before polling so a tap this frame hit-tests the same
         // rects drawn last frame (one-frame lag on a hand-state change is
@@ -611,6 +686,7 @@ int main(int argc, char** argv) {
                 overlay.pending(),
                 dag::input::picker_choices(overlay.pending(), overlay.pending_right_hand(), overlay_state),
                 *picker_anchor_rect, viewport_w, viewport_h);
+        const auto menu_row_list = menu_rows();
         if (next_shot < shots.size()) {
             if (shots_start_ms == 0) shots_start_ms = SDL_GetTicks();
             const std::uint64_t now_ms = SDL_GetTicks() - shots_start_ms;
@@ -649,11 +725,14 @@ int main(int argc, char** argv) {
                     dag::input::ButtonId::SystemMenu) {
                     pause_or_back_out();
                 } else if (shell->paused()) {
-                    // The system menu owns the screen while paused; no
-                    // touch equivalent of the Y/N/S/L/X/Q keyboard
-                    // shortcuts is built (8.6.6 scope note, reconciliation
-                    // addendum) -- Esc, the physical keyboard, or the
-                    // SystemMenu button are the only ways to act on it.
+                    // 8.6.8: each row has its own hit rect (see menu_rows
+                    // above); a tap off every row does nothing, same as a
+                    // key this screen doesn't recognise.
+                    for (const auto& row : menu_row_list) {
+                        if (!row.activate || !row.rect.contains(mx, my)) continue;
+                        row.activate();
+                        break;
+                    }
                 } else if (overlay.keyboard_open()) {
                     // Taps off the keys do nothing, except the two A buttons the
                     // Incant board keeps up; ✕ closes.
@@ -690,35 +769,31 @@ int main(int argc, char** argv) {
                 continue;
             }
             if (key == SDLK_F1) {  // 8.6.3: pixel/crisp render-style toggle, harmless while paused
-                crisp_style = !crisp_style;
+                toggle_video();
                 continue;
             }
             if (shell->paused()) {
-                // 8.6.7: Video/Controls sit on the same Top screen as
-                // Save/Load/Restart/Quit but are presentation-only (render
-                // style, window layout) -- neither Shell nor MenuState know
-                // about SDL, so these two are handled here directly instead
-                // of through MenuState::press, the same way F1 already
-                // toggles crisp_style outside the menu entirely.
+                // 8.6.7/8.6.8: Video/Controls are presentation-only (render
+                // style, window layout), not Shell/MenuState's concern, so
+                // they're handled here directly rather than through
+                // MenuState::press -- the same way F1's crisp toggle already
+                // works outside the menu entirely. `toggle_video`/
+                // `toggle_controls` are the same two functions a V/C row tap
+                // calls (menu_rows above), so the key and the tap can't drift.
                 if (menu.screen() == dag::shell::MenuScreen::Top &&
                     shell->pending() == dag::shell::ConfirmKind::None) {
                     if (key == SDLK_V) {
-                        crisp_style = !crisp_style;
+                        toggle_video();
                         continue;
                     }
                     if (key == SDLK_C) {
-                        set_layout(layout == dag::input::OverlayLayout::PhoneLandscape
-                                       ? dag::input::OverlayLayout::Tablet4x3
-                                       : dag::input::OverlayLayout::PhoneLandscape);
+                        toggle_controls();
                         continue;
                     }
                 }
-                // 8.6.6: Resume/Save/Load/Restart/Quit (ADR-0009 §6). No
-                // on-screen QWERTY grid for slot names -- keyboard shortcuts
-                // only, matching the incant-keyboard simplification in
-                // 8.6.1 (this build's only tested input path anyway, for
-                // lack of click/keypress-automation tooling to verify a
-                // touch equivalent).
+                // 8.6.6: Resume/Save/Load/Restart/Quit (ADR-0009 §6).
+                // `apply_menu_key` is the same function a Save/Load/.../slot
+                // row tap calls (menu_rows above).
                 std::optional<dag::shell::MenuKey> menu_key;
                 std::size_t slot = 0;
                 if (key == SDLK_S) menu_key = dag::shell::MenuKey::Save;
@@ -731,13 +806,7 @@ int main(int argc, char** argv) {
                     menu_key = dag::shell::MenuKey::Slot;
                     slot = static_cast<std::size_t>(key - SDLK_1);
                 }
-                if (menu_key) {
-                    const auto effect = menu.press(*shell, *menu_key, slot);
-                    if (effect == dag::shell::MenuEffect::Restart)
-                        restart_game();  // re-emplaces held and shell (fresh, unpaused)
-                    else if (effect == dag::shell::MenuEffect::Quit)
-                        running = false;
-                }
+                if (menu_key) apply_menu_key(*menu_key, slot);
                 continue;  // the system menu owns input while open
             }
             // SDLK_A..SDLK_Z are 'a'..'z'. The line editor only accepts 'A'..'Z'.
@@ -981,43 +1050,22 @@ int main(int argc, char** argv) {
                 else draw_crisp_view(r, dag::project(snap), kScale, game_x, ink);
             }
             if (shell->paused()) {
-                // 8.6.6: Resume/Save/Load/Restart/Quit (ADR-0009 §6). Text
-                // only -- no on-screen QWERTY slot-name entry (8.6.1's
-                // incant-keyboard simplification applies here too).
-                const double cx = game_x + kGameW / 2;
-                double y = 60;
-                const auto pending = shell->pending();
-                if (pending == dag::shell::ConfirmKind::Restart) {
-                    draw_text_line(r, cx - 110, y, "RESTART? Y N");
-                } else if (pending == dag::shell::ConfirmKind::Quit) {
-                    draw_text_line(r, cx - 110, y, "QUIT? Y N");
-                } else if (pending == dag::shell::ConfirmKind::SaveOverwrite) {
-                    draw_text_line(r, cx - 110, y, "OVERWRITE? Y N");
-                } else if (menu.screen() == dag::shell::MenuScreen::Top) {
-                    draw_text_line(r, cx - 110, y, "S SAVE");
-                    y += 24;
-                    draw_text_line(r, cx - 110, y, "L LOAD");
-                    y += 24;
-                    draw_text_line(r, cx - 110, y, "X RESTART");
-                    y += 24;
-                    draw_text_line(r, cx - 110, y, "Q QUIT");
-                    y += 24;
-                    draw_text_line(r, cx - 110, y,
-                                   std::string("V VIDEO: ") + (crisp_style ? "CRISP" : "PIXEL"));
-                    y += 24;
-                    draw_text_line(r, cx - 110, y,
-                                   std::string("C CONTROLS: ") +
-                                       (layout == dag::input::OverlayLayout::PhoneLandscape ? "PHONE" : "TABLET"));
-                } else {
-                    draw_text_line(r, cx - 110, y,
-                                   menu.screen() == dag::shell::MenuScreen::ChooseSave ? "SAVE SLOT 1-5" : "LOAD SLOT 1-5");
-                    y += 24;
-                    const auto& slots = shell->slots();
-                    for (std::size_t i = 0; i < slots.size(); ++i) {
-                        const std::string label =
-                            std::to_string(i + 1) + " " + (slots[i].occupied() ? slots[i].name : "EMPTY");
-                        draw_text_line(r, cx - 110, y, label);
-                        y += 24;
+                // 8.6.8: styled and hit-tested like the touch overlay's own
+                // pickers (Picker/Popup boards) -- a black-filled,
+                // white-bordered 200x44 box per row, instead of 8.6.6's
+                // plain unboxed text. A heading row (no `activate`) draws
+                // without a box, same width so it still lines up.
+                for (const auto& row : menu_row_list) {
+                    const SDL_FRect box{static_cast<float>(row.rect.x), static_cast<float>(row.rect.y),
+                                        static_cast<float>(row.rect.w), static_cast<float>(row.rect.h)};
+                    if (row.activate) {
+                        SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+                        SDL_RenderFillRect(r, &box);
+                        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+                        SDL_RenderRect(r, &box);
+                        draw_text_line(r, row.rect.x + 12, row.rect.y + row.rect.h / 2 - 6, row.label, 1.5f);
+                    } else {
+                        draw_text_line(r, row.rect.x + 12, row.rect.y + row.rect.h / 2 - 6, row.label, 1.5f);
                     }
                 }
                 for (const auto& button : current_buttons)

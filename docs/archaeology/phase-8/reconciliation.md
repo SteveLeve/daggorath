@@ -284,3 +284,39 @@ responding to input (a move key) after the window/renderer/texture swap.
 and the existing `crisp_style` toggle, not new core-adjacent behaviour
 needing its own headless test, the same judgement 8.6.6 made for the
 Save/Load/Restart/Quit screen).
+
+**8.6.8 (system menu restyle: boxed, clickable rows): built in a follow-up
+session, Steve's feedback after 8.6.7's hand test.** The Top/ChooseSave/
+ChooseLoad/confirmation screens (8.6.6, then 8.6.7) drew plain unboxed
+`SDL_RenderDebugText` lines with no touch equivalent at all (8.6.6's own
+scope note: "no touch equivalent of the Y/N/S/L/X/Q keyboard shortcuts is
+built"). Steve: the menu should match the touch overlay's own pickers
+(Picker/Popup boards) visually, keep the keystroke hint, and make the whole
+row tappable. `sdl_app.cpp` gained a `MenuRow` (label, a `Rect`, an
+`activate` callback) and a `menu_rows()` lambda that builds the current
+screen's rows -- a heading (e.g. "SAVE SLOT 1-5" or "RESTART?") has no
+`activate` and draws unboxed; every other row is a black-filled,
+white-bordered 200x44 box (Picker board's own dimensions) with its label
+left-padded and centred vertically, computed once per frame alongside
+`current_buttons`/`picker_rects` (same one-frame-lag convention: a tap this
+frame hits the rects drawn last frame) and used for both the draw and the
+tap hit-test. A tap on a row now does exactly what its key does --
+`apply_menu_key`, `toggle_video`, `toggle_controls` are each a single
+function the matching key and the matching row's `activate` both call, so
+the two input paths cannot drift. This finally closes 8.6.6's "no touch
+equivalent" scope note and, with it, the touch-overlay design's own
+`--layout=phone` promise: every screen reachable by key is now also
+reachable by tap.
+
+Verified through `--shots` with injected `key`/`tap` events (not static
+renders): the Top screen's six rows, the Save-slot list (including a
+populated slot's `Shell::auto_name` text inside its box), and the
+overwrite confirmation's two rows all render correctly boxed; a tap on
+"N NO" cancels the pending overwrite the same way the `N` key does, and a
+tap on "S SAVE" opens the slot list the same way `S` does, both confirmed
+by the following frame's screenshot showing the expected screen.
+
+`make all`: 23/23 active tests passing. No new headless test: this is
+`sdl_app.cpp` draw/hit-test glue reusing `MenuState`/`Shell`'s already-tested
+API and the existing `Rect::contains`, not new core-adjacent behaviour --
+the same judgement 8.6.6 and 8.6.7 made.

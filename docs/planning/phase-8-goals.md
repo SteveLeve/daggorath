@@ -102,3 +102,12 @@ Out of scope:
     injected key presses, both toggle directions, plus a move afterward to
     confirm the game still runs post-rebuild.
   - Next: goal 6 (ready to merge).
+- 2026-09-28, Steve's feedback on the goal 5 hand test:
+  - The system menu was keyboard-only text with no touch equivalent (8.6.6's
+    own scope note) and didn't match the pickers' look. Restyled to the
+    same boxed-row style, every row now tappable, key and tap sharing one
+    `activate` function per row so they can't drift. Reconciliation
+    addendum §8.6.8. `make all` passes, 23/23; verified on screen via
+    `--shots` key and tap injection, including a tap actually cancelling a
+    pending overwrite and a tap opening the save-slot list.
+  - Next: goal 6 (ready to merge), unchanged.
