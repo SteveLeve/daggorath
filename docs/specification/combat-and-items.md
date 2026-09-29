@@ -2,7 +2,18 @@
 
 Combat is specified here. Item commands (`GET`, `USE`, `INCANT`, `CLIMB`, torches) are Phase 4.
 
-Labels: **[SRC]** means the pinned listing at `a94326f`. No claim below is ROM-observed.
+Labels: **[SRC]** means the pinned listing at `a94326f`. A wooden-sword swing
+running the same `PATTK` routine path as the empty hand's is **[SRC]**,
+established from the listing's unconditional `PATT10` fallthrough, not from
+a ROM run of the empty-hand path. Within that shared path, the `PATTK`/
+`ATTACK`/`DAMAGE` *dispatch structure* — the `SWI` sites for the swing
+sound, the connecting-hit sound (`A$KLK2`), and the kill sound (`A$EXP0`),
+and their exact byte encoding — is ROM-observed as of C-12
+([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-12--hitmiss-sequence-against-a-spider-with-the-wooden-sword)),
+confirmed against a wooden-sword swing specifically. `ATTACK`'s hit/miss
+percentage-index math is not ROM-observed: that capture's ROM outcome
+diverged from the core's prediction and the divergence was not resolved to a
+specific cause. No other claim below is ROM-observed.
 
 ## Player attack (`PATTK`) — [SRC]
 

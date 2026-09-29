@@ -399,6 +399,32 @@ end
 if not THUD_SWI then die("PSTEP has no ISOUND A$THUD") end
 local THUD_RESUME = THUD_SWI + 3
 
+-- C-12: combat sound taps in PATTK.ASM. Offsets confirmed against the
+-- LWTOOLS 4.25 listing (build/rom/daggorath.lst), not guessed:
+--   PATT10+30 (D2E0 on this image) is the swing's own object sound,
+--     SWI / FCB SOUNDS (3F 1C), with the class byte still in A.
+--   PATT24 (D31F) begins SWI / FCB ISOUND / FCB A$KLK2 (3F 1B 12), the
+--     connecting-hit sound.
+--   PATT40+10 (D344) is the kill sound, SWI / FCB ISOUND / FCB A$EXP0
+--     (3F 1B 15), after the PUPDAT screen update.
+local PATT10 = sym("PATT10")
+local PATT24 = sym("PATT24")
+local PATT40 = sym("PATT40")
+local SWING_SWI = PATT10 + 30
+local HIT_SWI = PATT24
+local KILL_SWI = PATT40 + 10
+if mem:read_u8(SWING_SWI) ~= 0x3F or mem:read_u8(SWING_SWI + 1) ~= 0x1C then
+    die("PATT10+30 is not SWI/FCB SOUNDS on this image")
+end
+if mem:read_u8(HIT_SWI) ~= 0x3F or mem:read_u8(HIT_SWI + 1) ~= 0x1B
+    or mem:read_u8(HIT_SWI + 2) ~= 0x12 then
+    die("PATT24 is not SWI/FCB ISOUND/FCB A$KLK2 on this image")
+end
+if mem:read_u8(KILL_SWI) ~= 0x3F or mem:read_u8(KILL_SWI + 1) ~= 0x1B
+    or mem:read_u8(KILL_SWI + 2) ~= 0x15 then
+    die("PATT40+10 is not SWI/FCB ISOUND/FCB A$EXP0 on this image")
+end
+
 local function u16(addr)
     return mem:read_u8(addr) * 256 + mem:read_u8(addr + 1)
 end
@@ -618,6 +644,25 @@ taps[#taps + 1] = mem:install_read_tap(SNOISE_RTS, SNOISE_RTS, "dod_snoise_rts",
     soundlog:write(string.format("SNOISE\t%d\t%04X\t%s\t%s\tseed_after=%s\n",
         snoise_isr, SNOISE, snoise_seed, snoise_rnd, seed_now))
     snoise_seed = nil
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(SWING_SWI, SWING_SWI, "dod_swing", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    local cls = cpu.state["A"].value & 0xFF
+    emit_trace("SOUND", "class=" .. tostring(cls))
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(HIT_SWI, HIT_SWI, "dod_hit", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    emit_trace("SOUND", "A$KLK2")
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(KILL_SWI, KILL_SWI, "dod_kill", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    emit_trace("SOUND", "A$EXP0")
     return data
 end)
 
