@@ -214,6 +214,21 @@ local function sample(mem, isr)
     if changed("PDAM") then
         emit("EXERT", string.format("damage=%d heart_rate=%d", num("PDAM"), num("HEARTR")))
     end
+    -- HUPDAT.ASM stores HEARTR as a signed byte (SUBA #19 can go negative);
+    -- game.cpp's "heart_rate=" on FAINT/REVIVE is the signed reading. changed()
+    -- already reported the raw byte flip, so the FAINT/REVIVE lines below
+    -- convert to a signed int8 to match src/core/game.cpp:418,423.
+    local function heartr_signed()
+        local raw = num("HEARTR")
+        return raw >= 128 and raw - 256 or raw
+    end
+    if changed("FAINT") then
+        if num("FAINT") ~= 0 then
+            emit("FAINT", "heart_rate=" .. tostring(heartr_signed()))
+        else
+            emit("REVIVE", "heart_rate=" .. tostring(heartr_signed()))
+        end
+    end
     for name, hex in pairs(values) do prev[name] = hex end
 end
 

@@ -400,3 +400,127 @@ error vs. RNG desync (linked to #39)`.
 gitignored `captures/`. `tools/rom/capture.lua` gained three new taps
 (committed, no ROM or capture bytes). `git status --porcelain` shows only
 the harness/doc/backlog changes in this commit.
+
+## C-13 — faint and recovery timing
+
+**Rule at stake:** `docs/planning/capture-backlog.md` C-13:
+`docs/specification/combat-and-items.md` "Faint, recovery, death (`HUPDAT`)"
+— "Not fainted and delay `<= 3` faints: the scheduler stops polling the
+keyboard, and `PLAYER` eats any character already buffered. Fainted and
+delay `> 4` recovers" — against `HUPDAT.ASM`'s exact heart-rate formula
+(`J = floor(P*64/(P+D*2)), by repeated subtraction, minus 19`).
+
+**Harness extension.** Two additions, both reused rather than adding new
+game-behaviour surface:
+
+- `dcli` gained a `--poke JIFFY:FIELD:VALUE` flag (`src/app/dcli.cpp`),
+  mirroring `DOD_POKE` on the ROM side. It calls the existing
+  `Game::set_player_damage`/`set_player_power` test hooks
+  (`src/core/include/daggorath/game.hpp`) between two `advance_jiffies`
+  calls — no new `Game` API, no behaviour change to either hook. This makes
+  a "core" comparison trace possible for any future harness-modified poke
+  capture, not just this one.
+- `tools/rom/capture.lua` gained a `FAINT`/`REVIVE` trace emission, mirroring
+  `src/core/game.cpp:418,423`'s wording exactly (`FAINT heart_rate=N` /
+  `REVIVE heart_rate=N`), reading the already-watched `FAINT` byte
+  (`tools/rom/watchlist.tsv`) with the same signed-byte interpretation
+  `HUPDAT.ASM`'s `SUBA #19` needs (the core stores a signed reading; the tap
+  now converts the raw byte the same way).
+
+**Capture.** Level 0, Original Mode, no walk. `PDAM` is poked to 159 at
+jiffy 10 (`PPOW` stays at its default 160, so this is just below the `BLO`
+death threshold — `docs/specification/combat-and-items.md` "Death is `PPOW
+< PDAM`" — with the least margin that still guarantees a faint: `HUPD00`'s
+exact repeated-subtraction quotient at `P=160, D=159` is 22, giving `HEARTR
+= 22-19 = 3`, `<= 3`). A `MOVE` command is typed at 3-jiffy spacing well
+inside the expected fainted window (jiffies 30–42, per the C-12 pacing
+finding) to test keyboard suspension. `scratch/c13-faint-recovery.script`,
+not committed (reproducible from the jiffy numbers here).
+
+```
+dcli --script scratch/c13-faint-recovery.script --jiffies 400 \
+    --poke 10:damage:159 --trace <core-trace>
+DOD_JIFFIES=400 DOD_STEM=c13-faint-recovery DOD_POKE=10:PDAM:159:2 \
+    tools/rom/run-capture.sh scratch/c13-faint-recovery.script
+```
+
+An earlier run with `PDAM` poked to 155 (more margin below the death
+threshold) never crossed into the ROM's `FAINT` flag at all: `HSLOW` healed
+it back above the boundary between the harness's samples before `HUPDAT`
+next evaluated the flag. That result is itself informative (see below) but
+is not the primary capture; 159 is.
+
+**Observation.**
+
+| | Core (`dcli`) | ROM (`coco2b`) |
+|---|---|---|
+| Poke | jiffy 10, `PDAM`=159 | jiffy 10, `PDAM`=159 |
+| `HEARTR` first reads `<= 3` | jiffy 10 (same jiffy as the poke) | jiffy 11 |
+| `FAINT` flag sets | jiffy 10 | **jiffy 56** |
+| Typed `MOVE` (30–42) dispatches? | no (eaten) | no (eaten) |
+| `REVIVE` | jiffy 65 | **jiffy 123** |
+
+**Divergence: the ROM's `FAINT` flag lags its own `HEARTR` threshold by
+tens of jiffies; the core's does not.** The ROM's `HEARTR` byte already
+reads 3 (the exact `<= 3` faint threshold) at jiffy 11, one jiffy after the
+poke — consistent with the usual one-jiffy alignment offset seen throughout
+Track R. But the `FAINT` flag itself does not flip until jiffy 56, 45
+jiffies later. Over that window `PDAM` keeps falling (`HSLOW` heals roughly
+every 5 jiffies in this trace — `damage=156` at 11, `153` at 59, `150` at
+63, ...), yet `HEARTR` stays pinned at 3 the whole time
+(`captures/c13-faint-recovery.rom.trace`), which only makes sense if
+`HUPDAT` (the routine that both recomputes `HEARTR` from the current `PPOW`/
+`PDAM` and decides whether to (un)faint) does not run on every jiffy `PDAM`
+changes — it runs on its own schedule, and the flag only updates the next
+time it happens to run. The 155-margin run's non-faint (see above) is the
+same mechanism from the other side: `HSLOW` moved `PDAM` back above the
+boundary in the gap between `HUPDAT` evaluations. The core's model runs the
+opposite way: `set_player_damage` calls `update_heart_rate()` synchronously,
+so `FAINT` (and, implicitly, every faint/recover decision) is exact and
+immediate on every `PDAM` change, with no equivalent gap. `REVIVE` shows the
+same pattern at a larger scale: 55 fainted jiffies in the core, 67 in the
+ROM.
+
+**Reading, not yet a fix.** This is consistent with `HUPDAT` being invoked
+periodically (heartbeat-paced, matching `docs/specification/creatures.md`'s
+physiology group and `HEARTC`/`HBEATF` in the watchlist) rather than being
+tied to every `PDAM`-changing event, while the core currently recomputes it
+inline on every damage change. This capture did not instrument `HEARTC`'s
+countdown directly (it is watched but not separately traced), so the exact
+period, and whether it matches `HEARTC`'s own value, is not established
+here — only that a real gap exists and the core has none. Filed as #51,
+spec-first per `docs/prompts/track-r-rom-observation.md` step 5. No
+core change in this commit.
+
+**Keyboard suspension: consistent, not conclusively isolated.** Both traces
+show the typed `MOVE` command silently eaten — no `LINE`, no `MOVE` event,
+in either trace, matching the specification's "`PLAYER` eats any character
+already buffered." In the ROM, the keystrokes (jiffies 30–42) land after
+`HEARTR` first read `<= 3` (jiffy 11) but well before the `FAINT` flag's own
+latch (jiffy 56). That is consistent with keyboard suspension being gated
+on `HEARTR`'s value directly rather than on the `FAINT` flag's own
+transition, but this capture only shows the keystroke was eaten somewhere
+in that 45-jiffy window, not at which specific jiffy the suspension took
+effect — it cannot rule out the flag-gated reading either. Unresolved.
+
+**Labels.** `docs/specification/combat-and-items.md`'s `HUPDAT` faint/
+revive/keyboard-suspension text stays **[SRC]**; the underlying trigger
+values (`delay <= 3` faints, `delay > 4` recovers) are now **ROM-observed**
+in the sense that both transitions were seen to occur at exactly those
+`HEARTR` readings, but the *timing* of when the ROM acts on a threshold
+crossing is not — that lag is the new, unresolved finding above, not a
+confirmation of the existing spec text's timing model (the spec text makes
+no timing claim; this capture found real HUPDAT-to-HUPDAT latency, not
+covered previously by any label).
+
+**Backlog.** `docs/planning/capture-backlog.md` C-13 row updated to
+`partial — track-r reconciliation: faint/recover threshold values
+ROM-observed, but a real HUPDAT-to-HUPDAT lag exists in the ROM with no
+core equivalent, filed as #51`.
+
+**Gate.** `captures/c13-faint-recovery.rom.trace` and its companion
+`.raw.tsv`/task logs are new but live outside the tree under gitignored
+`captures/`. `src/app/dcli.cpp` gained the `--poke` flag and
+`tools/rom/capture.lua` gained `FAINT`/`REVIVE` emission (both committed,
+no ROM or capture bytes). `git status --porcelain` shows only the harness/
+core/doc/backlog changes in this commit.

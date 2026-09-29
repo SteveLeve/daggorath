@@ -5,12 +5,14 @@
 //   dcli --maze-hashes            (prints cleared-cell counts and RNG spin states)
 //
 // Emits a tab-separated trace: jiffy, clock counters, event kind, detail.
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "daggorath/examine.hpp"
 #include "daggorath/game.hpp"
@@ -26,10 +28,50 @@ int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
                  "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE]\n"
                  "            [--events] [--present-map] [--present-text] [--level N]\n"
+                 "            [--poke JIFFY:FIELD:VALUE ...]\n"
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
-                 "       Original Mode build clock.\n";
+                 "       Original Mode build clock.\n"
+                 "       --poke sets player damage or power at a jiffy boundary\n"
+                 "       (FIELD is damage or power), mirroring tools/rom/capture.lua's\n"
+                 "       DOD_POKE for a harness-modified capture. Repeatable.\n";
     return 2;
+}
+
+struct Poke {
+    std::uint64_t jiffy;
+    bool is_power;
+    std::uint16_t value;
+};
+
+std::vector<Poke> parse_pokes(const std::vector<std::string>& specs, std::string& error) {
+    std::vector<Poke> pokes;
+    for (const std::string& spec : specs) {
+        const std::size_t first = spec.find(':');
+        const std::size_t second = spec.find(':', first == std::string::npos ? first : first + 1);
+        if (first == std::string::npos || second == std::string::npos) {
+            error = "bad --poke '" + spec + "', want JIFFY:FIELD:VALUE";
+            return {};
+        }
+        const std::string jiffy_str = spec.substr(0, first);
+        const std::string field = spec.substr(first + 1, second - first - 1);
+        const std::string value_str = spec.substr(second + 1);
+        bool is_power;
+        if (field == "damage") is_power = false;
+        else if (field == "power") is_power = true;
+        else {
+            error = "bad --poke field '" + field + "', want damage or power";
+            return {};
+        }
+        Poke p;
+        p.jiffy = std::strtoull(jiffy_str.c_str(), nullptr, 10);
+        p.is_power = is_power;
+        p.value = static_cast<std::uint16_t>(std::strtoul(value_str.c_str(), nullptr, 10));
+        pokes.push_back(p);
+    }
+    std::sort(pokes.begin(), pokes.end(),
+              [](const Poke& a, const Poke& b) { return a.jiffy < b.jiffy; });
+    return pokes;
 }
 
 int maze_summary() {
@@ -66,6 +108,7 @@ int main(int argc, char** argv) {
     int second = 0;
     int level = 0;
     bool frozen = false;
+    std::vector<std::string> poke_specs;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -89,7 +132,15 @@ int main(int argc, char** argv) {
         else if (a == "--events") events = true;
         else if (a == "--present-map") present_map = true;
         else if (a == "--present-text") present_text = true;
+        else if (a == "--poke") poke_specs.push_back(next());
         else return usage();
+    }
+
+    std::string poke_error;
+    const std::vector<Poke> pokes = parse_pokes(poke_specs, poke_error);
+    if (!poke_error.empty()) {
+        std::cerr << poke_error << "\n";
+        return 1;
     }
 
     std::optional<dag::Game> held;
@@ -116,7 +167,17 @@ int main(int argc, char** argv) {
         game.load_script(std::move(keys));
     }
 
-    game.advance_jiffies(jiffies);
+    std::uint64_t done = 0;
+    for (const Poke& p : pokes) {
+        if (p.jiffy > jiffies) continue;
+        if (p.jiffy > done) {
+            game.advance_jiffies(p.jiffy - done);
+            done = p.jiffy;
+        }
+        if (p.is_power) game.set_player_power(p.value);
+        else game.set_player_damage(p.value);
+    }
+    if (jiffies > done) game.advance_jiffies(jiffies - done);
 
     std::ostream* out = &std::cout;
     std::ofstream file;

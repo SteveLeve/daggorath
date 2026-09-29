@@ -66,3 +66,10 @@ On the player's cell the creature plays a full-volume sound, sets shielding to `
 ## Faint, recovery, death (`HUPDAT`) — [SRC]
 
 Heart delay is the existing repeated-subtraction form. Not fainted and delay `<= 3` faints: the scheduler stops polling the keyboard, and `PLAYER` eats any character already buffered. Fainted and delay `> 4` recovers. Death is `PPOW < PDAM` (unsigned `BLO`), which is stricter than a creature's `BHI` kill. `DEATH` halts: this core stops the scheduler, matching `BRA *`.
+
+The `<= 3` faint and `> 4` recover thresholds are ROM-observed as of C-13
+([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-13--faint-and-recovery-timing)),
+confirmed at the exact `HEARTR` readings named above. That capture also
+found a real ROM-side lag between `HEARTR` crossing a threshold and `HUPDAT`
+acting on it — `HUPDAT` does not appear to re-evaluate on every damage
+change — which the core does not currently model; unresolved, filed as #51.
