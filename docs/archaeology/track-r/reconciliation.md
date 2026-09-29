@@ -739,3 +739,102 @@ daggorath/game.hpp` gained `set_torch_timer`; `src/app/dcli.cpp` gained the
 `torch` poke field (all committed, no ROM or capture bytes). `git status
 --porcelain` shows only the harness/core/doc/backlog changes in this
 commit.
+
+## C-21 — start-up alignment
+
+**Rule at stake:** `docs/planning/capture-backlog.md` C-21: why the ROM's
+first `PLAYER` dispatch comes at isr 13–14 against jiffy 1 in the core, and
+whether `GAME50`'s `INIVU`/`SYNC` (D-15, `docs/specification/
+clock-and-scheduler.md`) explains it. This offset has complicated every
+comparative capture so far (C-09, C-10, C-11, C-14): none could do a
+literal line-by-line `trace_diff`, only anchor- or aggregate-based
+comparisons.
+
+**Source reading.** `GAME50` (`ONCE.ASM`) is `SWI FCB INIVU` then
+`JMP SCHED` — no jiffy wait of its own. `INIVU` (`INIVUX`, `PLOOK.ASM`)
+clears the status line and text area, runs `HUPDAT`, updates the status
+line, sets `DSPMOD` to `VIEWER`, and falls into `PLOOK`'s own
+`SWI FCB PUPDAT` before returning. `SCHED` itself (`COMMON.ASM`) is an
+unbounded foreground loop with no interrupt wait between TCB dispatches —
+confirming `docs/specification/clock-and-scheduler.md` §5's existing
+source-proven reading. None of this, by itself, says how many real jiffies
+`INIVU` (in particular, its full-screen 3D view draw) costs; that is a
+question about 6809 cycle counts the listing alone doesn't answer, and this
+capture does not attempt to derive it.
+
+**Capture.** Level 0, Original Mode, no keystrokes at all (an empty script,
+matching C-11's idle run but purpose-captured fresh and short for this
+question specifically). `scratch/c21-startup.script` (empty), not
+committed.
+
+```
+dcli --script scratch/c21-startup.script --jiffies 30 --trace <core-trace>
+DOD_JIFFIES=30 DOD_STEM=c21-startup tools/rom/run-capture.sh \
+    scratch/c21-startup.script
+```
+
+**Observation.** Both traces dispatch the same five system tasks together
+as one "opening lap" — `PLAYER`, `LUKNEW`, `HSLOW`, `BURNER`, `CREGEN`, in
+that order, all on the same jiffy, matching `Q.SCD`'s creation order in
+`SYSTCB` (`ONCE.ASM`) — but at different jiffies:
+
+| | Core (`dcli`) | ROM (`coco2b`) |
+|---|---|---|
+| Opening lap (`PLAYER`+`LUKNEW`+`HSLOW`+`BURNER`+`CREGEN`) | jiffy 1 | jiffy 11 |
+| `PLAYER` re-dispatch cadence after that | every jiffy | every jiffy (12 through 24, unbroken) |
+
+A **uniform 10-jiffy offset**, not just a `PLAYER`-specific one: every
+system task in the opening lap is delayed by exactly the same amount. This
+was also checked against the pre-existing `captures/idle-10min.rom.trace`
+(C-11's 10-minute idle capture): its opening lap lands at jiffy 11 too,
+same as this fresh capture — the offset is reproducible, not an artifact
+of this specific short run.
+
+**Reading, not a full resolution.** A uniform, task-independent delay
+before the *entire* first scheduler lap is consistent with D-15's
+hypothesis that `GAME50`'s `INIVU` call — specifically, the cost of
+drawing the initial 3D view, not just its trailing `SYNC` — runs in the
+foreground for several real jiffies before `JMP SCHED` is ever reached,
+while `CLOCK`'s interrupt-driven jiffy counter keeps advancing regardless
+(interrupts are not blocked by foreground drawing work). The harness's
+"jiffy 0" anchor (first `CLOCK` after `GAME50` is *fetched*) therefore
+measures the wrong start point for scheduler-relative comparisons: real
+jiffies elapse while the ROM is still inside `INIVU`'s foreground code, not
+yet at `SCHED`'s first task dispatch. This capture is consistent with that
+mechanism and gives it its first ROM-observed jiffy count (10), but it does
+not derive `INIVU`'s cost from 6809 cycle counts, so it cannot say whether
+10 jiffies is `INIVU`'s exact cost or includes some other fixed overhead.
+
+**Not resolved by this capture: the offset was not stable across scripts.**
+The earlier C-01 ROM capture `t2-forward-corridor.rom.trace` (a script that
+types `M` almost immediately) shows a *different* split: `PLAYER`'s own
+first dispatch lands at jiffy 13 (not 11), and `LUKNEW`/`HSLOW`/`BURNER`/
+`CREGEN` don't appear until jiffy 25, well after `PLAYER` rather than
+alongside it. Two different capture scripts giving two different startup
+patterns is exactly the kind of task-dispatch-schedule sensitivity to
+script/input timing that #39 and #43 already flag as an open,
+unmodeled area; this capture surfaces a third data point for that family
+rather than resolving it. No new issue filed — folded into the existing
+#39/#43 open question rather than duplicated.
+
+**Labels.** No label promoted to ROM-observed: the *offset value* (10
+jiffies, for an idle script) is a solid, reproducible observation, but the
+open backlog question — "why" in mechanistic, cycle-exact terms, and
+whether it is stable enough to use as a correction factor for `trace_diff`
+— remains unresolved. `docs/specification/clock-and-scheduler.md`'s D-15
+entry already carries the right label (**[INF]**) and is not changed by
+this capture; this reconciliation entry is additional evidence for that
+existing inferred note, not a promotion of it.
+
+**Backlog.** `docs/planning/capture-backlog.md` C-21 row updated to
+`partial — track-r reconciliation: a uniform 10-jiffy opening-lap offset is
+ROM-observed for an idle script, consistent with D-15's INIVU-cost
+hypothesis, but the offset was not stable across scripts (C-01's
+`t2-forward-corridor` splits differently) and no correction factor for
+`trace_diff` is established`.
+
+**Gate.** `captures/c21-startup.rom.trace` and its companion `.raw.tsv`/
+task logs are new but live outside the tree under gitignored `captures/`.
+No harness or core changes in this commit — existing taps and watches were
+sufficient. `git status --porcelain` shows only the doc/backlog changes in
+this commit.
