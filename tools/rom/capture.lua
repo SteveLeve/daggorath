@@ -111,6 +111,21 @@ local symbols = load_symbols(symbols_path)
 local watches = load_watches(watch_path, symbols)
 local script = load_script(script_path)
 
+-- See the C-14 note beside its use in sample(): an ad hoc one-byte watch at
+-- a runtime-supplied address, env-configured so it never affects a capture
+-- that doesn't ask for it.
+local extra_watch_addr, extra_watch_name, extra_watch_prev
+do
+    local spec = os.getenv("DOD_EXTRA_WATCH") or ""
+    local name, hex = spec:match("^(%a[%w]*):(%x+)$")
+    if name then
+        extra_watch_name = name
+        extra_watch_addr = tonumber(hex, 16)
+    elseif spec ~= "" then
+        die("bad DOD_EXTRA_WATCH " .. spec .. ", want NAME:HEXADDR")
+    end
+end
+
 -- Host check of the file parsers and the key table. This does not boot a CoCo
 -- and does not validate MAME ioport tags. Set DOD_SELFTEST=1.
 if os.getenv("DOD_SELFTEST") == "1" then
@@ -214,6 +229,17 @@ local function sample(mem, isr)
     if changed("PDAM") then
         emit("EXERT", string.format("damage=%d heart_rate=%d", num("PDAM"), num("HEARTR")))
     end
+    -- C-14: an ad hoc one-byte watch at a runtime-supplied address, for state
+    -- (an OCB field, say) that has no fixed ROM symbol -- the address is
+    -- discovered per-capture (e.g. by watching PTORCH, then reading the OCB
+    -- it points at) and passed in, not guessed. DOD_EXTRA_WATCH="NAME:HEXADDR".
+    if extra_watch_addr then
+        local v = mem:read_u8(extra_watch_addr)
+        if v ~= extra_watch_prev then
+            emit("WATCH", string.format("%s=%d", extra_watch_name, v))
+            extra_watch_prev = v
+        end
+    end
     -- HUPDAT.ASM stores HEARTR as a signed byte (SUBA #19 can go negative);
     -- game.cpp's "heart_rate=" on FAINT/REVIVE is the signed reading. changed()
     -- already reported the raw byte flip, so the FAINT/REVIVE lines below
@@ -260,6 +286,19 @@ for spec in (os.getenv("DOD_POKE") or ""):gmatch("[^,]+") do
     if not at then die("bad DOD_POKE entry " .. spec) end
     pokes[#pokes + 1] = {isr = tonumber(at), name = name, raw = value,
         width = tonumber(width) or 2}
+end
+
+-- C-14: DOD_EXTRA_POKE="isr:hexaddr:value[:width],...", a sibling to
+-- DOD_POKE for a write target with no compile-time ROM symbol (an OCB
+-- field at an address discovered per-capture, e.g. via DOD_EXTRA_WATCH --
+-- see that mechanism's comment). No SYMBOL+n/-n arithmetic; the address
+-- and value are both literal.
+local extra_pokes = {}
+for spec in (os.getenv("DOD_EXTRA_POKE") or ""):gmatch("[^,]+") do
+    local at, hexaddr, value, width = spec:match("^(%d+):(%x+):(%d+):?(%d*)$")
+    if not at then die("bad DOD_EXTRA_POKE entry " .. spec) end
+    extra_pokes[#extra_pokes + 1] = {isr = tonumber(at), addr = tonumber(hexaddr, 16),
+        value = tonumber(value), width = tonumber(width) or 1}
 end
 local phase = "boot"
 local isr = -1          -- game interrupt counter; the first CLOCK after GAME50 is isr 0
@@ -311,6 +350,12 @@ local function on_clock()
             pk.value = pk.value & (pk.width == 2 and 0xFFFF or 0xFF)
             if pk.width == 2 then mem:write_u16(a, pk.value) else mem:write_u8(a, pk.value) end
             trace:write(string.format("# harness-modified %s=%d written at isr %d\n", pk.name, pk.value, isr))
+        end
+    end
+    for _, ep in ipairs(extra_pokes) do
+        if ep.isr == isr then
+            if ep.width == 2 then mem:write_u16(ep.addr, ep.value) else mem:write_u8(ep.addr, ep.value) end
+            trace:write(string.format("# harness-modified %04X=%d written at isr %d\n", ep.addr, ep.value, isr))
         end
     end
     sample(mem, isr)

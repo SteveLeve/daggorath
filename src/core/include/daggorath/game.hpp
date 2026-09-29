@@ -151,6 +151,13 @@ public:
         player_.damage = damage;
         update_heart_rate();
     }
+    // Test hook: write the worn torch's P.OCXXX timer (BURNER, COMPLR.ASM)
+    // directly. No-op if nothing is worn (player_.torch < 0).
+    void set_torch_timer(std::uint8_t value) {
+        if (player_.torch >= 0) {
+            objects_[static_cast<std::size_t>(player_.torch)].spec[0] = value;
+        }
+    }
 
     // What ZSAVE writes: the direct page and common RAM, DP.BEG ($0200)
     // through MM.END (COMMON.ASM SAVE). That range holds the player, clock,

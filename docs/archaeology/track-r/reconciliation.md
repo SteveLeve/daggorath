@@ -610,3 +610,132 @@ climbable feature, matching source over manual`.
 dcli.cpp` gained the `--poke position` field (both committed, no ROM or
 capture bytes). `git status --porcelain` shows only the harness/core/doc/
 backlog changes in this commit.
+
+## C-14 — torch burn-out across a minute boundary
+
+**Rule at stake:** `docs/planning/capture-backlog.md` C-14: `BURNER`
+(`COMPLR.ASM`) — decrements the worn torch's timer once a minute, marking
+it dead at `<= 5`. `docs/specification/combat-and-items.md`'s existing text
+("At 5 or below the torch type becomes `DEAD`") was source-proven only.
+
+**Harness extension.** Four additions:
+
+- `dcli` gained a `--poke JIFFY:torch:VALUE` field, calling a new
+  `Game::set_torch_timer` test hook (`src/core/include/daggorath/game.hpp`)
+  that writes the worn torch's `spec[0]` (`P.OCXXX`) directly. No-op if
+  nothing is worn.
+- `dcli --poke` also gained `position` (`row*256+col`, via the existing
+  `place_player` hook — folded in with C-14 rather than split out, since it
+  was needed here too, to keep the player away from level 0's spawn-area
+  creature traffic seen in C-12/C-13's captures).
+- `tools/rom/capture.lua` gained an opt-in, ad hoc one-byte watch,
+  `DOD_EXTRA_WATCH=NAME:HEXADDR`, emitting a `WATCH NAME=value` line on
+  change. Unlike C-12/C-13/C-15's taps, the torch OCB has no fixed ROM
+  symbol: `PTORCH` (added to `tools/rom/watchlist.tsv`) is a *pointer*, set
+  only once the player wears the torch, to whichever `OCBLND` slot `OBIRTH`
+  happened to allocate it at boot. A first, throwaway capture (jiffies=130,
+  no torch poke) wore the torch and read `PTORCH`'s value from the raw
+  sample (`0E95`) after it changed from `0000`; `P.OCXXX`'s offset (`+6`,
+  `CD.ASM`) gives the timer field's address for *this specific, deterministic
+  boot sequence* (`0E9B`), which `DOD_EXTRA_WATCH` then watches directly.
+  This address is not a general-purpose symbol and is not assumed stable
+  across a different script.
+- `tools/rom/capture.lua` also gained `DOD_EXTRA_POKE=isr:hexaddr:value[:width]`,
+  a *write*-side sibling to `DOD_EXTRA_WATCH`. `DOD_POKE`'s target must
+  resolve through `sym()` against `build/rom/symbols.tsv` — a compile-time
+  label, always. `0E9B` is not one (see above), so it cannot be a `DOD_POKE`
+  target; a first draft of this capture worked around that by hand-appending
+  a synthetic `TORCHTMR 0E9B` row to the *generated* `symbols.tsv`, which
+  `tools/rom/assemble.sh` silently discards on its next run — a real
+  reproducibility gap, caught in review. `DOD_EXTRA_POKE` writes a literal
+  address directly and needs no symbol at all; the capture below was re-run
+  with a freshly-`assemble.sh`'d `symbols.tsv` (confirmed to have no
+  `TORCHTMR` row) to verify it reproduces the same result through the fixed
+  mechanism.
+
+**Capture.** Level 0, Original Mode: `PULL RIGHT PINE TORCH`, `USE RIGHT`
+(wears it, setting `PTORCH`), then the timer is poked to 6 — one tick above
+the dead threshold, so the very next `BURNER` run crosses it. `SECOND` is
+also poked to 52 shortly after scheduler entry (a regular, non-`DOD_POKE_SECOND`
+poke — that mechanism only affects `DGEN90`'s maze-generation seed, not the
+running clock, discovered by trying it first and seeing `INIT` still report
+`second=6`), so the level-0 spawn-area creature traffic seen in C-12/C-13
+has only ~8 seconds to threaten the player before the minute rolls over,
+rather than the ~54 seconds a fresh boot would need.
+(`scratch/c14-torch-burnout.script`, not committed — 30 lines, reproducible
+from the jiffy numbers below.)
+
+```
+dcli --script scratch/c14-torch-burnout.script --jiffies 550 --second 52 \
+    --poke 115:torch:6 --trace <core-trace>
+DOD_JIFFIES=550 DOD_STEM=c14-torch-burnout \
+    DOD_POKE=2:SECOND:52:1 \
+    DOD_EXTRA_POKE=115:0E9B:6:1 \
+    DOD_EXTRA_WATCH=TORCHTMR:0E9B \
+    tools/rom/run-capture.sh scratch/c14-torch-burnout.script
+```
+
+**Observation.** Both traces cross the dead threshold at exactly the
+minute boundary:
+
+| | Core (`dcli`) | ROM (`coco2b`) |
+|---|---|---|
+| Torch timer before `BURNER` (worn) | 15 (initial, matches the manual's nominal 15-minute pine-torch lifetime) | 15 (`WATCH TORCHTMR=15` at jiffy 0) |
+| Timer poked to 6 | jiffy 115 | jiffy 114 |
+| `BURNER` fires at the minute boundary, timer -> 5, `dead` | jiffy 480 (`TORCH dead timer=5`) | jiffy 462 (`WATCH TORCHTMR=5`) |
+
+The ROM poke and its own watched read land on the jiffy *below* the isr
+number passed to `DOD_EXTRA_POKE`/`DOD_POKE` (114, not 115) because
+`sample()` labels each reading with `isr - 1`
+(`tools/rom/capture.lua`, documented where `sample` is defined) — the
+poke and the read it produces happen in the same harness call, at the same
+isr, consistently with every other Track R capture's isr/jiffy convention;
+this is not evidence of a timing gap. The 18-jiffy gap between core (480)
+and ROM (462) at the minute-boundary dispatch itself is larger than
+C-09/C-12/C-13's single-digit alignment slack; this capture did not
+investigate why and treats it as the same open C-21 alignment question, not
+a new finding.
+
+**Unresolved: light-level propagation not observed in this window.** The
+core's `task_burner` calls `refresh_light()` on every run, so its
+`"light=5"` trace text reflects the *global* light level dropping in step
+with the timer, the same jiffy. The ROM's watched `RLIGHT` (regular light
+level) stayed at `07` for the entire capture, never dropping to 5.
+`BURNER`'s own `BURN10`/`BURN20` only update the torch's *own* light-level
+copies (`P.OCXXX+1`/`+2`); propagating that into the displayed `RLIGHT` is
+`LUKNEW`'s job (`PUPDAT.ASM:17`, `STD RLIGHT`, called from `LUKNEW`'s
+`LNEW10` path). `LUKNEW` is **not** proximity-scheduled: `COMPLR.ASM`'s
+`LNEW99` unconditionally self-reschedules every `SCHED$ 3,Q.TEN` (three
+tenths, twice a second, roughly every 18 jiffies) regardless of whether it
+ran a `PUPDAT` that pass — only the `PUPDAT` *call itself* is gated on
+`NEWLUK`/map-mode. The ROM's `TASK` log shows a `LUKNEW` dispatch every
+~18 jiffies through jiffy 438, then none for the remaining ~112 jiffies of
+the capture (438 to the 550-jiffy end, past the torch's death at 462) —
+given the fixed cadence, that gap is itself odd and not explained by this
+capture. It may be the same texture as #39's missing-dispatch finding
+(C-11) rather than anything specific to `BURNER`/torches, but this capture
+did not establish that. Unresolved either way: not claimed as a confirmed
+divergence, and the apparent `LUKNEW` gap is flagged rather than explained
+away.
+
+**Labels.** The `<= 5` dead threshold and the once-a-minute decrement are
+now **ROM-observed**: the torch's timer, poked to 6, crosses to 5 and marks
+dead at the very next minute boundary in both traces, matching exactly. The
+light-level propagation question above is explicitly **not** resolved by
+this capture. No issue filed for the alignment gap (folded into the
+existing, open C-21 question); no issue filed for the light-propagation gap
+(insufficient evidence either way, not a confirmed divergence).
+
+**Backlog.** `docs/planning/capture-backlog.md` C-14 row updated to
+`partial — track-r reconciliation: dead threshold and once-a-minute
+decrement ROM-observed; RLIGHT propagation not observed in this capture's
+window`.
+
+**Gate.** `captures/c14-torch-burnout.rom.trace` and its companion
+`.raw.tsv`/task logs are new but live outside the tree under gitignored
+`captures/`. `tools/rom/watchlist.tsv` gained `PTORCH`; `tools/rom/
+capture.lua` gained the `DOD_EXTRA_WATCH`/`DOD_EXTRA_POKE` mechanisms; `src/core/include/
+daggorath/game.hpp` gained `set_torch_timer`; `src/app/dcli.cpp` gained the
+`torch` poke field (all committed, no ROM or capture bytes). `git status
+--porcelain` shows only the harness/core/doc/backlog changes in this
+commit.

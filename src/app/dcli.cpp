@@ -32,14 +32,15 @@ int usage() {
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n"
-                 "       --poke sets player damage, power, or position at a jiffy\n"
-                 "       boundary (FIELD is damage, power, or position; position's\n"
-                 "       VALUE is row*256+col), mirroring tools/rom/capture.lua's\n"
-                 "       DOD_POKE for a harness-modified capture. Repeatable.\n";
+                 "       --poke sets player damage, power, position, or the worn\n"
+                 "       torch's timer at a jiffy boundary (FIELD is damage, power,\n"
+                 "       position, or torch; position's VALUE is row*256+col),\n"
+                 "       mirroring tools/rom/capture.lua's DOD_POKE for a\n"
+                 "       harness-modified capture. Repeatable.\n";
     return 2;
 }
 
-enum class PokeField { Damage, Power, Position };
+enum class PokeField { Damage, Power, Position, Torch };
 
 struct Poke {
     std::uint64_t jiffy;
@@ -63,8 +64,9 @@ std::vector<Poke> parse_pokes(const std::vector<std::string>& specs, std::string
         if (field == "damage") pf = PokeField::Damage;
         else if (field == "power") pf = PokeField::Power;
         else if (field == "position") pf = PokeField::Position;
+        else if (field == "torch") pf = PokeField::Torch;
         else {
-            error = "bad --poke field '" + field + "', want damage, power, or position";
+            error = "bad --poke field '" + field + "', want damage, power, position, or torch";
             return {};
         }
         Poke p;
@@ -183,6 +185,9 @@ int main(int argc, char** argv) {
             case PokeField::Damage: game.set_player_damage(p.value); break;
             case PokeField::Position:
                 game.place_player(p.value >> 8, p.value & 0xFF);
+                break;
+            case PokeField::Torch:
+                game.set_torch_timer(static_cast<std::uint8_t>(p.value));
                 break;
         }
     }

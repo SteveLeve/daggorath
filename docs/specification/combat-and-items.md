@@ -63,6 +63,12 @@ On the player's cell the creature plays a full-volume sound, sets shielding to `
 
 `BURNER` (`COMPLR.ASM`) runs once a minute. It decrements the torch timer. At 5 or below the torch type becomes `DEAD`. The regular and magic light bytes are lowered to the timer when the timer is smaller.
 
+The once-a-minute decrement and the `<= 5` dead threshold are ROM-observed
+as of C-14
+([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-14--torch-burn-out-across-a-minute-boundary)).
+That capture's window was too short to observe whether the displayed
+`RLIGHT` byte actually drops to match — unresolved, not claimed either way.
+
 ## Faint, recovery, death (`HUPDAT`) — [SRC]
 
 Heart delay is the existing repeated-subtraction form. Not fainted and delay `<= 3` faints: the scheduler stops polling the keyboard, and `PLAYER` eats any character already buffered. Fainted and delay `> 4` recovers. Death is `PPOW < PDAM` (unsigned `BLO`), which is stricter than a creature's `BHI` kill. `DEATH` halts: this core stops the scheduler, matching `BRA *`.
