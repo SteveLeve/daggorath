@@ -32,15 +32,18 @@ int usage() {
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n"
-                 "       --poke sets player damage or power at a jiffy boundary\n"
-                 "       (FIELD is damage or power), mirroring tools/rom/capture.lua's\n"
+                 "       --poke sets player damage, power, or position at a jiffy\n"
+                 "       boundary (FIELD is damage, power, or position; position's\n"
+                 "       VALUE is row*256+col), mirroring tools/rom/capture.lua's\n"
                  "       DOD_POKE for a harness-modified capture. Repeatable.\n";
     return 2;
 }
 
+enum class PokeField { Damage, Power, Position };
+
 struct Poke {
     std::uint64_t jiffy;
-    bool is_power;
+    PokeField field;
     std::uint16_t value;
 };
 
@@ -56,16 +59,17 @@ std::vector<Poke> parse_pokes(const std::vector<std::string>& specs, std::string
         const std::string jiffy_str = spec.substr(0, first);
         const std::string field = spec.substr(first + 1, second - first - 1);
         const std::string value_str = spec.substr(second + 1);
-        bool is_power;
-        if (field == "damage") is_power = false;
-        else if (field == "power") is_power = true;
+        PokeField pf;
+        if (field == "damage") pf = PokeField::Damage;
+        else if (field == "power") pf = PokeField::Power;
+        else if (field == "position") pf = PokeField::Position;
         else {
-            error = "bad --poke field '" + field + "', want damage or power";
+            error = "bad --poke field '" + field + "', want damage, power, or position";
             return {};
         }
         Poke p;
         p.jiffy = std::strtoull(jiffy_str.c_str(), nullptr, 10);
-        p.is_power = is_power;
+        p.field = pf;
         p.value = static_cast<std::uint16_t>(std::strtoul(value_str.c_str(), nullptr, 10));
         pokes.push_back(p);
     }
@@ -174,8 +178,13 @@ int main(int argc, char** argv) {
             game.advance_jiffies(p.jiffy - done);
             done = p.jiffy;
         }
-        if (p.is_power) game.set_player_power(p.value);
-        else game.set_player_damage(p.value);
+        switch (p.field) {
+            case PokeField::Power: game.set_player_power(p.value); break;
+            case PokeField::Damage: game.set_player_damage(p.value); break;
+            case PokeField::Position:
+                game.place_player(p.value >> 8, p.value & 0xFF);
+                break;
+        }
     }
     if (jiffies > done) game.advance_jiffies(jiffies - done);
 

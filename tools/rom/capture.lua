@@ -440,6 +440,16 @@ if mem:read_u8(KILL_SWI) ~= 0x3F or mem:read_u8(KILL_SWI + 1) ~= 0x1B
     die("PATT40+10 is not SWI/FCB ISOUND/FCB A$EXP0 on this image")
 end
 
+-- C-15: PARSER.ASM's shared command-error handler, CMDERR (CBE1 on this
+-- image, SWI/FCB OUTSTI = 3F 02), called via JSR from every command handler
+-- (HUMAN.ASM, PCLIMB.ASM, PGET.ASM, ...) whenever a command doesn't parse.
+-- One tap here covers every "???" output the game can produce, not just
+-- CLIMB's.
+local CMDERR = sym("CMDERR")
+if mem:read_u8(CMDERR) ~= 0x3F or mem:read_u8(CMDERR + 1) ~= 0x02 then
+    die("CMDERR is not SWI/FCB OUTSTI on this image")
+end
+
 local function u16(addr)
     return mem:read_u8(addr) * 256 + mem:read_u8(addr + 1)
 end
@@ -659,6 +669,12 @@ taps[#taps + 1] = mem:install_read_tap(SNOISE_RTS, SNOISE_RTS, "dod_snoise_rts",
     soundlog:write(string.format("SNOISE\t%d\t%04X\t%s\t%s\tseed_after=%s\n",
         snoise_isr, SNOISE, snoise_seed, snoise_rnd, seed_now))
     snoise_seed = nil
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(CMDERR, CMDERR, "dod_cmderr", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    emit_trace("OUTPUT", "???")
     return data
 end)
 

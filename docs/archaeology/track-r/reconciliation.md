@@ -524,3 +524,89 @@ core equivalent, filed as #51`.
 `tools/rom/capture.lua` gained `FAINT`/`REVIVE` emission (both committed,
 no ROM or capture bytes). `git status --porcelain` shows only the harness/
 core/doc/backlog changes in this commit.
+
+## C-15 — bare CLIMB
+
+**Rule at stake:** `docs/planning/capture-backlog.md` C-15, and the
+manual/source discrepancy `docs/archaeology/phase-0-archaeology-report.md`
+flags: "Manual suggests `CLIMB` and `CLIMB UP`; source rejects empty
+direction." `PCLIMB.ASM` checks `VFIND` first (`BMI PCLI00` — no feature
+under the player rejects immediately, before `PARSER` ever runs) and only
+then calls `PARSER` for the direction token, branching to the shared
+`CMDERR` handler (`PARSER.ASM`) on a null/illegal token. `Game::cmd_climb`
+(`src/core/game.cpp`) combines both checks with one `||`
+(`feature < 0 || dir.status != ParseStatus::Matched`), which gives the same
+final `???` either way but means a capture taken off a climbable feature
+cannot tell which branch actually fired.
+
+**Harness extension.** `tools/rom/capture.lua` gained one read-tap at
+`CMDERR` (`CBE1` on this image, `SWI`/`FCB OUTSTI` = `3F 02`, verified
+against `build/rom/daggorath.lst` before trusting it, same technique as
+C-12's taps), emitting `OUTPUT ???` for every `???` reached through
+`CMDERR` specifically — `CMDERR` is called via `JSR`/`JMP` from several
+command handlers in the listing (`HUMAN.ASM`, `PCLIMB.ASM`, `PGET.ASM`,
+`PTURN.ASM`), so this tap is reusable for any of those in a future capture,
+not a claim that every `OUTSTI` call in the ROM is a `???` (`OUTSTI` is a
+generic string-print reused for unrelated messages elsewhere, e.g.
+`PEXAM.ASM`'s "IN THIS ROOM"). `dcli` separately gained a `position` field
+on `--poke` (`row*256+col`), calling the existing `Game::place_player` test
+hook, to place the player on a specific cell without a maze walk.
+
+**First attempt — confounded.** The first run typed bare `CLIMB` at the
+level-0 spawn cell (row 16, col 11) with no walk. `src/core/population.cpp`'s
+`kVftTab`, decoded for level 0, has an empty up-list and a down-list of
+`(0,23), (15,4), (20,17), (28,30)` — the spawn cell is on none of them, so
+`vfind` (and, if the table matches, the ROM's `VFIND`) returns "no feature"
+there. That run's `???` is consistent with `PCLIMB`'s `VFIND` short-circuit,
+not with `PARSER`'s null-token rejection — it cannot tell the two apart, so
+it does not actually answer the open question, which is specifically about
+the missing-direction case. Caught before commit; not the capture below.
+
+**Capture.** Level 0, Original Mode. The player is placed on one of the
+level-0 down-list cells above (row 15, col 4) via `--poke`/`DOD_POKE`
+before typing bare `CLIMB`, so a feature genuinely is present and `PARSER`
+is the branch actually exercised. 3-jiffy keystroke spacing.
+(`scratch/c15-bare-climb.script`, not committed — six lines, reproducible
+from the jiffy numbers below.)
+
+```
+dcli --script scratch/c15-bare-climb.script --jiffies 100 \
+    --poke 5:position:3844 --trace <core-trace>
+DOD_JIFFIES=100 DOD_STEM=c15-bare-climb DOD_POKE=5:PROW:15:1,5:PCOL:4:1 \
+    tools/rom/run-capture.sh scratch/c15-bare-climb.script
+```
+
+**Observation.** The poke lands in both: the ROM's per-jiffy watchlist
+sample shows `MOVE row=15 col=4` at jiffy 4 (`captures/
+c15-bare-climb.rom.trace`); `dcli`'s `place_player` test hook writes the
+field directly with no trace line of its own, confirmed instead by the
+core trace's `# final row=15 col=4` line. The bare `CLIMB` is still
+rejected in both:
+
+| | Core (`dcli`) | ROM (`coco2b`) |
+|---|---|---|
+| `LINE "CLIMB"` | jiffy 26 | jiffy 29 |
+| `OUTPUT ???` | jiffy 26 | jiffy 30 |
+
+The jiffy gaps between core and ROM here are larger than C-09/C-12/C-13's
+usual single-digit alignment slack (a few jiffies each way); this capture
+did not investigate why and treats it as the same unresolved C-21
+alignment question, not a new finding.
+
+**Labels.** The manual/source discrepancy is resolved in the source's
+favor and is now **ROM-observed**: standing on a genuine climbable feature,
+a bare `CLIMB` still produces `???` on real hardware — the `PARSER`
+null-token rejection specifically, not just the no-feature short-circuit —
+matching the source reading, not the manual's claim that bare `CLIMB`
+climbs up. No divergence, no issue filed.
+
+**Backlog.** `docs/planning/capture-backlog.md` C-15 row updated to
+`captured — track-r reconciliation: bare CLIMB rejected on a genuine
+climbable feature, matching source over manual`.
+
+**Gate.** `captures/c15-bare-climb.rom.trace` and its companion
+`.raw.tsv`/task logs are new but live outside the tree under gitignored
+`captures/`. `tools/rom/capture.lua` gained one new tap and `src/app/
+dcli.cpp` gained the `--poke position` field (both committed, no ROM or
+capture bytes). `git status --porcelain` shows only the harness/core/doc/
+backlog changes in this commit.
