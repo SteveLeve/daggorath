@@ -1,0 +1,24 @@
+# Web stopgap build check (ADR-0011).
+# Every PR touching the shell or the page must still build the WebAssembly
+# target. There is deliberately no artifact upload and no deploy step: on this
+# public repository either would distribute dod.wasm, which ADR-0011
+# decision 6 defers until docs/licensing/README.md records an answer.
+name: web
+
+on:
+  pull_request:
+    paths: ["src/**", "web/**", "tools/web/**", "CMakeLists.txt", "CMakePresets.json", "Makefile", ".github/workflows/web.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021  # v14
+        with:
+          version: 6.0.10
+      - run: pip install pillow==10.2.0
+      - run: make web

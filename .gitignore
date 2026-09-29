@@ -34,3 +34,6 @@ __pycache__/
 docs/.transcripts
 # a worktree may symlink the pinned sources (a symlink is not a directory)
 third_party
+web/dist/
+web/.wrangler/
+web/node_modules/

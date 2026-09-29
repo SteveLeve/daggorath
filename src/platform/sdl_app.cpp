@@ -16,6 +16,10 @@
 
 #include <SDL3/SDL.h>
 
+#ifdef __EMSCRIPTEN__
+#include "web/persist.hpp"
+#endif
+
 #include <array>
 #include <cstdlib>
 #include <filesystem>
@@ -98,7 +102,9 @@ std::filesystem::path save_file(const std::string& dir, const std::string& name)
 
 // Copy each new ZSAVE off the in-memory cassette. The core still does not
 // know about files; this is the platform envelope around DAGRAM 1.
-void persist_saves(dag::Game& game, std::size_t& traced, const std::string& dir) {
+// Returns whether any file was written.
+bool persist_saves(dag::Game& game, std::size_t& traced, const std::string& dir) {
+    bool wrote = false;
     const auto& trace = game.trace();
     while (traced < trace.size()) {
         const dag::TraceEvent& ev = trace[traced++];
@@ -113,7 +119,9 @@ void persist_saves(dag::Game& game, std::size_t& traced, const std::string& dir)
         std::ofstream out(save_file(dir, name), std::ios::binary);
         if (!out) continue;
         out.write(image->data(), static_cast<std::streamsize>(image->size()));
+        wrote = static_cast<bool>(out) || wrote;
     }
+    return wrote;
 }
 
 std::optional<std::string> read_save(const std::string& dir, const std::string& name) {
@@ -440,6 +448,27 @@ void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int sc
 }
 
 
+// ADR-0011: in the browser the page's CSS sizes the canvas (a fixed-size
+// window would be cropped or ignored), so the window is resizable there and
+// SDL letterboxes the game's fixed window coordinates into it. Pointer events
+// are mapped back to those coordinates as they are polled. The desktop keeps
+// its fixed window, unchanged. No SDL_WINDOW_HIGH_PIXEL_DENSITY: with it,
+// SDL 3.4 writes inline CSS sizes onto the canvas (and a 1x1 one when the
+// WebGL renderer recreates the window), overriding the page's sizing.
+#ifdef __EMSCRIPTEN__
+constexpr SDL_WindowFlags kWindowFlags = SDL_WINDOW_RESIZABLE;
+#else
+constexpr SDL_WindowFlags kWindowFlags = 0;
+#endif
+
+void fit_to_window([[maybe_unused]] SDL_Renderer* renderer, [[maybe_unused]] double w,
+                   [[maybe_unused]] double h) {
+#ifdef __EMSCRIPTEN__
+    SDL_SetRenderLogicalPresentation(renderer, static_cast<int>(w), static_cast<int>(h),
+                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
+#endif
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -469,7 +498,7 @@ int main(int argc, char** argv) {
     const double window_h = kGameH;
     double game_x = (window_w - kGameW) / 2.0;
     SDL_Window* window = SDL_CreateWindow("Dungeons of Daggorath", static_cast<int>(window_w),
-                                          static_cast<int>(window_h), 0);
+                                          static_cast<int>(window_h), kWindowFlags);
     if (window == nullptr) return 1;
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24,
@@ -477,6 +506,7 @@ int main(int argc, char** argv) {
                                              dag::kScreenWidth * kScale,
                                              dag::kScreenHeight * kScale);
     if (renderer == nullptr || texture == nullptr) return 1;
+    fit_to_window(renderer, window_w, window_h);
     auto make_texture = [&]() {
         return SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
                                  dag::kScreenWidth * kScale, dag::kScreenHeight * kScale);
@@ -498,6 +528,11 @@ int main(int argc, char** argv) {
         game_x = (window_w - kGameW) / 2.0;
         viewport_w = window_w;
         overlay.set_layout(layout);
+#ifdef __EMSCRIPTEN__
+        // The page sizes the canvas; only the letterboxed logical size changes.
+        fit_to_window(renderer, window_w, window_h);
+        return;
+#endif
         // SDL_SetWindowSize alone left a stale, uninitialized margin on the
         // offscreen test driver (confirmed here: SDL_GetRenderOutputSize
         // reported the new size, but SDL_RenderClear's black never reached
@@ -508,7 +543,7 @@ int main(int argc, char** argv) {
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         window = SDL_CreateWindow("Dungeons of Daggorath", static_cast<int>(window_w),
-                                  static_cast<int>(window_h), 0);
+                                  static_cast<int>(window_h), kWindowFlags);
         renderer = window ? SDL_CreateRenderer(window, nullptr) : nullptr;
         texture = renderer ? make_texture() : nullptr;
         // Matches main()'s own start-up checks just above: a null here is
@@ -517,6 +552,7 @@ int main(int argc, char** argv) {
             std::cerr << "Controls: window/renderer/texture recreation failed\n";
             std::exit(1);
         }
+        fit_to_window(renderer, window_w, window_h);
     };
 
     std::optional<dag::Game> held;
@@ -531,6 +567,9 @@ int main(int argc, char** argv) {
         save_dir = pref;
         SDL_free(pref);
     }
+#ifdef __EMSCRIPTEN__
+    dag::web::mount_persistent(save_dir);  // ADR-0011: IndexedDB behind the save directory
+#endif
     mount_saves(*held, save_dir);
     SDL_AudioSpec spec{};
     spec.format = SDL_AUDIO_U8;
@@ -707,6 +746,9 @@ int main(int argc, char** argv) {
         }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+#ifdef __EMSCRIPTEN__
+            SDL_ConvertEventToRenderCoordinates(renderer, &event);
+#endif
             if (event.type == SDL_EVENT_QUIT) running = false;
             if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                 event.button.button == SDL_BUTTON_LEFT) {
@@ -822,7 +864,11 @@ int main(int argc, char** argv) {
         // already proves this substitution changes nothing about the core
         // trace for an unpaused run.
         if (steps > 0) shell->tick(static_cast<std::uint64_t>(steps));
-        persist_saves(game, traced, save_dir);
+        if (persist_saves(game, traced, save_dir)) {
+#ifdef __EMSCRIPTEN__
+            dag::web::flush_persistent();
+#endif
+        }
         if (restarted(game)) {
             have_shown = false;
             was_fainted = false;
