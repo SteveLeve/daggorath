@@ -116,7 +116,9 @@ same-cell attack-delay return, and exits 0.
 | `fixtures/sounds.json` | `SNDTAB`, `SNDOBJ`, generator immediates from `SOUNDS.ASM`; `THUDD`/`BANGD` from `SWCHAR.ASM` (`tools/extract_sounds.py`) | **copied data**: original sound parameters |
 | `src/core/include/daggorath/sound_tables.hpp` | **generated** from `fixtures/sounds.json` | carries copied cue names into the build |
 | `reference/**` | written for this project from the behavioural reading | new project code |
-| `reference/include/daggorath/lexicon_tables.hpp` | **generated** from `fixtures/tokens.json` | carries copied data into the build; treat as a licensed artifact |
+| `src/core/include/daggorath/lexicon_tables.hpp` (earlier generated under `reference/include/`) | **generated** from `fixtures/tokens.json` | carries copied data into the build; treat as a licensed artifact |
+| `src/presentation/include/daggorath/vector_tables.hpp` | **generated** from `docs/archaeology/phase-6/fixtures/vectors.json` (`tools/gen_vector_header.py`) | carries the copied vector blob into the build |
+| `src/core/population.cpp`, `src/core/include/daggorath/population.hpp`, `src/core/include/daggorath/maze.hpp` | hand-transcribed from `DTABAS.ASM`, `COMCRE.ASM` and `DGNGEN.ASM` (`LVLTAB`); the source lines are cited in the files' comments | **copied data**: original tables in source form |
 | `traces/*.trace` | output of the reference slice | new work |
 | `docs/archaeology/phase-6/fixtures/text/*` | `tools/extract_text.py` from `COMDAT.ASM`, `PEXAM.ASM`, `STATUS.ASM`, `SWCHAR.ASM`, `MAPPER.ASM` plus the Phase 0b maze/population dumps | mixed: copied font/string bytes and computed occupancy lists |
 | `src/presentation/include/daggorath/text_tables.hpp` | **generated** from those text fixtures | carries copied font and region constants into the build |
