@@ -65,6 +65,9 @@ target_link_libraries(crisp_fixture_gen PRIVATE daggorath::core daggorath::prese
 set(CRISP_FIXTURE ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-8/fixtures/crisp-segments.txt)
 add_test(NAME crisp_segment_fixtures
   COMMAND sh -c "\"$<TARGET_FILE:crisp_fixture_gen>\" > \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" && cmp \"${CMAKE_CURRENT_BINARY_DIR}/crisp-segments.txt\" \"${CRISP_FIXTURE}\"")
+add_executable(crisp_shading_tests presentation/crisp_shading_tests.cpp)
+target_link_libraries(crisp_shading_tests PRIVATE daggorath::presentation)
+add_test(NAME crisp_shading_tests COMMAND crisp_shading_tests)
 
 add_executable(touch_overlay_tests input/touch_overlay_tests.cpp)
 target_link_libraries(touch_overlay_tests PRIVATE daggorath::input)
@@ -77,7 +80,7 @@ target_compile_definitions(replay_equivalence_tests
 add_test(NAME replay_equivalence_tests COMMAND replay_equivalence_tests)
 
 add_executable(overlay_bridge_tests platform/overlay_bridge_tests.cpp)
-target_link_libraries(overlay_bridge_tests PRIVATE daggorath::platform daggorath::input)
+target_link_libraries(overlay_bridge_tests PRIVATE daggorath::platform daggorath::input daggorath::shell)
 add_test(NAME overlay_bridge_tests COMMAND overlay_bridge_tests)
 
 # Phase 3 fight traces: regenerate from the committed script and require identity.

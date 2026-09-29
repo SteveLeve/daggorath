@@ -24,9 +24,8 @@ void pack_bitmap(const std::array<std::uint8_t, kScreenWidth * kScreenHeight>& p
 void draw_segment(std::array<std::uint8_t, kScreenWidth * kScreenHeight>& pixels,
                   const DrawSegment& segment, std::uint8_t fade = 0);
 
-// The same VECTOR.ASM walk `draw_segment` plots, exposed so a second
-// consumer (the `crisp` render style, ADR-0010) can find the exact dots a
-// dim segment would plot without a second geometry source (ADR-0010 §2).
+// The same VECTOR.ASM walk `draw_segment` plots. Originally exposed for
+// ADR-0010's dotted crisp style; retained as the pixel raster's shared walk.
 // Calls `emit(x, y)` for each in-bounds source-pixel position `draw_segment`
 // would set at this `fade`; a zero-length segment or `fade == 0xFF` calls it
 // zero times.

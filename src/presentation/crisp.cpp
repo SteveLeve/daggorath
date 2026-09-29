@@ -1,26 +1,21 @@
 #include "daggorath/crisp.hpp"
 
-#include "daggorath/raster.hpp"
-
 namespace dag {
+
+std::uint8_t crisp_shade(std::uint8_t fade, std::uint8_t ink, std::uint8_t paper) {
+    const double brightness = 1.0 / (static_cast<double>(fade) / 2.0 + 1.0);
+    return static_cast<std::uint8_t>(paper + (static_cast<double>(ink) - paper) * brightness);
+}
 
 CrispFrame build_crisp_frame(const RenderState& state) {
     CrispFrame frame;
     for (const DrawSegment& segment : state.segments) {
         const auto fade = static_cast<std::uint8_t>(segment.fade);
-        const auto fade_now = static_cast<std::uint8_t>(fade + 1u);
-        if (fade_now == 0) continue;  // fade 0xFF: draw_segment draws nothing.
-        if (fade == 0) {
-            frame.lines.push_back({static_cast<double>(segment.x0),
-                                   static_cast<double>(segment.y0),
-                                   static_cast<double>(segment.x1),
-                                   static_cast<double>(segment.y1), segment.kind});
-            continue;
-        }
-        walk_segment(segment, fade, [&frame, &segment](int x, int y) {
-            frame.dots.push_back(
-                {static_cast<double>(x), static_cast<double>(y), segment.kind});
-        });
+        if (fade == 0xFF) continue;  // fade 0xFF: draw_segment draws nothing.
+        frame.lines.push_back({static_cast<double>(segment.x0),
+                               static_cast<double>(segment.y0),
+                               static_cast<double>(segment.x1),
+                               static_cast<double>(segment.y1), segment.kind, fade});
     }
     return frame;
 }

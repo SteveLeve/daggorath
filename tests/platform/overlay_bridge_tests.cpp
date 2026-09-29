@@ -13,6 +13,7 @@
 
 #include "daggorath/game.hpp"
 #include "daggorath/overlay_bridge.hpp"
+#include "daggorath/shell.hpp"
 
 namespace {
 
@@ -80,6 +81,38 @@ void test_move_forward_tap_matches_typed() {
 
     check(render_trace(tapped) == render_trace(typed_reference("M", 200)),
           "a MoveForward tap matches typing \"M\\r\" by hand, byte for byte");
+}
+
+void test_taps_after_system_menu_load() {
+    for (const auto id : {dag::input::ButtonId::MoveForward,
+                          dag::input::ButtonId::AttackLeft}) {
+        dag::Game game;
+        dag::shell::Shell shell(game);
+        dag::platform::OverlayBridge bridge(dag::input::OverlayLayout::Tablet4x3);
+        const auto& buttons = bridge.buttons(kViewportW, kViewportH, {});
+        const auto [x, y] = center_of(buttons, id);
+        shell.tick(20);
+        shell.pause();
+        check(shell.save_to_slot(0), "system menu saves before the clock advances");
+        shell.resume();
+        shell.tick(80);
+        // Leave live keys queued on the later timeline when Load rewinds it.
+        for (int i = 0; i < 100; ++i) game.press('X');
+        shell.pause();
+        check(shell.load_from_slot(0), "system menu restores the saved slot");
+        shell.resume();
+        check(game.counters().total_jiffies == 20, "load rewinds the clock");
+
+        const std::size_t before = game.trace().size();
+        check(bridge.handle_tap(x, y, game), "touch button queues a command after load");
+        shell.tick(35);
+        const auto expected = id == dag::input::ButtonId::MoveForward ? "MOVE" : "SOUND";
+        bool observed = false;
+        for (std::size_t i = before; i < game.trace().size(); ++i)
+            if (game.trace()[i].kind == expected) observed = true;
+        check(observed, "touch command executes promptly after load",
+              id == dag::input::ButtonId::MoveForward ? "MoveForward" : "AttackLeft");
+    }
 }
 
 void test_turn_right_tap_matches_typed() {
@@ -230,6 +263,7 @@ void test_incant_keyboard() {
 
 int main() {
     test_move_forward_tap_matches_typed();
+    test_taps_after_system_menu_load();
     test_turn_right_tap_matches_typed();
     test_examine_tap_matches_typed();
     test_empty_hand_menu_does_not_open();

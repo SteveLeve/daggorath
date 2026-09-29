@@ -289,6 +289,12 @@ below describe that port, not the original.
 | Line quality | Width is never set (1 px at any size). Smoothing is disabled, with the enable commented out and no reason given | 1 px is too thin on a phone. **Draw thickness as quads scaled to device pixels.** Test smoothing in 8.3 before adopting it |
 | Modes | NORMAL plots CoCo-pixel squares with fade dot-skipping; HIRES plots finer points; VECTOR draws continuous lines | Our `pixel` style is a transliteration of `VECTOR.ASM`'s walk (`raster.cpp`, Phase 7 golden images) |
 | Fades | VECTOR mode replaces dot-skipping with a colour blend toward the background. The fade cadences (300 ms ±2, and a faster 16 ms −4 marked "snappier") are the port's own choices | **Rejected.** Crisp mode stays dotted (ADR-0010 §8). Our fade timing stays ROM-capture based (D-14) |
+
+**2026-09-28 refinement (issue #37):** The crisp-only blend rejection in the
+table records the Phase 8 decision at the time. ADR-0010 now reverses that
+presentation choice: crisp uses the reference-only port's line brightness
+curve, while the project's projected geometry and fade timing remain its own.
+Pixel mode continues to use the assembly-derived dot skipping.
 | Distance scale | CPU vertex transform from a scale table | Already ours: the listing's scale applied in presentation |
 | Text | Glyphs are filled quads per cell, the same in every mode, so text looks pixel-exact at any size | Supports ADR-0010 §6: glyph cells drawn as sharp squares |
 | Map | Filled squares and door ticks, the same in every mode, unbatched | Supports ADR-0010 §7 |

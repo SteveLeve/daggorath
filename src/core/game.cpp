@@ -1545,6 +1545,11 @@ void Game::restore_snapshot(const std::string& bytes) {
     in >> total >> halted >> zflag_ >> name_size;
     sched_.counters().total_jiffies = total;
     sched_.set_halted(halted != 0);
+    // Live keystrokes queued after the save belong to the abandoned timeline.
+    // Rebase input on the restored clock so the next tap/key is delivered now.
+    script_.clear();
+    script_pos_ = 0;
+    next_input_jiffy_ = total;
     in.get();
     tape_name_.assign(name_size, ' ');
     in.read(tape_name_.data(), static_cast<std::streamsize>(name_size));

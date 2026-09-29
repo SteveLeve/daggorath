@@ -1,439 +1,116 @@
-FRAME level-0-dark lines=0 dots=0
-FRAME level-0-regular lines=7 dots=369
-LINE architecture -30 -18 28 16
-LINE architecture 28 16 28 135
-LINE architecture 28 135 -30 169
-LINE architecture 285 -18 228 16
-LINE architecture 228 16 228 135
-LINE architecture 228 135 285 169
-LINE vertical 1 1 256 1
-DOT architecture 28 17
-DOT architecture 30 18
-DOT architecture 32 19
-DOT architecture 34 20
-DOT architecture 36 21
-DOT architecture 38 23
-DOT architecture 40 24
-DOT architecture 42 25
-DOT architecture 44 26
-DOT architecture 46 27
-DOT architecture 48 28
-DOT architecture 50 30
-DOT architecture 52 31
-DOT architecture 54 32
-DOT architecture 56 33
-DOT architecture 58 34
-DOT architecture 60 36
-DOT architecture 62 37
-DOT architecture 64 39
-DOT architecture 64 41
-DOT architecture 64 43
-DOT architecture 64 45
-DOT architecture 64 47
-DOT architecture 64 49
-DOT architecture 64 51
-DOT architecture 64 53
-DOT architecture 64 55
-DOT architecture 64 57
-DOT architecture 64 59
-DOT architecture 64 61
-DOT architecture 64 63
-DOT architecture 64 65
-DOT architecture 64 67
-DOT architecture 64 69
-DOT architecture 64 71
-DOT architecture 64 73
-DOT architecture 64 75
-DOT architecture 64 77
-DOT architecture 64 79
-DOT architecture 64 81
-DOT architecture 64 83
-DOT architecture 64 85
-DOT architecture 64 87
-DOT architecture 64 89
-DOT architecture 64 91
-DOT architecture 64 93
-DOT architecture 64 95
-DOT architecture 64 97
-DOT architecture 64 99
-DOT architecture 64 101
-DOT architecture 64 103
-DOT architecture 64 105
-DOT architecture 64 107
-DOT architecture 64 109
-DOT architecture 64 111
-DOT architecture 64 113
-DOT architecture 63 115
-DOT architecture 61 116
-DOT architecture 59 117
-DOT architecture 57 118
-DOT architecture 55 119
-DOT architecture 53 121
-DOT architecture 51 122
-DOT architecture 49 123
-DOT architecture 47 124
-DOT architecture 45 125
-DOT architecture 43 126
-DOT architecture 41 128
-DOT architecture 39 129
-DOT architecture 37 130
-DOT architecture 35 131
-DOT architecture 33 132
-DOT architecture 31 134
-DOT architecture 29 135
-DOT architecture 228 17
-DOT architecture 226 18
-DOT architecture 224 19
-DOT architecture 222 20
-DOT architecture 220 21
-DOT architecture 218 23
-DOT architecture 216 24
-DOT architecture 214 25
-DOT architecture 212 26
-DOT architecture 210 27
-DOT architecture 208 28
-DOT architecture 206 30
-DOT architecture 204 31
-DOT architecture 202 32
-DOT architecture 200 33
-DOT architecture 198 34
-DOT architecture 196 36
-DOT architecture 194 37
-DOT architecture 192 39
-DOT architecture 192 41
-DOT architecture 192 43
-DOT architecture 192 45
-DOT architecture 192 47
-DOT architecture 192 49
-DOT architecture 192 51
-DOT architecture 192 53
-DOT architecture 192 55
-DOT architecture 192 57
-DOT architecture 192 59
-DOT architecture 192 61
-DOT architecture 192 63
-DOT architecture 192 65
-DOT architecture 192 67
-DOT architecture 192 69
-DOT architecture 192 71
-DOT architecture 192 73
-DOT architecture 192 75
-DOT architecture 192 77
-DOT architecture 192 79
-DOT architecture 192 81
-DOT architecture 192 83
-DOT architecture 192 85
-DOT architecture 192 87
-DOT architecture 192 89
-DOT architecture 192 91
-DOT architecture 192 93
-DOT architecture 192 95
-DOT architecture 192 97
-DOT architecture 192 99
-DOT architecture 192 101
-DOT architecture 192 103
-DOT architecture 192 105
-DOT architecture 192 107
-DOT architecture 192 109
-DOT architecture 192 111
-DOT architecture 192 113
-DOT architecture 193 115
-DOT architecture 195 116
-DOT architecture 197 117
-DOT architecture 199 118
-DOT architecture 201 119
-DOT architecture 203 121
-DOT architecture 205 122
-DOT architecture 207 123
-DOT architecture 209 124
-DOT architecture 211 125
-DOT architecture 213 126
-DOT architecture 215 128
-DOT architecture 217 129
-DOT architecture 219 130
-DOT architecture 221 131
-DOT architecture 223 132
-DOT architecture 225 134
-DOT architecture 227 135
-DOT vertical 48 28
-DOT vertical 50 28
-DOT vertical 52 28
-DOT vertical 54 28
-DOT vertical 56 28
-DOT vertical 58 28
-DOT vertical 60 28
-DOT vertical 62 28
-DOT vertical 64 28
-DOT vertical 66 28
-DOT vertical 68 28
-DOT vertical 70 28
-DOT vertical 72 28
-DOT vertical 74 28
-DOT vertical 76 28
-DOT vertical 78 28
-DOT vertical 80 28
-DOT vertical 82 28
-DOT vertical 84 28
-DOT vertical 86 28
-DOT vertical 88 28
-DOT vertical 90 28
-DOT vertical 92 28
-DOT vertical 94 28
-DOT vertical 96 28
-DOT vertical 98 28
-DOT vertical 100 28
-DOT vertical 102 28
-DOT vertical 104 28
-DOT vertical 106 28
-DOT vertical 108 28
-DOT vertical 110 28
-DOT vertical 112 28
-DOT vertical 114 28
-DOT vertical 116 28
-DOT vertical 118 28
-DOT vertical 120 28
-DOT vertical 122 28
-DOT vertical 124 28
-DOT vertical 126 28
-DOT vertical 128 28
-DOT vertical 130 28
-DOT vertical 132 28
-DOT vertical 134 28
-DOT vertical 136 28
-DOT vertical 138 28
-DOT vertical 140 28
-DOT vertical 142 28
-DOT vertical 144 28
-DOT vertical 146 28
-DOT vertical 148 28
-DOT vertical 150 28
-DOT vertical 152 28
-DOT vertical 154 28
-DOT vertical 156 28
-DOT vertical 158 28
-DOT vertical 160 28
-DOT vertical 162 28
-DOT vertical 164 28
-DOT vertical 166 28
-DOT vertical 168 28
-DOT vertical 170 28
-DOT vertical 172 28
-DOT vertical 174 28
-DOT vertical 176 28
-DOT vertical 178 28
-DOT vertical 180 28
-DOT vertical 182 28
-DOT vertical 184 28
-DOT vertical 186 28
-DOT vertical 188 28
-DOT vertical 190 28
-DOT vertical 192 28
-DOT vertical 194 28
-DOT vertical 196 28
-DOT vertical 198 28
-DOT vertical 200 28
-DOT vertical 202 28
-DOT vertical 204 28
-DOT vertical 206 28
-DOT vertical 208 28
-DOT architecture 66 39
-DOT architecture 69 41
-DOT architecture 72 43
-DOT architecture 75 44
-DOT architecture 78 46
-DOT architecture 81 48
-DOT architecture 84 50
-DOT architecture 87 51
-DOT architecture 88 54
-DOT architecture 88 57
-DOT architecture 88 60
-DOT architecture 88 63
-DOT architecture 88 66
-DOT architecture 88 69
-DOT architecture 88 72
-DOT architecture 88 75
-DOT architecture 88 78
-DOT architecture 88 81
-DOT architecture 88 84
-DOT architecture 88 87
-DOT architecture 88 90
-DOT architecture 88 93
-DOT architecture 88 96
-DOT architecture 86 100
-DOT architecture 83 102
-DOT architecture 80 104
-DOT architecture 77 105
-DOT architecture 74 107
-DOT architecture 71 109
-DOT architecture 68 111
-DOT architecture 65 112
-DOT architecture 189 39
-DOT architecture 186 41
-DOT architecture 183 43
-DOT architecture 180 45
-DOT architecture 177 46
-DOT architecture 174 48
-DOT architecture 171 50
-DOT architecture 168 54
-DOT architecture 168 57
-DOT architecture 168 60
-DOT architecture 168 63
-DOT architecture 168 66
-DOT architecture 168 69
-DOT architecture 168 72
-DOT architecture 168 75
-DOT architecture 168 78
-DOT architecture 168 81
-DOT architecture 168 84
-DOT architecture 168 87
-DOT architecture 168 90
-DOT architecture 168 93
-DOT architecture 168 96
-DOT architecture 170 100
-DOT architecture 173 102
-DOT architecture 176 104
-DOT architecture 179 106
-DOT architecture 182 107
-DOT architecture 185 109
-DOT architecture 188 111
-DOT vertical 79 46
-DOT vertical 82 46
-DOT vertical 85 46
-DOT vertical 88 46
-DOT vertical 91 46
-DOT vertical 94 46
-DOT vertical 97 46
-DOT vertical 100 46
-DOT vertical 103 46
-DOT vertical 106 46
-DOT vertical 109 46
-DOT vertical 112 46
-DOT vertical 115 46
-DOT vertical 118 46
-DOT vertical 121 46
-DOT vertical 124 46
-DOT vertical 127 46
-DOT vertical 130 46
-DOT vertical 133 46
-DOT vertical 136 46
-DOT vertical 139 46
-DOT vertical 142 46
-DOT vertical 145 46
-DOT vertical 148 46
-DOT vertical 151 46
-DOT vertical 154 46
-DOT vertical 157 46
-DOT vertical 160 46
-DOT vertical 163 46
-DOT vertical 166 46
-DOT vertical 169 46
-DOT vertical 172 46
-DOT vertical 175 46
-DOT vertical 178 46
-DOT architecture 92 54
-DOT architecture 97 57
-DOT architecture 102 60
-DOT architecture 103 65
-DOT architecture 103 70
-DOT architecture 103 75
-DOT architecture 103 80
-DOT architecture 103 85
-DOT architecture 99 92
-DOT architecture 94 95
-DOT architecture 89 98
-DOT architecture 163 55
-DOT architecture 158 58
-DOT architecture 153 65
-DOT architecture 153 70
-DOT architecture 153 75
-DOT architecture 153 80
-DOT architecture 153 85
-DOT architecture 157 93
-DOT architecture 162 96
-DOT vertical 100 57
-DOT vertical 105 57
-DOT vertical 110 57
-DOT vertical 115 57
-DOT vertical 120 57
-DOT vertical 125 57
-DOT vertical 130 57
-DOT vertical 135 57
-DOT vertical 140 57
-DOT vertical 145 57
-DOT vertical 150 57
-DOT vertical 155 57
-DOT architecture 112 74
-DOT architecture 112 83
-DOT architecture 104 85
-DOT architecture 111 65
-DOT architecture 144 66
-DOT architecture 143 74
-DOT architecture 143 83
-DOT architecture 151 85
-DOT architecture 144 65
-DOT vertical 116 64
-DOT vertical 125 64
-DOT vertical 134 64
-DOT vertical 143 64
-DOT vertical 131 68
-FRAME level-0-magic lines=2 dots=0
-LINE architecture 126 79 128 75
-LINE architecture 128 75 129 79
-FRAME level-1-dark lines=0 dots=0
-FRAME level-1-regular lines=9 dots=0
-LINE architecture -30 -18 28 16
-LINE architecture 28 16 28 135
-LINE architecture 28 135 -30 169
-LINE architecture 28 16 228 16
-LINE architecture 28 135 228 135
-LINE architecture 285 -18 228 16
-LINE architecture 228 16 228 135
-LINE architecture 228 135 285 169
-LINE vertical 1 1 256 1
-FRAME level-1-magic lines=0 dots=0
-FRAME level-2-dark lines=0 dots=0
-FRAME level-2-regular lines=14 dots=0
-LINE architecture -10 157 -10 58
-LINE architecture -10 58 15 63
-LINE architecture 15 63 15 143
-LINE architecture 3 101 9 102
-LINE architecture -30 -18 28 16
-LINE architecture 28 16 28 135
-LINE architecture 28 135 -30 169
-LINE architecture 28 16 228 16
-LINE architecture 28 135 228 135
-LINE architecture 285 16 228 16
-LINE architecture 228 16 228 135
-LINE architecture 228 135 285 135
-LINE architecture 285 -18 228 16
-LINE vertical 1 1 256 1
-FRAME level-2-magic lines=0 dots=0
-FRAME level-3-dark lines=0 dots=0
-FRAME level-3-regular lines=9 dots=0
-LINE architecture -30 -18 28 16
-LINE architecture 28 16 28 135
-LINE architecture 28 135 -30 169
-LINE architecture 28 16 228 16
-LINE architecture 28 135 228 135
-LINE architecture 285 -18 228 16
-LINE architecture 228 16 228 135
-LINE architecture 228 135 285 169
-LINE vertical 1 1 256 1
-FRAME level-3-magic lines=0 dots=0
-FRAME level-4-dark lines=0 dots=0
-FRAME level-4-regular lines=11 dots=0
-LINE architecture -27 16 28 16
-LINE architecture 28 16 28 135
-LINE architecture 28 135 -30 135
-LINE architecture -30 -18 28 16
-LINE architecture 28 16 228 16
-LINE architecture 28 135 228 135
-LINE architecture 285 16 228 16
-LINE architecture 228 16 228 135
-LINE architecture 228 135 285 135
-LINE architecture 285 -18 228 16
-LINE vertical 1 1 256 1
-FRAME level-4-magic lines=0 dots=0
+FRAME level-0-dark lines=0
+FRAME level-0-regular lines=53
+LINE architecture -30 -18 28 16 0
+LINE architecture 28 16 28 135 0
+LINE architecture 28 135 -30 169 0
+LINE architecture 285 -18 228 16 0
+LINE architecture 228 16 228 135 0
+LINE architecture 228 135 285 169 0
+LINE vertical 1 1 256 1 0
+LINE architecture 27 16 64 38 1
+LINE architecture 64 38 64 114 1
+LINE architecture 64 114 27 136 1
+LINE architecture 229 16 192 38 1
+LINE architecture 192 38 192 114 1
+LINE architecture 192 114 229 136 1
+LINE vertical 47 28 210 28 1
+LINE architecture 64 38 88 52 2
+LINE architecture 88 52 88 99 2
+LINE architecture 88 99 64 113 2
+LINE architecture 191 38 168 52 2
+LINE architecture 168 52 168 99 2
+LINE architecture 168 99 191 113 2
+LINE vertical 77 46 179 46 2
+LINE architecture 88 52 103 61 4
+LINE architecture 103 61 103 90 4
+LINE architecture 103 90 88 99 4
+LINE architecture 167 52 153 61 4
+LINE architecture 153 61 153 90 4
+LINE architecture 153 90 167 99 4
+LINE vertical 96 57 160 57 4
+LINE architecture 104 66 112 66 8
+LINE architecture 112 66 112 85 8
+LINE architecture 112 85 103 85 8
+LINE architecture 103 61 112 66 8
+LINE architecture 152 66 143 66 8
+LINE architecture 143 66 143 85 8
+LINE architecture 143 85 152 85 8
+LINE architecture 152 61 143 66 8
+LINE vertical 108 64 147 64 8
+LINE architecture 112 66 118 70 16
+LINE architecture 118 70 118 81 16
+LINE architecture 118 81 112 85 16
+LINE architecture 143 66 138 70 16
+LINE architecture 138 70 138 81 16
+LINE architecture 138 81 143 85 16
+LINE vertical 115 68 140 68 16
+LINE architecture 118 70 122 72 32
+LINE architecture 122 72 122 79 32
+LINE architecture 122 79 118 81 32
+LINE architecture 122 72 134 72 32
+LINE architecture 122 79 134 79 32
+LINE architecture 137 70 134 72 32
+LINE architecture 134 72 134 79 32
+LINE architecture 134 79 137 81 32
+LINE vertical 120 71 135 71 32
+FRAME level-0-magic lines=2
+LINE architecture 126 79 128 75 0
+LINE architecture 128 75 129 79 0
+FRAME level-1-dark lines=0
+FRAME level-1-regular lines=9
+LINE architecture -30 -18 28 16 0
+LINE architecture 28 16 28 135 0
+LINE architecture 28 135 -30 169 0
+LINE architecture 28 16 228 16 0
+LINE architecture 28 135 228 135 0
+LINE architecture 285 -18 228 16 0
+LINE architecture 228 16 228 135 0
+LINE architecture 228 135 285 169 0
+LINE vertical 1 1 256 1 0
+FRAME level-1-magic lines=0
+FRAME level-2-dark lines=0
+FRAME level-2-regular lines=14
+LINE architecture -10 157 -10 58 0
+LINE architecture -10 58 15 63 0
+LINE architecture 15 63 15 143 0
+LINE architecture 3 101 9 102 0
+LINE architecture -30 -18 28 16 0
+LINE architecture 28 16 28 135 0
+LINE architecture 28 135 -30 169 0
+LINE architecture 28 16 228 16 0
+LINE architecture 28 135 228 135 0
+LINE architecture 285 16 228 16 0
+LINE architecture 228 16 228 135 0
+LINE architecture 228 135 285 135 0
+LINE architecture 285 -18 228 16 0
+LINE vertical 1 1 256 1 0
+FRAME level-2-magic lines=0
+FRAME level-3-dark lines=0
+FRAME level-3-regular lines=9
+LINE architecture -30 -18 28 16 0
+LINE architecture 28 16 28 135 0
+LINE architecture 28 135 -30 169 0
+LINE architecture 28 16 228 16 0
+LINE architecture 28 135 228 135 0
+LINE architecture 285 -18 228 16 0
+LINE architecture 228 16 228 135 0
+LINE architecture 228 135 285 169 0
+LINE vertical 1 1 256 1 0
+FRAME level-3-magic lines=0
+FRAME level-4-dark lines=0
+FRAME level-4-regular lines=11
+LINE architecture -27 16 28 16 0
+LINE architecture 28 16 28 135 0
+LINE architecture 28 135 -30 135 0
+LINE architecture -30 -18 28 16 0
+LINE architecture 28 16 228 16 0
+LINE architecture 28 135 228 135 0
+LINE architecture 285 16 228 16 0
+LINE architecture 228 16 228 135 0
+LINE architecture 228 135 285 135 0
+LINE architecture 285 -18 228 16 0
+LINE vertical 1 1 256 1 0
+FRAME level-4-magic lines=0
 MAP walls=524 marks=29
 WALL 56 0 8 6
 WALL 64 0 8 6

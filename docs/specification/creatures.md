@@ -53,7 +53,16 @@ the maze, then walks creature types from 11 down to 0. For each type it calls
    the definition's movement delay.
 
 `CBIRTH` then allocates a task control block for `CMOVE` on `Q.TEN` with the
-movement delay (`COMCRE.ASM` `QUEADD`). The core does that. `NEWLVL` calls
+movement delay (`COMCRE.ASM` `QUEADD`). The core does that. The ROM capture's
+first `CMOVE` dispatch does not establish the queue delay: it was compared
+against a foreground command that ran after the creature was queued, and the
+capture logs task dispatch rather than countdown readiness. The timing of the
+first dispatch relative to `CBIRTH`, and whether a same-type birth batch becomes
+ready simultaneously as the core models it, remain unresolved pending relevant
+TCB/`CBIRTH` instrumentation and start-up alignment
+([C-09 and C-21](../archaeology/track-r/reconciliation.md#c-09--first-creature-move-after-level-entry)).
+The apparent grouping in the capture is only a suspected divergence, open as
+[#35](https://github.com/SteveLeve/daggorath/issues/35). `NEWLVL` calls
 `SYSTCB` before birth, which empties the countdown lists, so the creature
 tasks sit ahead of `LUKNEW`'s later append. The core re-runs `SYSTCB` on every
 `NEWLVL`, including `CLIMB` and `ENDGAM`. **[SRC]** `SYSTCB` sets `RSTART`, and

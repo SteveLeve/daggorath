@@ -7,6 +7,13 @@ completion gate. This is Phase 8's own record, in the same spirit as the
 earlier phases' reconciliation notes: what is settled, and what the source
 contradicts or this environment could not build.
 
+**2026-09-28 refinement (issue #37):** The crisp segment fixture now records
+one continuous line and its projected fade for each visible segment. This
+intentionally changes the Phase 8 crisp baseline after ADR-0010's dated
+dimness reversal; it does not change the underlying projection or the pixel
+golden images. See ADR-0010's new addendum for the reason and reference-only
+provenance. The prior Phase 8 delivery record below is retained as history.
+
 ## Workstreams, as delivered
 
 **Merge status (updated 2026-09-27): #25-29 (8.0-8.4) are all merged to
