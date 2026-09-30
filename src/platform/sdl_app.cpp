@@ -864,6 +864,10 @@ int main(int argc, char** argv) {
             // and play resumes only when the player leaves the menu.
             if (event.type == SDL_EVENT_WILL_ENTER_BACKGROUND && !shell->paused())
                 pause_or_back_out();
+            // Restart host-time accounting on return, so the time away is
+            // never converted into jiffies, even if a queued menu dismissal
+            // later in this batch resumes play before the next tick.
+            if (event.type == SDL_EVENT_DID_ENTER_FOREGROUND) last_ns = SDL_GetTicksNS();
             if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                 event.button.button == SDL_BUTTON_LEFT) {
                 const double mx = event.button.x;
@@ -971,7 +975,10 @@ int main(int argc, char** argv) {
         const std::uint64_t now_ns = SDL_GetTicksNS();
         const std::uint64_t elapsed_us = now_ns > last_ns ? (now_ns - last_ns) / 1000 : 0;
         last_ns = now_ns;
-        const int steps = dag::jiffies_due(elapsed_us, owed);
+        // D-16: paused wall time is not converted at all (converting and
+        // then discarding it would loop once per missed jiffy after a long
+        // suspension).
+        const int steps = shell->paused() ? 0 : dag::jiffies_due(elapsed_us, owed);
         // shell->tick is a no-op while paused (D-16: no jiffy owed for
         // paused wall time), replacing the direct advance_jiffies call --
         // ADR-0009's pause-invariance test (tests/shell/shell_tests.cpp)
