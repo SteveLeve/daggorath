@@ -111,6 +111,21 @@ local symbols = load_symbols(symbols_path)
 local watches = load_watches(watch_path, symbols)
 local script = load_script(script_path)
 
+-- See the C-14 note beside its use in sample(): an ad hoc one-byte watch at
+-- a runtime-supplied address, env-configured so it never affects a capture
+-- that doesn't ask for it.
+local extra_watch_addr, extra_watch_name, extra_watch_prev
+do
+    local spec = os.getenv("DOD_EXTRA_WATCH") or ""
+    local name, hex = spec:match("^(%a[%w]*):(%x+)$")
+    if name then
+        extra_watch_name = name
+        extra_watch_addr = tonumber(hex, 16)
+    elseif spec ~= "" then
+        die("bad DOD_EXTRA_WATCH " .. spec .. ", want NAME:HEXADDR")
+    end
+end
+
 -- Host check of the file parsers and the key table. This does not boot a CoCo
 -- and does not validate MAME ioport tags. Set DOD_SELFTEST=1.
 if os.getenv("DOD_SELFTEST") == "1" then
@@ -214,6 +229,32 @@ local function sample(mem, isr)
     if changed("PDAM") then
         emit("EXERT", string.format("damage=%d heart_rate=%d", num("PDAM"), num("HEARTR")))
     end
+    -- C-14: an ad hoc one-byte watch at a runtime-supplied address, for state
+    -- (an OCB field, say) that has no fixed ROM symbol -- the address is
+    -- discovered per-capture (e.g. by watching PTORCH, then reading the OCB
+    -- it points at) and passed in, not guessed. DOD_EXTRA_WATCH="NAME:HEXADDR".
+    if extra_watch_addr then
+        local v = mem:read_u8(extra_watch_addr)
+        if v ~= extra_watch_prev then
+            emit("WATCH", string.format("%s=%d", extra_watch_name, v))
+            extra_watch_prev = v
+        end
+    end
+    -- HUPDAT.ASM stores HEARTR as a signed byte (SUBA #19 can go negative);
+    -- game.cpp's "heart_rate=" on FAINT/REVIVE is the signed reading. changed()
+    -- already reported the raw byte flip, so the FAINT/REVIVE lines below
+    -- convert to a signed int8 to match src/core/game.cpp:418,423.
+    local function heartr_signed()
+        local raw = num("HEARTR")
+        return raw >= 128 and raw - 256 or raw
+    end
+    if changed("FAINT") then
+        if num("FAINT") ~= 0 then
+            emit("FAINT", "heart_rate=" .. tostring(heartr_signed()))
+        else
+            emit("REVIVE", "heart_rate=" .. tostring(heartr_signed()))
+        end
+    end
     for name, hex in pairs(values) do prev[name] = hex end
 end
 
@@ -245,6 +286,19 @@ for spec in (os.getenv("DOD_POKE") or ""):gmatch("[^,]+") do
     if not at then die("bad DOD_POKE entry " .. spec) end
     pokes[#pokes + 1] = {isr = tonumber(at), name = name, raw = value,
         width = tonumber(width) or 2}
+end
+
+-- C-14: DOD_EXTRA_POKE="isr:hexaddr:value[:width],...", a sibling to
+-- DOD_POKE for a write target with no compile-time ROM symbol (an OCB
+-- field at an address discovered per-capture, e.g. via DOD_EXTRA_WATCH --
+-- see that mechanism's comment). No SYMBOL+n/-n arithmetic; the address
+-- and value are both literal.
+local extra_pokes = {}
+for spec in (os.getenv("DOD_EXTRA_POKE") or ""):gmatch("[^,]+") do
+    local at, hexaddr, value, width = spec:match("^(%d+):(%x+):(%d+):?(%d*)$")
+    if not at then die("bad DOD_EXTRA_POKE entry " .. spec) end
+    extra_pokes[#extra_pokes + 1] = {isr = tonumber(at), addr = tonumber(hexaddr, 16),
+        value = tonumber(value), width = tonumber(width) or 1}
 end
 local phase = "boot"
 local isr = -1          -- game interrupt counter; the first CLOCK after GAME50 is isr 0
@@ -296,6 +350,12 @@ local function on_clock()
             pk.value = pk.value & (pk.width == 2 and 0xFFFF or 0xFF)
             if pk.width == 2 then mem:write_u16(a, pk.value) else mem:write_u8(a, pk.value) end
             trace:write(string.format("# harness-modified %s=%d written at isr %d\n", pk.name, pk.value, isr))
+        end
+    end
+    for _, ep in ipairs(extra_pokes) do
+        if ep.isr == isr then
+            if ep.width == 2 then mem:write_u16(ep.addr, ep.value) else mem:write_u8(ep.addr, ep.value) end
+            trace:write(string.format("# harness-modified %04X=%d written at isr %d\n", ep.addr, ep.value, isr))
         end
     end
     sample(mem, isr)
@@ -398,6 +458,52 @@ for i = 0, 48 do
 end
 if not THUD_SWI then die("PSTEP has no ISOUND A$THUD") end
 local THUD_RESUME = THUD_SWI + 3
+
+-- C-12: combat sound taps in PATTK.ASM. Offsets confirmed against the
+-- LWTOOLS 4.25 listing (build/rom/daggorath.lst), not guessed:
+--   PATT10+30 (D2E0 on this image) is the swing's own object sound,
+--     SWI / FCB SOUNDS (3F 1C), with the class byte still in A.
+--   PATT24 (D31F) begins SWI / FCB ISOUND / FCB A$KLK2 (3F 1B 12), the
+--     connecting-hit sound.
+--   PATT40+10 (D344) is the kill sound, SWI / FCB ISOUND / FCB A$EXP0
+--     (3F 1B 15), after the PUPDAT screen update.
+local PATT10 = sym("PATT10")
+local PATT24 = sym("PATT24")
+local PATT40 = sym("PATT40")
+local SWING_SWI = PATT10 + 30
+local HIT_SWI = PATT24
+local KILL_SWI = PATT40 + 10
+if mem:read_u8(SWING_SWI) ~= 0x3F or mem:read_u8(SWING_SWI + 1) ~= 0x1C then
+    die("PATT10+30 is not SWI/FCB SOUNDS on this image")
+end
+if mem:read_u8(HIT_SWI) ~= 0x3F or mem:read_u8(HIT_SWI + 1) ~= 0x1B
+    or mem:read_u8(HIT_SWI + 2) ~= 0x12 then
+    die("PATT24 is not SWI/FCB ISOUND/FCB A$KLK2 on this image")
+end
+if mem:read_u8(KILL_SWI) ~= 0x3F or mem:read_u8(KILL_SWI + 1) ~= 0x1B
+    or mem:read_u8(KILL_SWI + 2) ~= 0x15 then
+    die("PATT40+10 is not SWI/FCB ISOUND/FCB A$EXP0 on this image")
+end
+
+-- C-15: PARSER.ASM's shared command-error handler, CMDERR (CBE1 on this
+-- image, SWI/FCB OUTSTI = 3F 02), called via JSR from every command handler
+-- (HUMAN.ASM, PCLIMB.ASM, PGET.ASM, ...) whenever a command doesn't parse.
+-- One tap here covers every "???" output the game can produce, not just
+-- CLIMB's.
+local CMDERR = sym("CMDERR")
+if mem:read_u8(CMDERR) ~= 0x3F or mem:read_u8(CMDERR + 1) ~= 0x02 then
+    die("CMDERR is not SWI/FCB OUTSTI on this image")
+end
+
+-- C-19: CRETUR.ASM's CMOV20 attack sound, SWI/FCB SOUNDS at CMOV20+11
+-- (D078 on this image, 3F 1C) -- the creature-attack counterpart to C-12's
+-- PATT10+30 swing-sound tap, at a different address because CMOVE's attack
+-- path is a separate routine from PATTK's.
+local CMOV20 = sym("CMOV20")
+local CATTACK_SWI = CMOV20 + 11
+if mem:read_u8(CATTACK_SWI) ~= 0x3F or mem:read_u8(CATTACK_SWI + 1) ~= 0x1C then
+    die("CMOV20+11 is not SWI/FCB SOUNDS on this image")
+end
 
 local function u16(addr)
     return mem:read_u8(addr) * 256 + mem:read_u8(addr + 1)
@@ -570,11 +676,24 @@ taps[#taps + 1] = mem:install_read_tap(DGEN_RTS, DGEN_RTS, "dod_dgen_rts", funct
     return data
 end)
 
+-- C-19: CMOVE's dispatch carries no slot identity by itself (P.TCRTN is the
+-- same address for every creature's TCB). P.TCDTA (TCB+5, CD.ASM) points at
+-- that creature's CCB; CCBLND/CC.LEN (both resolved symbols) turn that
+-- pointer into a slot index, the same "CMOVE-N" numbering the core already
+-- uses in its trace.
+local CCBLND_addr, CC_LEN = sym("CCBLND"), sym("CC.LEN")
 taps[#taps + 1] = mem:install_read_tap(SCHED_JSR, SCHED_JSR, "dod_sched", function(offset, data, mask)
     if phase ~= "game" or data ~= 0xAD then return data end
     local u = cpu.state["U"].value
     local rtn = u16(u + 3)
     local name = symbol_at(rtn)
+    if name == "CMOVE" then
+        local ccb = u16(u + 5)
+        if ccb >= CCBLND_addr then
+            local slot = (ccb - CCBLND_addr) // CC_LEN
+            name = "CMOVE-" .. tostring(slot)
+        end
+    end
     tasklog:write(string.format("%d\tTASK\t%04X\t%s\n", isr, rtn, name))
     emit_trace("TASK", "run " .. name)
     note_task(name)
@@ -618,6 +737,38 @@ taps[#taps + 1] = mem:install_read_tap(SNOISE_RTS, SNOISE_RTS, "dod_snoise_rts",
     soundlog:write(string.format("SNOISE\t%d\t%04X\t%s\t%s\tseed_after=%s\n",
         snoise_isr, SNOISE, snoise_seed, snoise_rnd, seed_now))
     snoise_seed = nil
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(CATTACK_SWI, CATTACK_SWI, "dod_cattack", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    local cls = cpu.state["A"].value & 0xFF
+    emit_trace("SOUND", "creature_class=" .. tostring(cls))
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(CMDERR, CMDERR, "dod_cmderr", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    emit_trace("OUTPUT", "???")
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(SWING_SWI, SWING_SWI, "dod_swing", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    local cls = cpu.state["A"].value & 0xFF
+    emit_trace("SOUND", "class=" .. tostring(cls))
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(HIT_SWI, HIT_SWI, "dod_hit", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    emit_trace("SOUND", "A$KLK2")
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(KILL_SWI, KILL_SWI, "dod_kill", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    emit_trace("SOUND", "A$EXP0")
     return data
 end)
 

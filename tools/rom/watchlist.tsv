@@ -17,6 +17,7 @@ PDIR	1	player	facing, 0=N 1=E 2=S 3=W
 PPOW	2	player	power; starts at 160, not 0
 PDAM	2	player	accumulated damage
 POBJWT	2	player	carried weight; starts at 35
+PTORCH	2	player	ptr to the worn torch's OCB, 0 if none (C-14)
 HEARTR	1	physiology	heartbeat delay in jiffies
 HEARTC	1	physiology	countdown to the next beat
 HBEATF	1	physiology	audible heartbeat gate

@@ -5,12 +5,15 @@
 //   dcli --maze-hashes            (prints cleared-cell counts and RNG spin states)
 //
 // Emits a tab-separated trace: jiffy, clock counters, event kind, detail.
+#include <algorithm>
+#include <cerrno>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "daggorath/examine.hpp"
 #include "daggorath/game.hpp"
@@ -26,10 +29,76 @@ int usage() {
     std::cerr << "usage: dcli --script FILE [--jiffies N] [--second S]\n"
                  "            [--dump-maze FILE] [--trace FILE] [--present] [--bitmap FILE]\n"
                  "            [--events] [--present-map] [--present-text] [--level N]\n"
+                 "            [--poke JIFFY:FIELD:VALUE ...]\n"
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
-                 "       Original Mode build clock.\n";
+                 "       Original Mode build clock.\n"
+                 "       --poke sets player damage, power, position, the worn\n"
+                 "       torch's timer, or creature slot 6's position at a jiffy\n"
+                 "       boundary (FIELD is damage, power, position, torch, or\n"
+                 "       creature6; position/creature6's VALUE is row*256+col),\n"
+                 "       mirroring tools/rom/capture.lua's DOD_POKE for a\n"
+                 "       harness-modified capture. Repeatable.\n";
     return 2;
+}
+
+enum class PokeField { Damage, Power, Position, Torch, Creature6 };
+
+struct Poke {
+    std::uint64_t jiffy;
+    PokeField field;
+    std::uint16_t value;
+};
+
+std::vector<Poke> parse_pokes(const std::vector<std::string>& specs, std::string& error) {
+    std::vector<Poke> pokes;
+    for (const std::string& spec : specs) {
+        const std::size_t first = spec.find(':');
+        const std::size_t second = spec.find(':', first == std::string::npos ? first : first + 1);
+        if (first == std::string::npos || second == std::string::npos) {
+            error = "bad --poke '" + spec + "', want JIFFY:FIELD:VALUE";
+            return {};
+        }
+        const std::string jiffy_str = spec.substr(0, first);
+        const std::string field = spec.substr(first + 1, second - first - 1);
+        const std::string value_str = spec.substr(second + 1);
+        PokeField pf;
+        if (field == "damage") pf = PokeField::Damage;
+        else if (field == "power") pf = PokeField::Power;
+        else if (field == "position") pf = PokeField::Position;
+        else if (field == "torch") pf = PokeField::Torch;
+        else if (field == "creature6") pf = PokeField::Creature6;
+        else {
+            error = "bad --poke field '" + field +
+                    "', want damage, power, position, torch, or creature6";
+            return {};
+        }
+        char* end = nullptr;
+        errno = 0;
+        const bool jiffy_negative = !jiffy_str.empty() && jiffy_str.front() == '-';
+        const unsigned long long jiffy_val =
+            jiffy_negative ? 0 : std::strtoull(jiffy_str.c_str(), &end, 10);
+        if (jiffy_str.empty() || jiffy_negative ||
+            end != jiffy_str.c_str() + jiffy_str.size() || errno == ERANGE) {
+            error = "bad --poke '" + spec + "', JIFFY must be a non-negative integer";
+            return {};
+        }
+        errno = 0;
+        const unsigned long value_val = std::strtoul(value_str.c_str(), &end, 10);
+        if (value_str.empty() || end != value_str.c_str() + value_str.size() ||
+            errno == ERANGE || value_val > 0xFFFFu) {
+            error = "bad --poke '" + spec + "', VALUE must be an integer in [0, 65535]";
+            return {};
+        }
+        Poke p;
+        p.jiffy = jiffy_val;
+        p.field = pf;
+        p.value = static_cast<std::uint16_t>(value_val);
+        pokes.push_back(p);
+    }
+    std::stable_sort(pokes.begin(), pokes.end(),
+                      [](const Poke& a, const Poke& b) { return a.jiffy < b.jiffy; });
+    return pokes;
 }
 
 int maze_summary() {
@@ -66,6 +135,7 @@ int main(int argc, char** argv) {
     int second = 0;
     int level = 0;
     bool frozen = false;
+    std::vector<std::string> poke_specs;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -89,7 +159,15 @@ int main(int argc, char** argv) {
         else if (a == "--events") events = true;
         else if (a == "--present-map") present_map = true;
         else if (a == "--present-text") present_text = true;
+        else if (a == "--poke") poke_specs.push_back(next());
         else return usage();
+    }
+
+    std::string poke_error;
+    const std::vector<Poke> pokes = parse_pokes(poke_specs, poke_error);
+    if (!poke_error.empty()) {
+        std::cerr << poke_error << "\n";
+        return 1;
     }
 
     std::optional<dag::Game> held;
@@ -116,7 +194,28 @@ int main(int argc, char** argv) {
         game.load_script(std::move(keys));
     }
 
-    game.advance_jiffies(jiffies);
+    std::uint64_t done = 0;
+    for (const Poke& p : pokes) {
+        if (p.jiffy > jiffies) continue;
+        if (p.jiffy > done) {
+            game.advance_jiffies(p.jiffy - done);
+            done = p.jiffy;
+        }
+        switch (p.field) {
+            case PokeField::Power: game.set_player_power(p.value); break;
+            case PokeField::Damage: game.set_player_damage(p.value); break;
+            case PokeField::Position:
+                game.place_player(p.value >> 8, p.value & 0xFF);
+                break;
+            case PokeField::Torch:
+                game.set_torch_timer(static_cast<std::uint8_t>(p.value));
+                break;
+            case PokeField::Creature6:
+                game.place_creature(6, p.value >> 8, p.value & 0xFF);
+                break;
+        }
+    }
+    if (jiffies > done) game.advance_jiffies(jiffies - done);
 
     std::ostream* out = &std::cout;
     std::ofstream file;

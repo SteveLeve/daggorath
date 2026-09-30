@@ -2,7 +2,18 @@
 
 Combat is specified here. Item commands (`GET`, `USE`, `INCANT`, `CLIMB`, torches) are Phase 4.
 
-Labels: **[SRC]** means the pinned listing at `a94326f`. No claim below is ROM-observed.
+Labels: **[SRC]** means the pinned listing at `a94326f`. A wooden-sword swing
+running the same `PATTK` routine path as the empty hand's is **[SRC]**,
+established from the listing's unconditional `PATT10` fallthrough, not from
+a ROM run of the empty-hand path. Within that shared path, the `PATTK`/
+`ATTACK`/`DAMAGE` *dispatch structure* — the `SWI` sites for the swing
+sound, the connecting-hit sound (`A$KLK2`), and the kill sound (`A$EXP0`),
+and their exact byte encoding — is ROM-observed as of C-12
+([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-12--hitmiss-sequence-against-a-spider-with-the-wooden-sword)),
+confirmed against a wooden-sword swing specifically. `ATTACK`'s hit/miss
+percentage-index math is not ROM-observed: that capture's ROM outcome
+diverged from the core's prediction and the divergence was not resolved to a
+specific cause. No other claim below is ROM-observed.
 
 ## Player attack (`PATTK`) — [SRC]
 
@@ -52,6 +63,23 @@ On the player's cell the creature plays a full-volume sound, sets shielding to `
 
 `BURNER` (`COMPLR.ASM`) runs once a minute. It decrements the torch timer. At 5 or below the torch type becomes `DEAD`. The regular and magic light bytes are lowered to the timer when the timer is smaller.
 
+The once-a-minute decrement is ROM-observed as of C-14
+([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-14--torch-burn-out-across-a-minute-boundary)).
+That capture only watched the timer byte (`P.OCXXX`); it did not watch the
+type byte (`P.OCTYP`) or tap the branch that stores `DEAD`, so the
+`<= 5` dead threshold itself stays **[SRC]**, not yet ROM-observed. The
+capture's window was also too short to observe whether the displayed
+`RLIGHT` byte actually drops to match — unresolved, not claimed either way.
+
 ## Faint, recovery, death (`HUPDAT`) — [SRC]
 
 Heart delay is the existing repeated-subtraction form. Not fainted and delay `<= 3` faints: the scheduler stops polling the keyboard, and `PLAYER` eats any character already buffered. Fainted and delay `> 4` recovers. Death is `PPOW < PDAM` (unsigned `BLO`), which is stricter than a creature's `BHI` kill. `DEATH` halts: this core stops the scheduler, matching `BRA *`.
+
+The `<= 3` faint and `> 4` recover thresholds are ROM-observed as of C-13
+([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-13--faint-and-recovery-timing)),
+confirmed at the exact `HEARTR` readings named above. That capture also
+found a real ROM-side gap between `HEARTR` crossing a threshold and the
+`FAINT` flag being written, which the core does not currently model. The
+capture could not tell whether this is `HUPDAT` itself running on a delay
+or the `FAINT` fade sequence (`clock-and-scheduler.md` D-14) already in
+progress beforehand; unresolved, filed as #51.

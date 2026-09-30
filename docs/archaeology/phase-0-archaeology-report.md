@@ -149,7 +149,7 @@ Five populated levels are in `CMTTAB` (indices 0–4). Level 2 contains a wizard
 | Observation | Classification | Action |
 |---|---|---|
 | Manual says “Galdrogs”; source type name `BALROG`. | Documentation/source naming difference | Preserve displayed historical term after ROM/manual comparison. |
-| Manual suggests `CLIMB` and `CLIMB UP`; source rejects empty direction. | Source/manual discrepancy | Emulator test empty `CLIMB`. |
+| Manual suggests `CLIMB` and `CLIMB UP`; source rejects empty direction. | Source/manual discrepancy, resolved ROM-observed (C-15) 2026-09-29: bare `CLIMB` produces `???` on real hardware, matching the source, not the manual — [track-r reconciliation](track-r/reconciliation.md#c-15--bare-climb) | Closed |
 | Later port previously allowed ascending holes; readme explicitly calls this erroneous. | Confirmed port bug, not original rule | Assert up-hole failure in Original Mode. [L] |
 | `LVLTAB+LEVEL` overlaps three seed bytes. | Source implementation artifact, likely intentional compression | Preserve; test hashes for all five levels. |
 | Blocked MOVE still adds exertion. | Source behavior, likely intentional | Retain pending ROM check. |
