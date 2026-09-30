@@ -161,7 +161,8 @@ of the output is governed by ADR-0011 decision 6 and `docs/licensing/README.md`.
 | musl libc, libc++ / libc++abi (via Emscripten) | as bundled with emsdk 6.0.10 | MIT; Apache-2.0 WITH LLVM-exception | C/C++ runtime; **ships** in `dod.wasm` |
 | Pillow | 10.2.0 | MIT-CMU (HPND) | `tools/web/make_icons.py` draws the icons at build time |
 | Wrangler | 4.50.0 | MIT OR Apache-2.0 | local serving (`wrangler dev`); no deploy (ADR-0011 decision 6) |
-| GitHub Actions `actions/checkout@v4`, `mymindstorm/setup-emsdk@v14` | pinned by commit SHA (`11d5960a`, `6ab9eb1b`) | MIT / MIT | `.github/workflows/web.yml` (build check only) |
+| GitHub Actions `actions/checkout@v4`, `mymindstorm/setup-emsdk@v14`, `actions/setup-node@v4` | pinned by commit SHA (`11d5960a`, `6ab9eb1b`, `49933ea5`) | MIT | `.github/workflows/web.yml` (build and storage test; no deploy) |
+| Google Chrome (runner image) and Node 22+ | as provided | proprietary browser; MIT | `make web-test` drives headless Chrome over CDP with no npm packages; nothing from either ships |
 
 `make web` writes `web/dist/THIRD_PARTY_NOTICES.txt` from emsdk's own copies
 of the Emscripten, SDL3, musl and LLVM licence texts, so the "ships" rows'

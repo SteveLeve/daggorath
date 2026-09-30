@@ -1,8 +1,10 @@
 # Web stopgap build check (ADR-0011).
 # Every PR touching the shell or the page must still build the WebAssembly
-# target. There is deliberately no artifact upload and no deploy step: on this
-# public repository either would distribute dod.wasm, which ADR-0011
-# decision 6 defers until docs/licensing/README.md records an answer.
+# target and pass the browser storage test (tools/web/storage-test.mjs,
+# headless Chrome, which the runner image provides). There is deliberately
+# no artifact upload and no deploy step: on this public repository either
+# would distribute dod.wasm, which ADR-0011 decision 6 defers until
+# docs/licensing/README.md records an answer.
 name: web
 
 on:
@@ -22,3 +24,7 @@ jobs:
           version: 6.0.10
       - run: pip install pillow==10.2.0
       - run: make web
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: 22
+      - run: make web-test

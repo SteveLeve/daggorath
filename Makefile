@@ -8,6 +8,7 @@
 #   make verify     check fixture hashes against MANIFEST.json
 #   make all        fixtures + build + test + traces + verify
 #   make web        WebAssembly build into web/dist (needs emsdk; ADR-0011)
+#   make web-test   browser storage test against web/dist (Chrome, Node 22+)
 
 ASM_COMMIT := a94326f00ebb16a106b540c58bc2ccf5f7b66dac
 ASM_REPO   := https://github.com/MichaelSpencerJr/DungeonsOfDaggorath.git
@@ -20,17 +21,17 @@ TEXT_FIX   := docs/archaeology/phase-6/fixtures/text
 TEXT_HDR   := src/presentation/include/daggorath/text_tables.hpp
 TRACES     := $(PACK)/traces
 BUILD      ?= build
-# An active emsdk puts upstream/emscripten (which holds a cmake/ directory) on
-# PATH, and make's exec would pick that directory; resolve the binary the way
-# the shell does.
+# An active emsdk puts directories named cmake/ and node/ on PATH, and make's
+# exec would pick those directories; resolve the binaries the way the shell does.
 CMAKE      ?= $(shell command -v cmake)
 CTEST      ?= $(shell command -v ctest)
+NODE       ?= $(shell command -v node)
 SCRIPTS    := $(wildcard $(TRACES)/*.script)
 TRACEFILES := $(SCRIPTS:.script=.trace)
 WEB_BUILD  ?= build-web
 WEB_DIST   := web/dist
 
-.PHONY: all sources check-pin fixtures build test traces verify web format clean distclean
+.PHONY: all sources check-pin fixtures build test traces verify web web-test format clean distclean
 
 all: fixtures build test traces verify
 
@@ -100,6 +101,9 @@ web:
 	@hash=$$(cat $$(ls -d $(WEB_DIST)/* | sort) | sha256sum | cut -c1-12); \
 	sed -i "s/__BUILD__/$$hash/" $(WEB_DIST)/sw.js; \
 	echo "web build $$hash in $(WEB_DIST)"
+
+web-test:
+	$(NODE) tools/web/storage-test.mjs $(WEB_DIST)
 
 format:
 	@command -v clang-format >/dev/null || { echo "clang-format not installed"; exit 1; }

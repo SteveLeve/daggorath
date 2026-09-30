@@ -38,6 +38,15 @@
     background: #000; z-index: 2;
   }
   .notice.show { display: flex; }
+  /* Storage problems (storage.hpp report_storage_problem). Sits over the
+     top edge without taking taps, so play is never blocked. */
+  #toast {
+    position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 8px);
+    transform: translateX(-50%); max-width: calc(100% - 32px);
+    padding: 8px 12px; border: 2px solid #fff; background: #000;
+    text-align: center; z-index: 3; pointer-events: none; display: none;
+  }
+  #toast.show { display: block; }
   @media (orientation: portrait) and (pointer: coarse) {
     #rotate { display: flex; }
   }
@@ -47,21 +56,38 @@
 <div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
 <div id="status" class="notice show">LOADING…</div>
 <div id="rotate" class="notice">TURN THE DEVICE TO LANDSCAPE</div>
+<div id="toast" role="alert"></div>
 <script>
   "use strict";
   const canvas = document.getElementById("canvas");
   const status = document.getElementById("status");
 
-  // Same flags as the desktop build. ?layout=phone|tablet wins; otherwise a
-  // wide screen gets the phone layout, with controls in the side margins.
+  // Same flags as the desktop build. ?layout=phone|tablet wins outright;
+  // otherwise the player's remembered layout, and failing that a wide
+  // screen gets the phone layout, with controls in the side margins.
   const query = new URLSearchParams(location.search);
   const wide = Math.max(innerWidth, innerHeight) / Math.min(innerWidth, innerHeight) > 1.6;
-  const layout = query.get("layout") === "phone" || query.get("layout") === "tablet"
-    ? query.get("layout") : (wide ? "phone" : "tablet");
+  const args = [`--default-layout=${wide ? "phone" : "tablet"}`];
+  if (query.get("layout") === "phone" || query.get("layout") === "tablet")
+    args.push(`--layout=${query.get("layout")}`);
+
+  // Called by the game when a save or setting could not be stored.
+  const toast = document.getElementById("toast");
+  let toastTimer = 0;
+  window.dodNotice = (text) => {
+    toast.textContent = text;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 8000);
+  };
+
+  // Ask the browser not to evict saves under storage pressure. Browsers may
+  // refuse; an installed (home-screen) app is the most reliable way to keep them.
+  navigator.storage?.persist?.().catch(() => {});
 
   var Module = {
     canvas,
-    arguments: [`--layout=${layout}`],
+    arguments: args,
     print: (text) => console.log(text),
     printErr: (text) => console.warn(text),
     onRuntimeInitialized: () => { status.classList.remove("show"); canvas.focus(); },

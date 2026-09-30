@@ -4,11 +4,13 @@
 #include "daggorath/examine.hpp"
 #include "daggorath/mapper.hpp"
 #include "daggorath/overlay_bridge.hpp"
+#include "daggorath/prefs.hpp"
 #include "daggorath/raster.hpp"
 #include "daggorath/shell.hpp"
 #include "daggorath/system_menu.hpp"
 #include "daggorath/snapshot.hpp"
 #include "daggorath/snoise.hpp"
+#include "daggorath/storage.hpp"
 #include "daggorath/sound_mix.hpp"
 #include "daggorath/text.hpp"
 #include "daggorath/text_tables.hpp"
@@ -16,18 +18,15 @@
 
 #include <SDL3/SDL.h>
 
-#ifdef __EMSCRIPTEN__
-#include "web/persist.hpp"
-#endif
 
 #include <array>
 #include <cstdlib>
-#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <cmath>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -86,64 +85,46 @@ int headless(int argc, char** argv) {
     return 0;
 }
 
-bool tape_name_ok(const std::string& name) {
-    if (name.empty() || name.size() > 8) return false;
-    for (unsigned char c : name) {
-        const bool letter = c >= 'A' && c <= 'Z';
-        const bool digit = c >= '0' && c <= '9';
-        if (!letter && !digit) return false;
-    }
-    return true;
-}
-
-std::filesystem::path save_file(const std::string& dir, const std::string& name) {
-    return std::filesystem::path(dir) / (name + ".dagram");
-}
-
-// Copy each new ZSAVE off the in-memory cassette. The core still does not
-// know about files; this is the platform envelope around DAGRAM 1.
-// Returns whether any file was written.
-bool persist_saves(dag::Game& game, std::size_t& traced, const std::string& dir) {
-    bool wrote = false;
+// Copy each new ZSAVE off the in-memory cassette into storage. The core
+// still does not know about files; this is the platform envelope around
+// DAGRAM 1. A save that could not be stored stays on the cassette for this
+// session only, and the player is told so (the in-game ZSAVE itself succeeded);
+// its name goes in `unstored` so a menu Restart can carry it across.
+void persist_saves(dag::Game& game, std::size_t& traced, dag::platform::Storage& storage,
+                   std::set<std::string>& unstored) {
     const auto& trace = game.trace();
     while (traced < trace.size()) {
         const dag::TraceEvent& ev = trace[traced++];
         if (ev.kind != "ZSAVE") continue;
         const auto sp = ev.detail.find(' ');
         const std::string name = ev.detail.substr(0, sp);
-        if (!tape_name_ok(name)) continue;
+        if (!dag::platform::tape_name_ok(name)) continue;
         const std::string* image = game.cassette_image(name);
         if (image == nullptr) continue;
-        std::error_code ec;
-        std::filesystem::create_directories(dir, ec);
-        std::ofstream out(save_file(dir, name), std::ios::binary);
-        if (!out) continue;
-        out.write(image->data(), static_cast<std::streamsize>(image->size()));
-        wrote = static_cast<bool>(out) || wrote;
+        if (storage.store_save(name, *image)) {
+            unstored.erase(name);
+        } else {
+            unstored.insert(name);
+            dag::platform::report_storage_problem(
+                "ZSAVE " + name + " NOT STORED - storage full or blocked. "
+                "It is kept for this session only.");
+        }
     }
-    return wrote;
-}
-
-std::optional<std::string> read_save(const std::string& dir, const std::string& name) {
-    if (!tape_name_ok(name)) return {};
-    std::ifstream in(save_file(dir, name), std::ios::binary);
-    if (!in) return {};
-    std::ostringstream text;
-    text << in.rdbuf();
-    std::string image = text.str();
-    if (image.rfind("DAGRAM 1", 0) != 0) return {};
-    return image;
 }
 
 // Put every stored save on the core's cassette before play, like a tape that
 // already holds earlier ZSAVEs. The player still types ZLOAD <name>.
-void mount_saves(dag::Game& game, const std::string& dir) {
-    std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
-        if (entry.path().extension() != ".dagram") continue;
-        const std::string name = entry.path().stem().string();
-        if (auto image = read_save(dir, name)) game.insert_cassette_image(name, *image);
-    }
+// Returns how many the core accepted. Names in `skip` are left off: the
+// session holds a newer, unstored image under that name.
+std::size_t mount_saves(dag::Game& game, const dag::platform::Storage& storage,
+                        const std::set<std::string>& skip = {}) {
+    const auto loaded = storage.load_saves();
+    std::size_t mounted = 0;
+    for (const auto& save : loaded.saves)
+        if (!skip.count(save.name) && game.insert_cassette_image(save.name, save.image)) ++mounted;
+    if (!loaded.error.empty())
+        dag::platform::report_storage_problem("SAVED GAMES UNAVAILABLE - " + loaded.error);
+    return mounted;
 }
 
 std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int bar_x) {
@@ -477,18 +458,38 @@ int main(int argc, char** argv) {
     // doc: "the game renders full screen at 4:3, full height, centred...
     // controls sit in the black side margins"); default stays Tablet4x3,
     // which the fixed 4:3 window already matches without letterboxing.
-    dag::input::OverlayLayout layout = dag::input::OverlayLayout::Tablet4x3;
+    // Which layout starts: an explicit --layout flag, else the player's
+    // remembered choice, else --default-layout (the web page passes one
+    // from the screen's shape), else Tablet4x3.
+    std::optional<dag::input::OverlayLayout> flag_layout;
+    std::optional<dag::input::OverlayLayout> default_layout;
     std::string shots_path;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
-        if (arg == "--layout=phone") layout = dag::input::OverlayLayout::PhoneLandscape;
-        else if (arg == "--layout=tablet") layout = dag::input::OverlayLayout::Tablet4x3;
+        if (arg == "--layout=phone") flag_layout = dag::input::OverlayLayout::PhoneLandscape;
+        else if (arg == "--layout=tablet") flag_layout = dag::input::OverlayLayout::Tablet4x3;
+        else if (arg == "--default-layout=phone") default_layout = dag::input::OverlayLayout::PhoneLandscape;
+        else if (arg == "--default-layout=tablet") default_layout = dag::input::OverlayLayout::Tablet4x3;
         else if (arg.rfind("--shots=", 0) == 0) shots_path = arg.substr(8);
     }
     std::vector<ShotStep> shots = shots_path.empty() ? std::vector<ShotStep>{} : load_shots(shots_path);
     std::size_t next_shot = 0;
     std::uint64_t shots_start_ms = 0;
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) return 1;
+    std::string save_dir = "saved";
+    if (char* pref = SDL_GetPrefPath("daggorath", "dod")) {
+        save_dir = pref;
+        SDL_free(pref);
+    }
+    dag::platform::Storage storage(save_dir);
+    // Scripted screenshot runs (--shots) neither read nor write preferences,
+    // so they draw the same frames on every machine.
+    const bool remember_prefs = shots_path.empty();
+    dag::platform::Prefs prefs;
+    if (remember_prefs)
+        if (auto text = storage.load_prefs()) prefs = dag::platform::parse_prefs(*text);
+    dag::input::OverlayLayout layout =
+        flag_layout.value_or(prefs.layout.value_or(default_layout.value_or(dag::input::OverlayLayout::Tablet4x3)));
     constexpr int kScale = 3;
     constexpr double kGameW = dag::kScreenWidth * kScale;
     constexpr double kGameH = dag::kScreenHeight * kScale;
@@ -562,15 +563,11 @@ int main(int argc, char** argv) {
     std::optional<dag::shell::Shell> shell;
     shell.emplace(*held);
     dag::SoundMix mix;
-    std::string save_dir = "saved";
-    if (char* pref = SDL_GetPrefPath("daggorath", "dod")) {
-        save_dir = pref;
-        SDL_free(pref);
-    }
-#ifdef __EMSCRIPTEN__
-    dag::web::mount_persistent(save_dir);  // ADR-0011: IndexedDB behind the save directory
-#endif
-    mount_saves(*held, save_dir);
+    // One line of start-up state, for the player's terminal and for
+    // tools/web/storage-test.mjs, which reads it from the browser console.
+    const std::size_t mounted = mount_saves(*held, storage);
+    std::cout << "dod: layout=" << (layout == dag::input::OverlayLayout::PhoneLandscape ? "phone" : "tablet")
+              << " video=" << (prefs.crisp ? "crisp" : "pixel") << " saves=" << mounted << std::endl;
     SDL_AudioSpec spec{};
     spec.format = SDL_AUDIO_U8;
     spec.channels = 1;
@@ -589,7 +586,7 @@ int main(int argc, char** argv) {
     std::uint64_t audio_jiffy = 0;
     const std::string message;   // no platform message row; OUTSTI owns the text page
     bool running = true;
-    bool crisp_style = false;  // 8.6.3: F1 toggles pixel (default) vs crisp (ADR-0010)
+    bool crisp_style = prefs.crisp;  // 8.6.3: F1 toggles pixel (default) vs crisp (ADR-0010)
     dag::shell::MenuState menu;  // 8.6.6: system menu sub-screen (src/shell/system_menu.hpp)
     int shown_row = 0;
     int shown_col = 0;
@@ -615,9 +612,19 @@ int main(int argc, char** argv) {
         seen_motion = 0;
         seen_restart = 0;
     };
+    // ZSAVEs this session could not store (persist_saves). The core keeps its
+    // cassette across a death restart (D-18); a menu Restart builds a new
+    // Game, so these are carried across by hand to keep the "kept for this
+    // session" promise.
+    std::set<std::string> unstored;
     auto restart_game = [&]() {
+        std::vector<std::pair<std::string, std::string>> carried;
+        for (const auto& name : unstored)
+            if (const std::string* image = held->cassette_image(name)) carried.emplace_back(name, *image);
         held.emplace();
         shell.emplace(*held);
+        mount_saves(*held, storage, unstored);  // D-20: a fresh start sees the stored saves too
+        for (const auto& [name, image] : carried) held->insert_cassette_image(name, image);
         reset_view();
     };
     // HUPDAT DEATH halts the foreground while CLOCK runs; any key restarts
@@ -645,11 +652,22 @@ int main(int argc, char** argv) {
     };
     // 8.6.7's Video/Controls toggles, shared the same way: the F1 key, the
     // menu's V/C keys and their row taps all call these two.
-    auto toggle_video = [&]() { crisp_style = !crisp_style; };
+    // Both are remembered for the next launch (dag::platform::Prefs).
+    auto save_prefs = [&]() {
+        if (!remember_prefs) return;
+        const dag::platform::Prefs now{crisp_style, layout};
+        if (!storage.store_prefs(dag::platform::serialize_prefs(now)))
+            dag::platform::report_storage_problem("SETTINGS NOT SAVED - storage full or blocked.");
+    };
+    auto toggle_video = [&]() {
+        crisp_style = !crisp_style;
+        save_prefs();
+    };
     auto toggle_controls = [&]() {
         set_layout(layout == dag::input::OverlayLayout::PhoneLandscape
                        ? dag::input::OverlayLayout::Tablet4x3
                        : dag::input::OverlayLayout::PhoneLandscape);
+        save_prefs();
     };
     // 8.6.8: the system menu's current screen as clickable rows, styled
     // like the touch overlay's own pickers (200 wide, 44-tall boxes) instead
@@ -864,11 +882,7 @@ int main(int argc, char** argv) {
         // already proves this substitution changes nothing about the core
         // trace for an unpaused run.
         if (steps > 0) shell->tick(static_cast<std::uint64_t>(steps));
-        if (persist_saves(game, traced, save_dir)) {
-#ifdef __EMSCRIPTEN__
-            dag::web::flush_persistent();
-#endif
-        }
+        persist_saves(game, traced, storage, unstored);
         if (restarted(game)) {
             have_shown = false;
             was_fainted = false;
