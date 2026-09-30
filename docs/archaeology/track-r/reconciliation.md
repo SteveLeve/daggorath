@@ -361,7 +361,8 @@ on the RNG stream's exact position when the swing runs — which in turn
 depends on every RNG draw made by every task dispatched since level entry.
 C-11 (issue #39) already found the ROM's task-dispatch schedule diverges
 substantially from the core's over an idle run (missing `PLAYER` entries,
-21% fewer `CMOVE` entries); this capture's own trace shows the same texture —
+55% fewer `CMOVE` entries — 3,420 ROM vs 7,591 core); this capture's own
+trace shows the same texture —
 dense runs of `TASK run PLAYER` interleaved with repeated `TASK run CMOVE` in
 the same jiffy (e.g. three separate `CMOVE` entries at jiffy 90, 96, 102)
 in the approach to the spider, before either swing. A dispatch-schedule
@@ -468,29 +469,40 @@ Track R. But the `FAINT` flag itself does not flip until jiffy 56, 45
 jiffies later. Over that window `PDAM` keeps falling (`HSLOW` heals roughly
 every 5 jiffies in this trace — `damage=156` at 11, `153` at 59, `150` at
 63, ...), yet `HEARTR` stays pinned at 3 the whole time
-(`captures/c13-faint-recovery.rom.trace`), which only makes sense if
-`HUPDAT` (the routine that both recomputes `HEARTR` from the current `PPOW`/
-`PDAM` and decides whether to (un)faint) does not run on every jiffy `PDAM`
-changes — it runs on its own schedule, and the flag only updates the next
-time it happens to run. The 155-margin run's non-faint (see above) is the
-same mechanism from the other side: `HSLOW` moved `PDAM` back above the
-boundary in the gap between `HUPDAT` evaluations. The core's model runs the
-opposite way: `set_player_damage` calls `update_heart_rate()` synchronously,
+(`captures/c13-faint-recovery.rom.trace`). The core's model runs
+differently: `set_player_damage` calls `update_heart_rate()` synchronously,
 so `FAINT` (and, implicitly, every faint/recover decision) is exact and
 immediate on every `PDAM` change, with no equivalent gap. `REVIVE` shows the
 same pattern at a larger scale: 55 fainted jiffies in the core, 67 in the
 ROM.
 
-**Reading, not yet a fix.** This is consistent with `HUPDAT` being invoked
-periodically (heartbeat-paced, matching `docs/specification/creatures.md`'s
-physiology group and `HEARTC`/`HBEATF` in the watchlist) rather than being
-tied to every `PDAM`-changing event, while the core currently recomputes it
-inline on every damage change. This capture did not instrument `HEARTC`'s
-countdown directly (it is watched but not separately traced), so the exact
-period, and whether it matches `HEARTC`'s own value, is not established
-here — only that a real gap exists and the core has none. Filed as #51,
-spec-first per `docs/prompts/track-r-rom-observation.md` step 5. No
-core change in this commit.
+**Reading, not yet a fix — reconciled against D-14's fade mechanism.** An
+earlier draft of this entry attributed the 45-jiffy gap to `HUPDAT` running
+on a periodic, heartbeat-paced schedule rather than on every `PDAM` change.
+That is not the only explanation, and is likely not the right one:
+`docs/specification/clock-and-scheduler.md` D-14 already establishes, from
+C-17/C-18, that `HUPD30` performs the faint fade
+as *foreground* work — one `RLIGHT`/`MLIGHT` step per pass, 5 jiffies per
+step (C-17), continuing until `RLIGHT <= -8` — before the faint sequence
+finishes. If `HUPDAT` actually runs immediately at jiffy 11 (matching the
+core's synchronous model) and then spends the next several jiffies inside
+that fade loop, the 45-jiffy gap to the `FAINT` flag's own write would be
+mostly or entirely fade time, not idle time between `HUPDAT` invocations —
+45 jiffies is close to 9 fade steps at 5 jiffies each, and 9 steps is a
+plausible step count for `RLIGHT` descending from a small positive value to
+`<= -8`. This capture did not tap `RLIGHT`/`MLIGHT` or `HUPD30`'s own entry
+during the gap, so it cannot actually distinguish "periodic invocation"
+from "immediate invocation plus fade delay before the flag write" — the
+periodic-invocation framing above overstated what was shown. The honest
+claim is narrower: a real, multi-jiffy gap exists between `HEARTR` crossing
+the threshold and `FAINT` being written, and it is at least consistent with
+the already-documented D-14 fade mechanism rather than necessarily a new,
+separate `HUPDAT` scheduling behaviour. Confirming which needs an entry tap
+at `HUPD30`/`HUPDAT`'s start, or a watch on `RLIGHT` across this specific
+window. Filed as #51, spec-first per `docs/prompts/track-r-rom-observation.md`
+step 5; #51 should be revisited against this reconciliation rather than
+taken as confirming a periodic-schedule model. No core change in this
+commit.
 
 **Keyboard suspension: consistent, not conclusively isolated.** Both traces
 show the typed `MOVE` command silently eaten — no `LINE`, no `MOVE` event,
@@ -507,16 +519,17 @@ effect — it cannot rule out the flag-gated reading either. Unresolved.
 revive/keyboard-suspension text stays **[SRC]**; the underlying trigger
 values (`delay <= 3` faints, `delay > 4` recovers) are now **ROM-observed**
 in the sense that both transitions were seen to occur at exactly those
-`HEARTR` readings, but the *timing* of when the ROM acts on a threshold
-crossing is not — that lag is the new, unresolved finding above, not a
-confirmation of the existing spec text's timing model (the spec text makes
-no timing claim; this capture found real HUPDAT-to-HUPDAT latency, not
-covered previously by any label).
+`HEARTR` readings, but the *timing* of when the `FAINT` flag is written
+after a threshold crossing is not — a real multi-jiffy gap exists and is
+unresolved, but this capture cannot show whether it is a `HUPDAT`
+scheduling gap or D-14's already-documented fade delay (or both); not a
+confirmation of either model.
 
 **Backlog.** `docs/planning/capture-backlog.md` C-13 row updated to
 `partial — track-r reconciliation: faint/recover threshold values
-ROM-observed, but a real HUPDAT-to-HUPDAT lag exists in the ROM with no
-core equivalent, filed as #51`.
+ROM-observed, but a real gap exists between the threshold crossing and the
+FAINT flag write, not yet distinguished from D-14's fade delay, filed as
+#51`.
 
 **Gate.** `captures/c13-faint-recovery.rom.trace` and its companion
 `.raw.tsv`/task logs are new but live outside the tree under gitignored
@@ -682,7 +695,7 @@ minute boundary:
 |---|---|---|
 | Torch timer before `BURNER` (worn) | 15 (initial, matches the manual's nominal 15-minute pine-torch lifetime) | 15 (`WATCH TORCHTMR=15` at jiffy 0) |
 | Timer poked to 6 | jiffy 115 | jiffy 114 |
-| `BURNER` fires at the minute boundary, timer -> 5, `dead` | jiffy 480 (`TORCH dead timer=5`) | jiffy 462 (`WATCH TORCHTMR=5`) |
+| `BURNER` fires at the minute boundary, timer -> 5 | jiffy 480 (core also reports `TORCH dead timer=5`, a core-side inference) | jiffy 462 (`WATCH TORCHTMR=5`; type byte not watched) |
 
 The ROM poke and its own watched read land on the jiffy *below* the isr
 number passed to `DOD_EXTRA_POKE`/`DOD_POKE` (114, not 115) because
@@ -718,18 +731,26 @@ did not establish that. Unresolved either way: not claimed as a confirmed
 divergence, and the apparent `LUKNEW` gap is flagged rather than explained
 away.
 
-**Labels.** The `<= 5` dead threshold and the once-a-minute decrement are
-now **ROM-observed**: the torch's timer, poked to 6, crosses to 5 and marks
-dead at the very next minute boundary in both traces, matching exactly. The
+**Labels.** The once-a-minute decrement is now **ROM-observed**: the torch's
+timer, poked to 6, crosses to 5 at the very next minute boundary in both
+traces, matching exactly. The `<= 5` *dead* threshold itself is **not**
+promoted by this capture — `DOD_EXTRA_WATCH` only watched the timer byte
+(`P.OCXXX`, `TORCHTMR`); it never watched the type byte (`P.OCTYP`) or
+tapped the branch that stores `DEAD`, so the ROM side only shows
+`WATCH TORCHTMR=5`, not confirmation that the torch's type actually became
+`DEAD`. The core's `"TORCH dead"` line is a core-side inference from the
+same threshold, not a ROM observation. The `<= 5` dead-type transition
+stays **[SRC]** until the type byte or its branch is captured. The
 light-level propagation question above is explicitly **not** resolved by
 this capture. No issue filed for the alignment gap (folded into the
 existing, open C-21 question); no issue filed for the light-propagation gap
 (insufficient evidence either way, not a confirmed divergence).
 
 **Backlog.** `docs/planning/capture-backlog.md` C-14 row updated to
-`partial — track-r reconciliation: dead threshold and once-a-minute
-decrement ROM-observed; RLIGHT propagation not observed in this capture's
-window`.
+`partial — track-r reconciliation: once-a-minute decrement ROM-observed;
+<= 5 dead-type transition still [SRC] (only the timer byte was watched,
+not the type byte or its branch); RLIGHT propagation not observed in this
+capture's window`.
 
 **Gate.** `captures/c14-torch-burnout.rom.trace` and its companion
 `.raw.tsv`/task logs are new but live outside the tree under gitignored
@@ -926,17 +947,19 @@ a maze-pathing condition this capture did not attempt to arrange.
 Unresolved, not claimed either way.
 
 **Labels.** `CMOVE`'s attack-path mechanism (unconditional attack sound
-before the hit/miss roll, `PUPDAT`-independent of outcome) is now
-**ROM-observed**, matching the core's parallel construction on the player's
-own `PATTK` side. The dispatch-cadence divergence is **not** promoted or
-filed separately — folded into #39. `CMOV90`'s specific "just arrived"
-`PUPDAT`/`NEWLUK`-clear branch remains **[INF]**, not exercised by this
-capture.
+before the hit/miss roll, independent of outcome) is now **ROM-observed**,
+matching the core's parallel construction on the player's own `PATTK`
+side. This capture's tap was at the attack sound (`CMOV20+11`), not at
+`PUPDAT` itself, so `PUPDAT`'s role on the attack path stays **[INF]**.
+The dispatch-cadence divergence is **not** promoted or filed separately —
+folded into #39. `CMOV90`'s specific "just arrived" `PUPDAT`/`NEWLUK`-clear
+branch remains **[INF]**, not exercised by this capture.
 
 **Backlog.** `docs/planning/capture-backlog.md` C-19 row updated to
-`partial — track-r reconciliation: CMOVE's attack-path PUPDAT mechanism
-ROM-observed via a new creature-attack sound tap; CMOV90's "just arrived"
-branch not exercised; dispatch-cadence gap folded into #39`.
+`partial — track-r reconciliation: CMOVE's attack path (unconditional
+attack sound before the hit/miss roll) ROM-observed via a new
+creature-attack sound tap; PUPDAT itself not tapped, CMOV90's "just
+arrived" branch not exercised; dispatch-cadence gap folded into #39`.
 
 **Gate.** `captures/c19-step-onto.rom.trace` and its companion
 `.raw.tsv`/task logs are new but live outside the tree under gitignored

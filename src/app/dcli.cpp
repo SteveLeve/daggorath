@@ -6,6 +6,7 @@
 //
 // Emits a tab-separated trace: jiffy, clock counters, event kind, detail.
 #include <algorithm>
+#include <cerrno>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -72,14 +73,31 @@ std::vector<Poke> parse_pokes(const std::vector<std::string>& specs, std::string
                     "', want damage, power, position, torch, or creature6";
             return {};
         }
+        char* end = nullptr;
+        errno = 0;
+        const bool jiffy_negative = !jiffy_str.empty() && jiffy_str.front() == '-';
+        const unsigned long long jiffy_val =
+            jiffy_negative ? 0 : std::strtoull(jiffy_str.c_str(), &end, 10);
+        if (jiffy_str.empty() || jiffy_negative ||
+            end != jiffy_str.c_str() + jiffy_str.size() || errno == ERANGE) {
+            error = "bad --poke '" + spec + "', JIFFY must be a non-negative integer";
+            return {};
+        }
+        errno = 0;
+        const unsigned long value_val = std::strtoul(value_str.c_str(), &end, 10);
+        if (value_str.empty() || end != value_str.c_str() + value_str.size() ||
+            errno == ERANGE || value_val > 0xFFFFu) {
+            error = "bad --poke '" + spec + "', VALUE must be an integer in [0, 65535]";
+            return {};
+        }
         Poke p;
-        p.jiffy = std::strtoull(jiffy_str.c_str(), nullptr, 10);
+        p.jiffy = jiffy_val;
         p.field = pf;
-        p.value = static_cast<std::uint16_t>(std::strtoul(value_str.c_str(), nullptr, 10));
+        p.value = static_cast<std::uint16_t>(value_val);
         pokes.push_back(p);
     }
-    std::sort(pokes.begin(), pokes.end(),
-              [](const Poke& a, const Poke& b) { return a.jiffy < b.jiffy; });
+    std::stable_sort(pokes.begin(), pokes.end(),
+                      [](const Poke& a, const Poke& b) { return a.jiffy < b.jiffy; });
     return pokes;
 }
 

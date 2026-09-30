@@ -92,6 +92,17 @@ foreach(pair "fight-to-kill;300" "fight-to-death;1800")
     COMMAND sh -c "\"$<TARGET_FILE:dcli>\" --script \"${PHASE3_TRACES}/${name}.script\" --jiffies ${jiffies} --trace \"${CMAKE_CURRENT_BINARY_DIR}/${name}.trace\" && cmp \"${CMAKE_CURRENT_BINARY_DIR}/${name}.trace\" \"${PHASE3_TRACES}/${name}.trace\"")
 endforeach()
 
+# --poke argument validation: malformed JIFFY/VALUE specs must be rejected
+# (exit nonzero, no silent truncation/wraparound), well-formed specs accepted.
+add_test(NAME dcli_poke_validation
+  COMMAND sh -c "\
+    for spec in 'x:damage:159' '-5:damage:159' '10:damage:' '10:damage:159junk' '10:damage:70000'; do \
+      if \"$<TARGET_FILE:dcli>\" --poke \"$spec\" --script /dev/null --jiffies 1 >/dev/null 2>&1; then \
+        echo \"expected rejection for --poke '$spec'\" >&2; exit 1; \
+      fi; \
+    done; \
+    \"$<TARGET_FILE:dcli>\" --poke '10:damage:159' --script /dev/null --jiffies 1 >/dev/null 2>&1 || { echo 'well-formed --poke was rejected' >&2; exit 1; }")
+
 # Identity check for the ROM trace diff. It does not claim a ROM was compared.
 add_test(NAME trace_diff_identity
   COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/rom/trace_diff.py

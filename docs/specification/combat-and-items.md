@@ -63,10 +63,12 @@ On the player's cell the creature plays a full-volume sound, sets shielding to `
 
 `BURNER` (`COMPLR.ASM`) runs once a minute. It decrements the torch timer. At 5 or below the torch type becomes `DEAD`. The regular and magic light bytes are lowered to the timer when the timer is smaller.
 
-The once-a-minute decrement and the `<= 5` dead threshold are ROM-observed
-as of C-14
+The once-a-minute decrement is ROM-observed as of C-14
 ([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-14--torch-burn-out-across-a-minute-boundary)).
-That capture's window was too short to observe whether the displayed
+That capture only watched the timer byte (`P.OCXXX`); it did not watch the
+type byte (`P.OCTYP`) or tap the branch that stores `DEAD`, so the
+`<= 5` dead threshold itself stays **[SRC]**, not yet ROM-observed. The
+capture's window was also too short to observe whether the displayed
 `RLIGHT` byte actually drops to match — unresolved, not claimed either way.
 
 ## Faint, recovery, death (`HUPDAT`) — [SRC]
@@ -76,6 +78,8 @@ Heart delay is the existing repeated-subtraction form. Not fainted and delay `<=
 The `<= 3` faint and `> 4` recover thresholds are ROM-observed as of C-13
 ([`../archaeology/track-r/reconciliation.md`](../archaeology/track-r/reconciliation.md#c-13--faint-and-recovery-timing)),
 confirmed at the exact `HEARTR` readings named above. That capture also
-found a real ROM-side lag between `HEARTR` crossing a threshold and `HUPDAT`
-acting on it — `HUPDAT` does not appear to re-evaluate on every damage
-change — which the core does not currently model; unresolved, filed as #51.
+found a real ROM-side gap between `HEARTR` crossing a threshold and the
+`FAINT` flag being written, which the core does not currently model. The
+capture could not tell whether this is `HUPDAT` itself running on a delay
+or the `FAINT` fade sequence (`clock-and-scheduler.md` D-14) already in
+progress beforehand; unresolved, filed as #51.
