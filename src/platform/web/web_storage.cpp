@@ -1,10 +1,12 @@
 // Browser implementation of storage.hpp (ADR-0011): localStorage, one key per
-// save ("dod.save.<NAME>") plus "dod.prefs". localStorage is synchronous, so
+// save ("dod.save.<NAME>"), one per menu slot ("dod.slot.<1-5>"), plus
+// "dod.prefs". localStorage is synchronous, so
 // setItem either updates the storage area or throws (quota exhausted, storage
 // blocked) before it returns; store_save's result is therefore known at once,
 // not a promise of a later flush. When the browser writes the area to disk is
-// its own business. Saves are ~8 KB of text, well under the usual
-// 5 MB origin quota.
+// its own business. A save is about 8 KB of text and a slot
+// about 8.5 KB plus 8 KB per cassette entry; together they can reach the
+// origin's quota over long play, which then fails a store like any other.
 #include "daggorath/storage.hpp"
 
 #include <emscripten.h>
@@ -64,6 +66,7 @@ EM_JS(void, dod_notice, (const char* text), {
 });
 
 constexpr const char* kSavePrefix = "dod.save.";
+constexpr const char* kSlotPrefix = "dod.slot.";
 constexpr const char* kPrefsKey = "dod.prefs";
 
 // Takes ownership of a string the JS side allocated with stringToNewUTF8.
@@ -107,6 +110,28 @@ SaveLoad Storage::load_saves() const {
 bool Storage::store_save(const std::string& name, const std::string& image) {
     if (!tape_name_ok(name)) return false;
     return dod_ls_set((kSavePrefix + name).c_str(), image.c_str()) != 0;
+}
+
+SlotLoad Storage::load_slots() const {
+    SlotLoad result;
+    for (std::size_t n = 1; n <= kStoredSlots; ++n) {
+        int failed = 0;
+        const auto text = adopt(dod_ls_get((kSlotPrefix + std::to_string(n)).c_str(), &failed));
+        if (failed) {
+            result.error = "browser storage is blocked or unavailable";
+            return result;
+        }
+        if (!text) continue;
+        if (auto slot = decode_slot(n, *text)) result.slots.push_back(std::move(*slot));
+        else result.damaged.push_back(n);
+    }
+    return result;
+}
+
+bool Storage::store_slot(std::size_t number, const std::string& name, const std::string& snapshot) {
+    if (number < 1 || number > kStoredSlots || name.find('\n') != std::string::npos) return false;
+    return dod_ls_set((kSlotPrefix + std::to_string(number)).c_str(),
+                      encode_slot(name, snapshot).c_str()) != 0;
 }
 
 std::optional<std::string> Storage::load_prefs() const {

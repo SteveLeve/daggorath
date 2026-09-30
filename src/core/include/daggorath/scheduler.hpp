@@ -4,6 +4,7 @@
 //         ONCE.ASM (SYSTCB).
 #pragma once
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <iosfwd>
@@ -11,6 +12,13 @@
 #include <vector>
 
 namespace dag {
+
+// Reads a count or length from a saved image (DAGRAM 1, DAGSNAP 1). Each
+// counted element takes at least one more byte of input, so a value larger
+// than what remains in the stream is corrupt: the stream is failed and 0 is
+// returned rather than allocating on it. A well-formed image never trips
+// this. Only for string-backed streams, where in_avail() is what remains.
+std::size_t read_bounded_count(std::istream& in);
 
 // Queue codes, exactly the original byte values (CD.ASM).
 enum class Queue : std::uint8_t {

@@ -1,9 +1,21 @@
 #include "daggorath/scheduler.hpp"
 
 #include <algorithm>
+#include <istream>
 #include <sstream>
 
 namespace dag {
+
+std::size_t read_bounded_count(std::istream& in) {
+    std::size_t n = 0;
+    in >> n;
+    const std::streamsize left = in ? in.rdbuf()->in_avail() : -1;
+    if (left < 0 || n > static_cast<std::size_t>(left)) {
+        in.setstate(std::ios::failbit);
+        return 0;
+    }
+    return n;
+}
 
 std::string Counters::to_string() const {
     std::ostringstream os;
@@ -195,8 +207,7 @@ void Scheduler::save_state(std::ostream& out) const {
 }
 
 void Scheduler::load_state(std::istream& in, const Resolver& resolve) {
-    std::size_t n = 0;
-    in >> n;
+    const std::size_t n = read_bounded_count(in);
     tasks_.clear();
     for (std::size_t i = 0; i < n; ++i) {
         Task t;
@@ -209,9 +220,7 @@ void Scheduler::load_state(std::istream& in, const Resolver& resolve) {
         tasks_.push_back(std::move(t));
     }
     auto read_list = [&in](std::vector<int>& list) {
-        std::size_t count = 0;
-        in >> count;
-        list.assign(count, 0);
+        list.assign(read_bounded_count(in), 0);
         for (int& id : list) in >> id;
     };
     read_list(ready_);

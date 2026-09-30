@@ -5,9 +5,13 @@
 // and checks what reached localStorage and what the player was told:
 //
 //   1. ZSAVE stores the image; a reload puts it back on the cassette
-//   2. the Video and Controls menu entries are remembered across a reload
-//   3. a write that throws (quota exhausted) is reported, not claimed stored
-//   4. storage that cannot be read at all is reported, and play still starts
+//   2. a system-menu slot save is stored; a reload puts it back in the menu,
+//      the menu's load path runs on it without error (that the loaded game
+//      is the saved one is shell_tests' job), and an overwrite replaces it
+//   3. the Video and Controls menu entries are remembered across a reload,
+//      and a damaged stored slot is reported and left out of the menu
+//   4. a write that throws (quota exhausted) is reported, not claimed stored
+//   5. storage that cannot be read at all is reported, and play still starts
 //
 //   node tools/web/storage-test.mjs [web/dist]      (CHROME=... to override)
 //
@@ -150,7 +154,7 @@ await cdp('Page.enable');
 
 // 1. ZSAVE stores; a reload mounts it.
 let startup = await load();
-check(/saves=0/.test(startup), 'fresh profile starts with no saves', startup);
+check(/saves=0 slots=0/.test(startup), 'fresh profile starts with no saves or slots', startup);
 check(/layout=tablet video=pixel/.test(startup), 'fresh profile uses the screen-shape default', startup);
 await typeLine('ZSAVE WEBTEST');
 await until('ZSAVE to reach localStorage', async () => ((await stored('dod.save.WEBTEST')) || '').startsWith('DAGRAM 1'));
@@ -159,7 +163,39 @@ check((await toast()) === '', 'no storage notice after a good save');
 startup = await load();
 check(/saves=1/.test(startup), 'reload puts the stored save on the cassette', startup);
 
-// 2. Video and Controls are remembered.
+// 2. A menu slot save is stored, comes back after a reload, loads, and can
+// be overwritten.
+await key('Escape');
+await key('s');
+await key('1');
+await key('Escape');
+await until('slot 1 to reach localStorage', async () => ((await stored('dod.slot.1')) || '').startsWith('DODSLOT 1\n'));
+const slot1 = await stored('dod.slot.1');
+check(/^DODSLOT 1\nL\d+ \d\d:\d\d\nDAGSNAP 1\n/.test(slot1), 'menu save stored slot 1 with its name and snapshot',
+  slot1.slice(0, 40));
+check((await toast()) === '', 'no storage notice after a good slot save');
+startup = await load();
+check(/slots=1/.test(startup), 'reload puts the stored slot back in the menu', startup);
+await key('Escape');
+await key('l');
+await key('1');
+await key('Escape');
+await typeLine('ZSAVE AFTERLD');
+await until('ZSAVE after a slot load to be stored', async () => ((await stored('dod.save.AFTERLD')) || '').startsWith('DAGRAM 1'));
+check(true, 'game plays on after the menu load of the stored slot');
+await typeLine('ZSAVE AFTERLD');  // changes the game, so the overwrite below stores new bytes
+await key('Escape');
+await key('s');
+await key('1');
+await key('y');
+await key('Escape');
+await until('overwritten slot 1 to be stored', async () => {
+  const now = await stored('dod.slot.1');
+  return now && now !== slot1 && now.startsWith('DODSLOT 1\n');
+});
+check(true, 'a confirmed overwrite replaces the stored slot');
+
+// 3. Video and Controls are remembered.
 await key('Escape');
 await key('v');
 await key('c');
@@ -169,7 +205,13 @@ check(/layout=phone/.test((await stored('dod.prefs')) || ''), 'Controls choice s
 startup = await load();
 check(/layout=phone video=crisp/.test(startup), 'reload restores Video and Controls', startup);
 
-// 3. A write that throws is reported and not claimed as stored.
+// A damaged stored slot is reported at start-up and left out of the menu.
+startup = await load(`localStorage.setItem("dod.slot.4", "DODSLOT 1\\nL1 00:00\\nDAGSNAP 1\\n1 2 3");`);
+check(/slots=1/.test(startup), 'damaged slot 4 not put in the menu', startup);
+check(/SAVE SLOT 4 DAMAGED/.test(await toast()), 'damaged slot reported to the player', await toast());
+await evaluate('localStorage.removeItem("dod.slot.4")');
+
+// 4. A write that throws is reported and not claimed as stored.
 await load(`Storage.prototype.setItem = function () {
   throw new DOMException("simulated full storage", "QuotaExceededError"); };`);
 await typeLine('ZSAVE FULL');
@@ -181,11 +223,19 @@ await key('v');
 await key('Escape');
 await until('settings notice', async () => /SETTINGS NOT SAVED/.test(await toast()));
 check(true, 'failed settings write reported to the player');
+await key('Escape');
+await key('s');
+await key('2');
+await key('Escape');
+await until('slot notice', async () => /SAVE SLOT 2 NOT STORED/.test(await toast()));
+check(true, 'failed slot save reported to the player');
+check(/SETTINGS NOT SAVED/.test(await toast()), 'the earlier notice is still listed, not replaced', await toast());
+check((await stored('dod.slot.2')) === null, 'failed slot save left nothing behind');
 
-// 4. Unreadable storage is reported, and the game still runs.
+// 5. Unreadable storage is reported, and the game still runs.
 startup = await load(`Object.defineProperty(window, "localStorage", {
   get() { throw new DOMException("simulated blocked storage", "SecurityError"); } });`);
-check(/saves=0/.test(startup), 'blocked storage: game starts with no saves', startup);
+check(/saves=0 slots=0/.test(startup), 'blocked storage: game starts with no saves or slots', startup);
 check(/SAVED GAMES UNAVAILABLE/.test(await toast()), 'blocked storage reported to the player', await toast());
 
 console.log(`PASS: ${checks} checks`);

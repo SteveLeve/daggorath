@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <system_error>
 
 namespace dag::platform {
@@ -15,6 +16,10 @@ namespace fs = std::filesystem;
 
 constexpr const char* kSaveExt = ".dagram";
 constexpr const char* kPrefsFile = "dod.prefs";
+
+fs::path slot_path(const std::string& dir, std::size_t number) {
+    return fs::path(dir) / ("slot" + std::to_string(number) + ".dagsnap");
+}
 
 std::optional<std::string> read_file(const fs::path& path) {
     std::ifstream in(path, std::ios::binary);
@@ -75,6 +80,28 @@ SaveLoad Storage::load_saves() const {
 bool Storage::store_save(const std::string& name, const std::string& image) {
     if (!tape_name_ok(name)) return false;
     return write_atomically(fs::path(dir_) / (name + kSaveExt), image);
+}
+
+SlotLoad Storage::load_slots() const {
+    SlotLoad result;
+    std::error_code ec;
+    for (std::size_t n = 1; n <= kStoredSlots; ++n) {
+        const fs::path path = slot_path(dir_, n);
+        if (!fs::exists(path, ec)) continue;
+        auto text = read_file(path);
+        if (!text) {
+            result.error = "could not read " + path.string();
+            continue;
+        }
+        if (auto slot = decode_slot(n, *text)) result.slots.push_back(std::move(*slot));
+        else result.damaged.push_back(n);
+    }
+    return result;
+}
+
+bool Storage::store_slot(std::size_t number, const std::string& name, const std::string& snapshot) {
+    if (number < 1 || number > kStoredSlots || name.find('\n') != std::string::npos) return false;
+    return write_atomically(slot_path(dir_, number), encode_slot(name, snapshot));
 }
 
 std::optional<std::string> Storage::load_prefs() const {

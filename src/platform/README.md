@@ -16,8 +16,14 @@ Rules for this module:
   (ADR-0011 decision 7). Stored saves go back on the cassette at launch and
   on a menu Restart (D-20), and the player types `ZLOAD <name>`. A missing
   name reports `???` (D-11). A store that fails is reported, never silent.
+- The system menu's five save slots (`DAGSNAP 1` snapshots, ADR-0009 §5/§6)
+  persist through the same `Storage`: `slot<n>.dagsnap` on the desktop,
+  `dod.slot.<n>` in the browser, each a `DODSLOT 1` envelope carrying the
+  slot's display name. They are put back into the shell at launch and carried
+  across a menu Restart. The hidden slot is not stored yet (ADR-0011
+  decision 7).
 - The Video and Controls menu choices persist through the same `Storage`
   (`prefs.hpp`, `dod.prefs`). `--layout` overrides the stored layout;
-  `--shots` runs ignore preferences.
+  `--shots` runs ignore preferences and slots.
 
 `tools/check-sdl3-deps.sh` lists the Debian packages required to build SDL3 from source. `--install` runs `apt` for the missing ones. The desktop target stays optional: CMake skips it when SDL3 is absent.

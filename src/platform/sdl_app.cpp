@@ -127,6 +127,42 @@ std::size_t mount_saves(dag::Game& game, const dag::platform::Storage& storage,
     return mounted;
 }
 
+// The system menu's five save slots (ADR-0009 §6) are kept by the platform
+// too (ADR-0011), so a menu save survives a reload or relaunch.
+static_assert(dag::platform::kStoredSlots == dag::shell::Shell::kSlotCount);
+
+// Put every stored slot back into the shell before play. Returns how many the
+// shell accepted; a damaged one is reported and left empty in the menu.
+std::size_t mount_slots(dag::shell::Shell& shell, const dag::platform::Storage& storage) {
+    const auto loaded = storage.load_slots();
+    std::size_t mounted = 0;
+    std::vector<std::size_t> damaged = loaded.damaged;
+    for (const auto& slot : loaded.slots) {
+        if (shell.put_slot(slot.number - 1, {slot.name, slot.snapshot})) ++mounted;
+        else damaged.push_back(slot.number);
+    }
+    for (const std::size_t n : damaged)
+        dag::platform::report_storage_problem(
+            "SAVE SLOT " + std::to_string(n) + " DAMAGED - not loaded. The next save there replaces it.");
+    if (!loaded.error.empty())
+        dag::platform::report_storage_problem("SAVE SLOTS UNAVAILABLE - " + loaded.error);
+    return mounted;
+}
+
+// Store slot `i` after a menu save into it (an empty slot, or a confirmed
+// overwrite). Every save is stored, even one whose bytes match the last
+// attempt, so saving again retries a failed store. A slot that could not be
+// stored stays in the shell for this session, and the player is told so, as
+// for ZSAVE.
+void persist_slot(std::size_t i, const dag::shell::Shell& shell, dag::platform::Storage& storage) {
+    const dag::shell::SnapshotSlot& slot = shell.slots()[i];
+    if (!slot.occupied()) return;
+    if (!storage.store_slot(i + 1, slot.name, slot.bytes))
+        dag::platform::report_storage_problem(
+            "SAVE SLOT " + std::to_string(i + 1) + " NOT STORED - storage full or blocked. "
+            "It is kept for this session only.");
+}
+
 std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int bar_x) {
     // PTURN.ASM LRTURN/RLTURN: two horizontal lines and a vertical bar.
     // The sweep is eight positions inside one foreground burst. One bar is
@@ -482,11 +518,11 @@ int main(int argc, char** argv) {
         SDL_free(pref);
     }
     dag::platform::Storage storage(save_dir);
-    // Scripted screenshot runs (--shots) neither read nor write preferences,
-    // so they draw the same frames on every machine.
-    const bool remember_prefs = shots_path.empty();
+    // Scripted screenshot runs (--shots) neither read nor write preferences
+    // or menu slots, so they draw the same frames on every machine.
+    const bool remember = shots_path.empty();
     dag::platform::Prefs prefs;
-    if (remember_prefs)
+    if (remember)
         if (auto text = storage.load_prefs()) prefs = dag::platform::parse_prefs(*text);
     dag::input::OverlayLayout layout =
         flag_layout.value_or(prefs.layout.value_or(default_layout.value_or(dag::input::OverlayLayout::Tablet4x3)));
@@ -566,8 +602,10 @@ int main(int argc, char** argv) {
     // One line of start-up state, for the player's terminal and for
     // tools/web/storage-test.mjs, which reads it from the browser console.
     const std::size_t mounted = mount_saves(*held, storage);
+    const std::size_t mounted_slots = remember ? mount_slots(*shell, storage) : 0;
     std::cout << "dod: layout=" << (layout == dag::input::OverlayLayout::PhoneLandscape ? "phone" : "tablet")
-              << " video=" << (prefs.crisp ? "crisp" : "pixel") << " saves=" << mounted << std::endl;
+              << " video=" << (prefs.crisp ? "crisp" : "pixel") << " saves=" << mounted
+              << " slots=" << mounted_slots << std::endl;
     SDL_AudioSpec spec{};
     spec.format = SDL_AUDIO_U8;
     spec.channels = 1;
@@ -615,14 +653,21 @@ int main(int argc, char** argv) {
     // ZSAVEs this session could not store (persist_saves). The core keeps its
     // cassette across a death restart (D-18); a menu Restart builds a new
     // Game, so these are carried across by hand to keep the "kept for this
-    // session" promise.
+    // session" promise. The menu slots are carried across whole: they belong
+    // to the player, not to the game being abandoned, and include any slot
+    // that could not be stored.
     std::set<std::string> unstored;
     auto restart_game = [&]() {
         std::vector<std::pair<std::string, std::string>> carried;
         for (const auto& name : unstored)
             if (const std::string* image = held->cassette_image(name)) carried.emplace_back(name, *image);
+        const auto slots = shell->slots();
         held.emplace();
         shell.emplace(*held);
+        for (std::size_t i = 0; i < slots.size(); ++i)
+            if (slots[i].occupied() && !shell->put_slot(i, slots[i]))
+                dag::platform::report_storage_problem(
+                    "SAVE SLOT " + std::to_string(i + 1) + " DAMAGED - not carried across the restart.");
         mount_saves(*held, storage, unstored);  // D-20: a fresh start sees the stored saves too
         for (const auto& [name, image] : carried) held->insert_cassette_image(name, image);
         reset_view();
@@ -644,7 +689,20 @@ int main(int argc, char** argv) {
     // taps (8.6.8): one place decides what a MenuState::press effect does
     // to the running app.
     auto apply_menu_key = [&](dag::shell::MenuKey key, std::size_t slot = 0) {
+        // Which slot, if any, this key saves into (MenuState::press: a slot
+        // key on the Save screen, or Yes to a pending overwrite).
+        std::optional<std::size_t> saving;
+        if (shell->paused() && shell->pending() == dag::shell::ConfirmKind::SaveOverwrite) {
+            if (key == dag::shell::MenuKey::Yes) saving = shell->pending_slot();
+        } else if (shell->paused() && shell->pending() == dag::shell::ConfirmKind::None &&
+                   menu.screen() == dag::shell::MenuScreen::ChooseSave &&
+                   key == dag::shell::MenuKey::Slot && slot < dag::shell::Shell::kSlotCount) {
+            saving = slot;
+        }
         const auto effect = menu.press(*shell, key, slot);
+        // Saving into an occupied slot only asks for confirmation.
+        if (saving && shell->pending() == dag::shell::ConfirmKind::SaveOverwrite) saving.reset();
+        if (remember && saving) persist_slot(*saving, *shell, storage);
         if (effect == dag::shell::MenuEffect::Restart)
             restart_game();  // re-emplaces held and shell (fresh, unpaused)
         else if (effect == dag::shell::MenuEffect::Quit)
@@ -654,7 +712,7 @@ int main(int argc, char** argv) {
     // menu's V/C keys and their row taps all call these two.
     // Both are remembered for the next launch (dag::platform::Prefs).
     auto save_prefs = [&]() {
-        if (!remember_prefs) return;
+        if (!remember) return;
         const dag::platform::Prefs now{crisp_style, layout};
         if (!storage.store_prefs(dag::platform::serialize_prefs(now)))
             dag::platform::report_storage_problem("SETTINGS NOT SAVED - storage full or blocked.");

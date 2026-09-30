@@ -77,6 +77,14 @@ public:
 
     const std::array<SnapshotSlot, kSlotCount>& slots() const { return slots_; }
 
+    // Fills `slot` with contents kept outside the process (the platform's
+    // storage, ADR-0011) or carried over from a previous Shell, before play.
+    // Such bytes may be damaged, so beyond load_from_slot's header check the
+    // snapshot is restored into a scratch Game and must reproduce itself
+    // exactly. Refuses (returns false, slot unchanged) anything else. Touches
+    // no state of the running game.
+    bool put_slot(std::size_t slot, SnapshotSlot contents);
+
     // true: the slot was empty and is now saved. false: the slot was
     // occupied; nothing changed yet and pending() is now SaveOverwrite for
     // `slot` until confirm() or cancel().

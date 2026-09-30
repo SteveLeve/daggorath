@@ -45,6 +45,7 @@
     transform: translateX(-50%); max-width: calc(100% - 32px);
     padding: 8px 12px; border: 2px solid #fff; background: #000;
     text-align: center; z-index: 3; pointer-events: none; display: none;
+    white-space: pre-line;
   }
   #toast.show { display: block; }
   @media (orientation: portrait) and (pointer: coarse) {
@@ -74,8 +75,12 @@
   // Called by the game when a save or setting could not be stored.
   const toast = document.getElementById("toast");
   let toastTimer = 0;
+  // Notices arriving while one is showing are listed under it, not swapped
+  // in, so no failure is hidden by a later one.
   window.dodNotice = (text) => {
-    toast.textContent = text;
+    const showing = toast.classList.contains("show") ? toast.textContent.split("\n") : [];
+    if (!showing.includes(text)) showing.push(text);
+    toast.textContent = showing.join("\n");
     toast.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove("show"), 8000);

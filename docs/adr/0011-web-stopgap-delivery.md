@@ -38,8 +38,7 @@ target and changes no game behaviour.
    `ccall('sendinput')` pattern would be a side door).
 4. **Browser specifics are confined to `#ifdef __EMSCRIPTEN__` blocks and
    `src/platform/web/`:**
-   - *Saves and preferences.* See decision 7. The system-menu slots were
-     in-memory on the desktop too, and still are.
+   - *Saves, menu slots and preferences.* See decision 7.
    - *Canvas sizing.* The window is `SDL_WINDOW_RESIZABLE` and the page's CSS
      sizes the canvas. The game keeps drawing in its fixed window coordinates
      and `SDL_SetRenderLogicalPresentation(..., LETTERBOX)` scales them to fit.
@@ -69,12 +68,12 @@ target and changes no game behaviour.
    presentation wait for Q5 (name and branding).
 7. **Storage: one API, two backends, failures told to the player
    (2026-09-29).** `src/platform/include/daggorath/storage.hpp` stores ZSAVE
-   images and preferences.
-   - *Desktop* (`file_storage.cpp`): `<name>.dagram` and `dod.prefs` in the
-     `SDL_GetPrefPath` directory, each written to a temporary file and renamed
-     into place.
-   - *Browser* (`web/web_storage.cpp`): localStorage keys `dod.save.<NAME>` and
-     `dod.prefs`. This replaces the first draft's IDBFS mount. IDBFS synced
+   images, the system menu's five save slots and preferences.
+   - *Desktop* (`file_storage.cpp`): `<name>.dagram`, `slot<n>.dagsnap` and
+     `dod.prefs` in the `SDL_GetPrefPath` directory, each written to a
+     temporary file and renamed into place.
+   - *Browser* (`web/web_storage.cpp`): localStorage keys `dod.save.<NAME>`,
+     `dod.slot.<n>` and `dod.prefs`. This replaces the first draft's IDBFS mount. IDBFS synced
      asynchronously and only logged failures, so a ZSAVE could look
      successful while it existed only in memory; a reload then lost it, and
      after a failed load a later flush could overwrite IndexedDB with an
@@ -84,14 +83,72 @@ target and changes no game behaviour.
      writes that area to disk is up to the browser. The desktop backend
      renames without an fsync, so neither backend guarantees the bytes
      survive an OS or browser crash in the moment after a save.
-     A save is about 8 KB of text, well under the usual 5 MB per-origin
-     quota.
+     A ZSAVE image is about 8 KB of text. A menu slot is about 8.5 KB plus
+     about 8 KB for each entry on the cassette it carries (measured
+     2026-09-29 with `Game::snapshot()`). The cassette has no limit: every
+     ZSAVE is appended, repeats of a name included, and the stored saves are
+     mounted at start-up. So the total, shared by the whole origin under the
+     usual 5 MB quota, grows with play and can reach it. A store that hits it
+     is reported as NOT STORED, like any other failed store.
    - *Reporting.* A failed store, or storage that cannot be read at start-up,
      is reported through `report_storage_problem`: stderr on the desktop, a
-     notice over the top of the page in the browser. Nothing is drawn on the
+     notice over the top of the page in the browser. Notices that arrive
+     while one is showing are listed together, so a later one never hides an
+     earlier failure. Nothing is drawn on the
      game screen, which belongs to the core's text page. The in-game ZSAVE
      still fills the in-memory cassette, so an unstored save stays loadable
      for the rest of the session, and the notice says so.
+   - *Menu slots* (added 2026-09-29, after the owner found on localhost that
+     a menu save never reached localStorage). Until then the five slots
+     (ADR-0009 §6) lived only in the running `Shell` on both platforms, so a
+     reload or relaunch emptied them, and so did a menu Restart. That mattered
+     most on touch, where the menu is the way to save (ZSAVE needs the `⌨`
+     keyboard). Now:
+     - Each slot a menu key fills (a save, or a confirmed overwrite) is stored
+       at once as `DODSLOT 1\n<name>\n<DAGSNAP 1 snapshot>`. The envelope
+       carries the slot's display name, which the shell derives from the game
+       at save time and cannot recompute without restoring it.
+     - Stored slots go back into the shell at start-up through
+       `Shell::put_slot`, which touches no state of the running game. Stored
+       bytes may be damaged, so `put_slot` checks more than
+       `load_from_slot`'s header check: it restores the snapshot into a
+       scratch `Game` and accepts it only if that game's snapshot reproduces
+       the bytes exactly (about 0.3 ms per slot, measured natively
+       2026-09-29). A slot that fails is reported as `SAVE SLOT <n> DAMAGED`
+       and left empty in the menu. Loading a slot is still a menu choice.
+     - The core's image reader trusted the counts and lengths in the body, so
+       an edited size field could exhaust memory in that trial, at every
+       start-up (evidence audit, 2026-09-29). `read_bounded_count`
+       (`scheduler.hpp`) now fails the read when a count exceeds the bytes
+       remaining, since each element takes at least one byte. A well-formed
+       image never trips it. The same reader serves `DAGSNAP 1` and
+       `DAGRAM 1`, so the bound also applies to a stored ZSAVE at ZLOAD. Only
+       the snapshot's tape count is tested (`shell_tests`); the other bounded
+       fields, and the ZLOAD path, are bounded by the same helper but not
+       tested. A damaged image that stays within its bounds can still load
+       partial state at ZLOAD; only slots get the exact round-trip check.
+     - The round-trip check assumes `snapshot()` is canonical: restoring and
+       re-snapshotting gives the same bytes. That holds for a fresh game and
+       for the test script's mid-game state (`shell_tests`), not for every
+       state. A slot that failed it would be reported as DAMAGED at launch,
+       or when a menu Restart carries it across.
+     - A slot carries its game's cassette (ADR-0009 §5). Loading a slot
+       stored in an earlier session therefore replaces the cassette mounted
+       at start-up. ZSAVEs made after that slot drop off the in-memory tape
+       until the next launch or menu Restart mounts them again. They stay in
+       storage. ADR-0009 §5's rollback now reaches across sessions.
+     - Every menu save is stored, a failed one included, so saving again
+       retries. A failed store is reported as `SAVE SLOT <n> NOT STORED`, and
+       the slot stays in the shell for the session.
+     - A menu Restart now carries all five slots into the new `Shell`. They
+       belong to the player, not to the abandoned game, and this keeps an
+       unstored slot's "kept for this session" true. A slot the new shell
+       refuses is reported. Like the ZSAVE carry, it lives in `sdl_app.cpp`
+       and has no automated test.
+     - `--shots` runs neither read nor write slots, as for preferences.
+     - The hidden slot is not stored. Nothing writes it yet, because the
+       backgrounding hook (ADR-0009 §6) is unbuilt. Storing it belongs with that
+       hook.
    - *Preferences.* The system menu's Video (pixel/crisp) and Controls
      (phone/tablet) choices are remembered on both platforms (`prefs.hpp`). At
      start-up an explicit `--layout` wins, then the remembered layout, then
@@ -142,19 +199,33 @@ target and changes no game behaviour.
   cassette after a reload (`saves=1`). It does not type ZLOAD, and a
   ZLOAD through the new backend has not been checked by hand. Decision 7 is
   covered on every PR by `make web-test` (`tools/web/storage-test.mjs`,
-  headless Chrome, 12 checks):
+  headless Chrome, 22 checks):
   - ZSAVE is stored, and a reload mounts it.
+  - A menu slot save is stored with its name, and a reload puts it back
+    (`slots=1`). Loading it lets play continue: a ZSAVE afterwards is
+    stored. A confirmed overwrite replaces the stored slot. Whether the
+    loaded game is the saved one is checked headlessly instead
+    (`shell_tests`: a slot put into a fresh shell restores the exact
+    snapshot, and a truncated one or one with an absurd tape count is
+    refused).
+  - A damaged stored slot is reported and left out of the menu.
   - Video and Controls survive a reload.
   - A `setItem` that throws QuotaExceededError is reported and leaves nothing
-    behind.
+    behind, for a ZSAVE, a settings change and a slot save. The notices
+    are listed together.
   - Unreadable storage (SecurityError) is reported, and play still starts.
 
   The test was run once against a deliberately broken `store_save` that
-  ignored write errors, and it failed (2026-09-29; no artifact kept). The
+  ignored write errors (2026-09-29, the tree committed as c918382), and it
+  failed. It was also run against a `store_slot` that did the same
+  (2026-09-29, c918382 plus this change's uncommitted tree, 22-check
+  test), and it failed with "timed out waiting for slot notice". No
+  artifact was kept. The
   desktop backend is covered by `tests/platform/storage_tests.cpp`
   (`storage_tests`): round trips, skipping invalid files, writing through a
-  temporary file with none left behind (an interrupted write is not tested), and
-  reporting an unwritable directory. Not yet verified: real iOS Safari and Android Chrome, Add to
+  temporary file with none left behind (an interrupted write is not tested),
+  reporting an unwritable directory, and the same for slots, including a
+  damaged slot file being skipped. Not yet verified: real iOS Safari and Android Chrome, Add to
   Home Screen, offline start, and audio on the first tap.
 - **[OPEN] Deployment is blocked on licensing** (decision 6), the same way
   Phase 9 is. Phase 9's precondition also accepts "a recorded decision to

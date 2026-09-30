@@ -1404,8 +1404,8 @@ void Game::load_ram(std::istream& in) {
     p.regular_light = static_cast<std::uint8_t>(rl);
     p.magic_light = static_cast<std::uint8_t>(ml);
     int mode = 0, frozen = 0, sync = 0, newluk = 0;
-    std::size_t line_size = 0;
-    in >> mode >> frozen >> sync >> newluk >> level_index_ >> line_size;
+    in >> mode >> frozen >> sync >> newluk >> level_index_;
+    const std::size_t line_size = read_bounded_count(in);
     mode_ = static_cast<DisplayMode>(mode);
     frozen_ = frozen != 0;
     sync_pending_ = sync;
@@ -1451,9 +1451,7 @@ void Game::load_ram(std::istream& in) {
         c.row = byte();
         c.col = byte();
     }
-    std::size_t count = 0;
-    in >> count;
-    objects_.assign(count, Ocb{});
+    objects_.assign(read_bounded_count(in), Ocb{});
     for (Ocb& o : objects_) {
         in >> o.next;
         o.row = byte();
@@ -1478,9 +1476,8 @@ void Game::load_ram(std::istream& in) {
     level_.rng.set_seed(seeds[2]);
     in >> level_.spin_count;
     sched_.load_state(in, [this](const std::string& name) { return task_body(name); });
-    std::size_t creatures = 0;
-    in >> player_task_ >> hslow_task_ >> creatures;
-    creature_tasks_.assign(creatures, 0);
+    in >> player_task_ >> hslow_task_;
+    creature_tasks_.assign(read_bounded_count(in), 0);
     for (int& id : creature_tasks_) in >> id;
 }
 
@@ -1541,8 +1538,8 @@ void Game::restore_snapshot(const std::string& bytes) {
     load_ram(in);
     std::uint64_t total = 0;
     int halted = 0;
-    std::size_t name_size = 0;
-    in >> total >> halted >> zflag_ >> name_size;
+    in >> total >> halted >> zflag_;
+    const std::size_t name_size = read_bounded_count(in);
     sched_.counters().total_jiffies = total;
     sched_.set_halted(halted != 0);
     // Live keystrokes queued after the save belong to the abandoned timeline.
@@ -1554,17 +1551,15 @@ void Game::restore_snapshot(const std::string& bytes) {
     tape_name_.assign(name_size, ' ');
     in.read(tape_name_.data(), static_cast<std::streamsize>(name_size));
     in.get();
-    std::size_t tapes = 0;
-    in >> tapes;
+    const std::size_t tapes = read_bounded_count(in);
     tapes_.clear();
     for (std::size_t i = 0; i < tapes; ++i) {
-        std::size_t n = 0, m = 0;
-        in >> n;
+        const std::size_t n = read_bounded_count(in);
         in.get();
         std::string name(n, ' ');
         in.read(name.data(), static_cast<std::streamsize>(n));
         in.get();
-        in >> m;
+        const std::size_t m = read_bounded_count(in);
         in.get();
         std::string image(m, ' ');
         in.read(image.data(), static_cast<std::streamsize>(m));
