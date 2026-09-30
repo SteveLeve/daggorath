@@ -172,15 +172,15 @@ notices travel with the output and no licence text is kept in this tree.
 
 Build dependencies only. None of their source enters the repository.
 `third_party/SDL3` is gitignored. The APK is built for private devices only
-(`docs/licensing/README.md` D5) and is never uploaded by CI. Not run: no
-Android SDK was reachable where this section was written, so no APK has been
-built yet; the first CI run is the first build.
+(`docs/licensing/README.md` D5) and is never uploaded by CI. The first APK
+was built by CI run 36778318482 (2026-09-30, `assembleDebug`); it has not
+been run on a device yet.
 
 | Component | Version | Licence | Use |
 |---|---|---|---|
 | SDL3 | 3.4.2 (`release-3.4.2`, commit `683181b47cfabd293e3ea409f838915b8297a4fd`, fetched by `tools/android/fetch-sdl.sh`) | zlib | native library and `org.libsdl.app` Java activity; **ships** in the APK |
-| Android SDK / NDK | compileSdk 35, NDK 28.2.13676358 (chosen, not yet observed building) | Android SDK License | toolchain; the NDK's libc++ (Apache-2.0 WITH LLVM-exception) **ships**, statically linked |
-| Android Gradle Plugin | 8.13.0 from Google's Maven (chosen, not yet observed building) | Apache-2.0 | build only |
+| Android SDK / NDK | compileSdk 35, NDK 28.2.13676358 (observed building on CI, run 36778318482) | Android SDK License | toolchain; the NDK's libc++ (Apache-2.0 WITH LLVM-exception) **ships**, statically linked |
+| Android Gradle Plugin | 8.13.0 from Google's Maven (observed building on CI, run 36778318482) | Apache-2.0 | build only |
 | Gradle | 8.14.3 | Apache-2.0 | build only |
 | GitHub Actions `actions/checkout@v4`, `actions/setup-java@v4`, `gradle/actions/setup-gradle@v4.4.4` | pinned by commit SHA (`11d5960a`, `cf277c60`, `748248dd`) | MIT | `.github/workflows/android.yml` (build only; no upload) |
 

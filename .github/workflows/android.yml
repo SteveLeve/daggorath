@@ -1,5 +1,5 @@
 # Android build check (Phase 9, ADR-0012).
-# Builds (first run untested as of 2026-09-30) the debug APK for arm64-v8a and x86_64 against the pinned SDL3 tree.
+# Builds the debug APK for arm64-v8a and x86_64 against the pinned SDL3 tree.
 # There is deliberately no artifact upload and no release step: this is a
 # public repository and the APK carries the copied original data
 # (DATA-NOTICE.md), so any upload would be distribution, which

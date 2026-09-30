@@ -22,6 +22,14 @@
 #if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
 #include <SDL3/SDL_main.h>
 #endif
+// Where the platform, not the app, sizes the window (a browser canvas, a
+// phone or tablet screen), SDL letterboxes the fixed game coordinates into
+// it and maps pointer and touch events back (ADR-0011, ADR-0012).
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+#define DAG_FITS_WINDOW 1
+#else
+#define DAG_FITS_WINDOW 0
+#endif
 
 
 #include <algorithm>
@@ -478,7 +486,7 @@ void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int sc
 // its fixed window, unchanged. No SDL_WINDOW_HIGH_PIXEL_DENSITY: with it,
 // SDL 3.4 writes inline CSS sizes onto the canvas (and a 1x1 one when the
 // WebGL renderer recreates the window), overriding the page's sizing.
-#ifdef __EMSCRIPTEN__
+#if DAG_FITS_WINDOW
 constexpr SDL_WindowFlags kWindowFlags = SDL_WINDOW_RESIZABLE;
 #else
 constexpr SDL_WindowFlags kWindowFlags = 0;
@@ -486,7 +494,7 @@ constexpr SDL_WindowFlags kWindowFlags = 0;
 
 void fit_to_window([[maybe_unused]] SDL_Renderer* renderer, [[maybe_unused]] double w,
                    [[maybe_unused]] double h) {
-#ifdef __EMSCRIPTEN__
+#if DAG_FITS_WINDOW
     SDL_SetRenderLogicalPresentation(renderer, static_cast<int>(w), static_cast<int>(h),
                                      SDL_LOGICAL_PRESENTATION_LETTERBOX);
 #endif
@@ -589,8 +597,9 @@ int main(int argc, char** argv) {
         game_x = (window_w - kGameW) / 2.0;
         viewport_w = window_w;
         overlay.set_layout(layout);
-#ifdef __EMSCRIPTEN__
-        // The page sizes the canvas; only the letterboxed logical size changes.
+#if DAG_FITS_WINDOW
+        // The page or the screen sizes the window; only the letterboxed
+        // logical size changes.
         fit_to_window(renderer, window_w, window_h);
         return;
 #endif
@@ -846,7 +855,7 @@ int main(int argc, char** argv) {
         }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-#ifdef __EMSCRIPTEN__
+#if DAG_FITS_WINDOW
             SDL_ConvertEventToRenderCoordinates(renderer, &event);
 #endif
             if (event.type == SDL_EVENT_QUIT) running = false;

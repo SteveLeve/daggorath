@@ -20,8 +20,8 @@ path to iOS later. The precondition is met by a private-build-only decision,
    `CMakeLists.txt`. Under `ANDROID`, `src/platform` builds the app as
    `libmain.so` and SDL3 from source. SDL's Java `SDLActivity` is compiled from
    the same pinned tree. `DodActivity` only names the two libraries. ABIs are
-   `arm64-v8a` (devices) and `x86_64` (emulator). **Not run:** no Android SDK
-   was reachable when this was written; the first CI run is the first build.
+   `arm64-v8a` (devices) and `x86_64` (emulator). The first APK was built on CI
+   (run 36778318482, 2026-09-30); it has not yet run on a device or emulator.
 3. **SDL3 is pinned, fetched, never committed.** `tools/android/fetch-sdl.sh`
    clones `release-3.4.2` into `third_party/SDL3` and refuses any commit other
    than `683181b4…`. This is the SDL version the web build ships

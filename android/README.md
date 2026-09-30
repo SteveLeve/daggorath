@@ -1,7 +1,7 @@
 # Android build (Phase 9, ADR-0012)
 
-Status: scaffold, not yet built. No Android SDK was reachable where it was
-written; the first CI run is the first build.
+Status: the debug APK builds on CI (workflow run 36778318482, 2026-09-30).
+It has not yet been run on a device or emulator.
 
 Private-device builds only (`docs/licensing/README.md` D5). Do not publish the
 APK: it contains the copied original data listed in `DATA-NOTICE.md`.
