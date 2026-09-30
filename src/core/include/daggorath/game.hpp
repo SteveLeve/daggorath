@@ -158,6 +158,13 @@ public:
             objects_[static_cast<std::size_t>(player_.torch)].spec[0] = value;
         }
     }
+    // Test hook: write a live creature's P.CCROW/P.CCCOL directly (C-19).
+    void place_creature(int slot, int row, int col) {
+        if (slot >= 0 && static_cast<std::size_t>(slot) < ccbs_.size()) {
+            ccbs_[static_cast<std::size_t>(slot)].row = static_cast<std::uint8_t>(row);
+            ccbs_[static_cast<std::size_t>(slot)].col = static_cast<std::uint8_t>(col);
+        }
+    }
 
     // What ZSAVE writes: the direct page and common RAM, DP.BEG ($0200)
     // through MM.END (COMMON.ASM SAVE). That range holds the player, clock,

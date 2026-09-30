@@ -32,15 +32,16 @@ int usage() {
                  "       dcli --maze-summary\n"
                  "       --second sets a harness SECOND and skips the 377-interrupt\n"
                  "       Original Mode build clock.\n"
-                 "       --poke sets player damage, power, position, or the worn\n"
-                 "       torch's timer at a jiffy boundary (FIELD is damage, power,\n"
-                 "       position, or torch; position's VALUE is row*256+col),\n"
+                 "       --poke sets player damage, power, position, the worn\n"
+                 "       torch's timer, or creature slot 6's position at a jiffy\n"
+                 "       boundary (FIELD is damage, power, position, torch, or\n"
+                 "       creature6; position/creature6's VALUE is row*256+col),\n"
                  "       mirroring tools/rom/capture.lua's DOD_POKE for a\n"
                  "       harness-modified capture. Repeatable.\n";
     return 2;
 }
 
-enum class PokeField { Damage, Power, Position, Torch };
+enum class PokeField { Damage, Power, Position, Torch, Creature6 };
 
 struct Poke {
     std::uint64_t jiffy;
@@ -65,8 +66,10 @@ std::vector<Poke> parse_pokes(const std::vector<std::string>& specs, std::string
         else if (field == "power") pf = PokeField::Power;
         else if (field == "position") pf = PokeField::Position;
         else if (field == "torch") pf = PokeField::Torch;
+        else if (field == "creature6") pf = PokeField::Creature6;
         else {
-            error = "bad --poke field '" + field + "', want damage, power, position, or torch";
+            error = "bad --poke field '" + field +
+                    "', want damage, power, position, torch, or creature6";
             return {};
         }
         Poke p;
@@ -188,6 +191,9 @@ int main(int argc, char** argv) {
                 break;
             case PokeField::Torch:
                 game.set_torch_timer(static_cast<std::uint8_t>(p.value));
+                break;
+            case PokeField::Creature6:
+                game.place_creature(6, p.value >> 8, p.value & 0xFF);
                 break;
         }
     }

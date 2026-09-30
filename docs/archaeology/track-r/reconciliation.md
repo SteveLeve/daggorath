@@ -838,3 +838,110 @@ task logs are new but live outside the tree under gitignored `captures/`.
 No harness or core changes in this commit — existing taps and watches were
 sufficient. `git status --porcelain` shows only the doc/backlog changes in
 this commit.
+
+## C-19 — a creature on the player's cell
+
+**Rule at stake:** `docs/planning/capture-backlog.md` C-19: `CMOVE`'s
+`PUPDAT`/`SYNC` foreground cost and next-task timing when a creature ends
+up on the player's cell. `docs/specification/clock-and-scheduler.md`'s D-15
+entry already carries this as **[INF]**, citing `CMOVE`'s attack branch
+(`CRETUR.ASM` `CMOV20`) and its "just arrived" branch (`CMOV90`) as the two
+places `PUPDAT` fires for this case, and names "ROM capture C-19 is
+pending."
+
+**Harness extension.** Three additions, following the C-14/C-15 pattern:
+
+- `Game::place_creature(slot, row, col)` (`src/core/include/daggorath/
+  game.hpp`) and a `dcli --poke JIFFY:creature6:VALUE` field
+  (`row*256+col`), writing `ccbs_[6]`'s position directly — slot 6
+  specifically, matching the ROM address computed below, not a general
+  facility.
+- `tools/rom/capture.lua`'s `SCHED_JSR` tap gained creature slot identity.
+  Previously every creature task logged as bare `CMOVE`, with "no slot or
+  type identity" (an C-09 finding). `P.TCDTA` (TCB+5, `CD.ASM`) points at
+  the dispatched creature's CCB; `CCBLND`/`CC.LEN` (both resolved compile-time
+  symbols) turn that pointer into a slot index, `(ccb - CCBLND) / CC.LEN`,
+  producing the same `CMOVE-N` naming the core's trace already uses. This
+  is a general improvement, not C-19-specific, and changes the trace
+  format for every capture that dispatches creatures from here on.
+- A second new tap, at `CMOV20+11` (`D078` on this image, `SWI`/`FCB
+  SOUNDS` = `3F 1C`, verified against `build/rom/daggorath.lst`) — the
+  creature-attack sound, `CRETUR.ASM`'s counterpart to C-12's player-swing
+  tap, at a different address because it's a different routine. Without
+  this tap, a ROM capture cannot tell "the attack check ran and missed"
+  apart from "the attack check never ran" — both leave `PDAM` unchanged.
+
+CCBLND slot 6's fields were confirmed against a real boot with
+`DOD_EXTRA_WATCH` before use: type 1 (viper), starting position (row 6, col
+4) — a live, in-use creature, not an empty slot.
+
+**Capture.** Level 0, Original Mode, no keystrokes. Slot 6's creature is
+poked onto the player's spawn cell (row 16, col 11) shortly after
+scheduler entry, before its own first `CMOVE` dispatch (which C-09/C-11
+established happens no earlier than the first birth-batch wave, well after
+the poke).
+
+```
+dcli --script scratch/c19-step-onto.script --jiffies 150 \
+    --poke 5:creature6:4107 --trace <core-trace>
+DOD_JIFFIES=150 DOD_STEM=c19-step-onto DOD_EXTRA_POKE=5:0449:16:1,5:044A:11:1 \
+    tools/rom/run-capture.sh scratch/c19-step-onto.script
+```
+
+**Observation.** Both traces detect the co-location and enter the attack
+path; the mechanism matches, the outcome and cadence differ:
+
+| | Core (`dcli`) | ROM (`coco2b`) |
+|---|---|---|
+| First `CMOVE-6` dispatch | jiffy 85 | jiffy 78 |
+| Attack sound (unconditional, before the hit/miss roll) | `SOUND slot=6 type=1` | `SOUND creature_class=1` |
+| First attack outcome | miss (`MISS slot=6 roll=49`) | no `PDAM` change (miss, by elimination — see below) |
+| Second `CMOVE-6` dispatch within the 150-jiffy window | jiffy 127 | none |
+| Second attack outcome | hit, `damage=35` | n/a |
+
+The ROM shows no `EXERT` (no `PDAM` change) after the jiffy-78 attack, and
+the new `CMOV20+11` tap confirms the attack sound *did* play — so the
+absence of damage is a miss, not the attack check failing to run. This
+is the same reasoning C-12 already established for the player's own swing
+(exertion/sound fires regardless of hit; damage only follows a hit), applied
+here to the creature side for the first time.
+
+**Divergence: no second attack attempt in the ROM's window.** The core's
+viper (`CDBTAB` `attack_delay_tenths` 7, i.e. 42 jiffies) re-attacks at
+jiffy 127 — 85 + 42, exactly on schedule — and hits. The ROM shows nothing
+for `CMOVE-6` between jiffy 78 and the end of the 150-jiffy window: no
+second dispatch, no second attack sound. This reads as the same texture as
+#39's already-open finding (creatures dispatching less often than the core
+predicts), not a new mechanism; no new issue filed.
+
+**Not covered by this capture: `CMOV90`'s "just arrived" branch.** D-15
+names two `PUPDAT` sites for a creature on the player's cell: `CMOV20`
+(attack, captured above) and `CMOV90` (the creature's own movement code,
+reached only when a `CWALK` step *lands* the creature on the player's
+cell, not when it was already there — see `CRETUR.ASM` line 195 onward).
+This capture poked the creature directly onto the cell, which exercises
+`CMOV20` on its very next dispatch but never exercises `CMOV90`'s branch,
+which needs the creature to actually take a winning step while adjacent —
+a maze-pathing condition this capture did not attempt to arrange.
+Unresolved, not claimed either way.
+
+**Labels.** `CMOVE`'s attack-path mechanism (unconditional attack sound
+before the hit/miss roll, `PUPDAT`-independent of outcome) is now
+**ROM-observed**, matching the core's parallel construction on the player's
+own `PATTK` side. The dispatch-cadence divergence is **not** promoted or
+filed separately — folded into #39. `CMOV90`'s specific "just arrived"
+`PUPDAT`/`NEWLUK`-clear branch remains **[INF]**, not exercised by this
+capture.
+
+**Backlog.** `docs/planning/capture-backlog.md` C-19 row updated to
+`partial — track-r reconciliation: CMOVE's attack-path PUPDAT mechanism
+ROM-observed via a new creature-attack sound tap; CMOV90's "just arrived"
+branch not exercised; dispatch-cadence gap folded into #39`.
+
+**Gate.** `captures/c19-step-onto.rom.trace` and its companion
+`.raw.tsv`/task logs are new but live outside the tree under gitignored
+`captures/`. `tools/rom/capture.lua` gained CMOVE slot identity and the
+`CMOV20+11` tap; `src/core/include/daggorath/game.hpp` gained
+`place_creature`; `src/app/dcli.cpp` gained the `creature6` poke field (all
+committed, no ROM or capture bytes). `git status --porcelain` shows only
+the harness/core/doc/backlog changes in this commit.

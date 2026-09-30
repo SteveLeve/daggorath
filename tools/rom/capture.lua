@@ -495,6 +495,16 @@ if mem:read_u8(CMDERR) ~= 0x3F or mem:read_u8(CMDERR + 1) ~= 0x02 then
     die("CMDERR is not SWI/FCB OUTSTI on this image")
 end
 
+-- C-19: CRETUR.ASM's CMOV20 attack sound, SWI/FCB SOUNDS at CMOV20+11
+-- (D078 on this image, 3F 1C) -- the creature-attack counterpart to C-12's
+-- PATT10+30 swing-sound tap, at a different address because CMOVE's attack
+-- path is a separate routine from PATTK's.
+local CMOV20 = sym("CMOV20")
+local CATTACK_SWI = CMOV20 + 11
+if mem:read_u8(CATTACK_SWI) ~= 0x3F or mem:read_u8(CATTACK_SWI + 1) ~= 0x1C then
+    die("CMOV20+11 is not SWI/FCB SOUNDS on this image")
+end
+
 local function u16(addr)
     return mem:read_u8(addr) * 256 + mem:read_u8(addr + 1)
 end
@@ -666,11 +676,24 @@ taps[#taps + 1] = mem:install_read_tap(DGEN_RTS, DGEN_RTS, "dod_dgen_rts", funct
     return data
 end)
 
+-- C-19: CMOVE's dispatch carries no slot identity by itself (P.TCRTN is the
+-- same address for every creature's TCB). P.TCDTA (TCB+5, CD.ASM) points at
+-- that creature's CCB; CCBLND/CC.LEN (both resolved symbols) turn that
+-- pointer into a slot index, the same "CMOVE-N" numbering the core already
+-- uses in its trace.
+local CCBLND_addr, CC_LEN = sym("CCBLND"), sym("CC.LEN")
 taps[#taps + 1] = mem:install_read_tap(SCHED_JSR, SCHED_JSR, "dod_sched", function(offset, data, mask)
     if phase ~= "game" or data ~= 0xAD then return data end
     local u = cpu.state["U"].value
     local rtn = u16(u + 3)
     local name = symbol_at(rtn)
+    if name == "CMOVE" then
+        local ccb = u16(u + 5)
+        if ccb >= CCBLND_addr then
+            local slot = (ccb - CCBLND_addr) // CC_LEN
+            name = "CMOVE-" .. tostring(slot)
+        end
+    end
     tasklog:write(string.format("%d\tTASK\t%04X\t%s\n", isr, rtn, name))
     emit_trace("TASK", "run " .. name)
     note_task(name)
@@ -714,6 +737,13 @@ taps[#taps + 1] = mem:install_read_tap(SNOISE_RTS, SNOISE_RTS, "dod_snoise_rts",
     soundlog:write(string.format("SNOISE\t%d\t%04X\t%s\t%s\tseed_after=%s\n",
         snoise_isr, SNOISE, snoise_seed, snoise_rnd, seed_now))
     snoise_seed = nil
+    return data
+end)
+
+taps[#taps + 1] = mem:install_read_tap(CATTACK_SWI, CATTACK_SWI, "dod_cattack", function(offset, data, mask)
+    if data ~= 0x3F then return data end
+    local cls = cpu.state["A"].value & 0xFF
+    emit_trace("SOUND", "creature_class=" .. tostring(cls))
     return data
 end)
 
