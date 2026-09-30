@@ -17,8 +17,14 @@
 #include "daggorath/touch_overlay.hpp"
 
 #include <SDL3/SDL.h>
+// Android and iOS enter through SDL's own main (Phase 9, ADR-0012): the
+// header renames main() to SDL_main(), which SDLActivity / UIKit calls.
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+#include <SDL3/SDL_main.h>
+#endif
 
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <fstream>
@@ -511,7 +517,25 @@ int main(int argc, char** argv) {
     std::vector<ShotStep> shots = shots_path.empty() ? std::vector<ShotStep>{} : load_shots(shots_path);
     std::size_t next_shot = 0;
     std::uint64_t shots_start_ms = 0;
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+    // Phase 9: phones and tablets run landscape only, full screen; the
+    // layout default follows the display's shape, as the web page's
+    // --default-layout does (ADR-0011).
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) return 1;
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+    if (!default_layout) {
+        if (const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay())) {
+            const int long_side = std::max(mode->w, mode->h);
+            const int short_side = std::min(mode->w, mode->h);
+            if (short_side > 0)
+                default_layout = long_side * 3 > short_side * 5  // wider than 5:3
+                                     ? dag::input::OverlayLayout::PhoneLandscape
+                                     : dag::input::OverlayLayout::Tablet4x3;
+        }
+    }
+#endif
     std::string save_dir = "saved";
     if (char* pref = SDL_GetPrefPath("daggorath", "dod")) {
         save_dir = pref;
@@ -826,6 +850,11 @@ int main(int argc, char** argv) {
             SDL_ConvertEventToRenderCoordinates(renderer, &event);
 #endif
             if (event.type == SDL_EVENT_QUIT) running = false;
+            // D-16 / ADR-0012: the OS backgrounding the app opens the
+            // system menu, which pauses; no jiffy is owed for the time away
+            // and play resumes only when the player leaves the menu.
+            if (event.type == SDL_EVENT_WILL_ENTER_BACKGROUND && !shell->paused())
+                pause_or_back_out();
             if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                 event.button.button == SDL_BUTTON_LEFT) {
                 const double mx = event.button.x;
@@ -877,7 +906,7 @@ int main(int argc, char** argv) {
             }
             if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) continue;
             const SDL_Keycode key = event.key.key;
-            if (key == SDLK_ESCAPE) {
+            if (key == SDLK_ESCAPE || key == SDLK_AC_BACK) {  // AC_BACK: Android back
                 pause_or_back_out();
                 continue;
             }

@@ -9,6 +9,8 @@
 #   make all        fixtures + build + test + traces + verify
 #   make web        WebAssembly build into web/dist (needs emsdk; ADR-0011)
 #   make web-test   browser storage test against web/dist (Chrome, Node 22+)
+#   make android    debug APK, arm64 + x86_64 (Android SDK/NDK, Gradle; ADR-0012)
+#   make android-install  install that APK on the attached device (adb)
 
 ASM_COMMIT := a94326f00ebb16a106b540c58bc2ccf5f7b66dac
 ASM_REPO   := https://github.com/MichaelSpencerJr/DungeonsOfDaggorath.git
@@ -31,7 +33,7 @@ TRACEFILES := $(SCRIPTS:.script=.trace)
 WEB_BUILD  ?= build-web
 WEB_DIST   := web/dist
 
-.PHONY: all sources check-pin fixtures build test traces verify web web-test format clean distclean
+.PHONY: all sources check-pin fixtures build test traces verify web web-test android android-install format clean distclean
 
 all: fixtures build test traces verify
 
@@ -104,6 +106,17 @@ web:
 
 web-test:
 	$(NODE) tools/web/storage-test.mjs $(WEB_DIST)
+
+GRADLE     ?= $(shell command -v gradle)
+APK        := android/app/build/outputs/apk/debug/app-debug.apk
+
+android:
+	tools/android/fetch-sdl.sh
+	cd android && $(GRADLE) --no-daemon assembleDebug
+	@echo "private build (docs/licensing/README.md D5): $(APK)"
+
+android-install: android
+	adb install -r $(APK)
 
 format:
 	@command -v clang-format >/dev/null || { echo "clang-format not installed"; exit 1; }

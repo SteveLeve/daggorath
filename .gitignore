@@ -37,3 +37,10 @@ third_party
 web/dist/
 web/.wrangler/
 web/node_modules/
+
+# Android (Phase 9): Gradle and CMake output, local SDK path
+android/.gradle/
+android/app/build/
+android/app/.cxx/
+android/build/
+android/local.properties

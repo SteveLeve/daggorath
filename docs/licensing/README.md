@@ -41,6 +41,7 @@ questions above. Qualified legal review is still required before distribution.
 | D2 | Original game data stays in the tree but is marked and isolated. `DATA-NOTICE.md` lists every copied artifact. Each generated header opens with a rights notice, which its generator emits. The project claims no licence over that data and relies on the Morgan grant as-is. It does not invent a sub-licence. | [`DATA-NOTICE.md`](../../DATA-NOTICE.md), `tools/gen_*`, `tools/extract_{sounds,text}.py` |
 | D3 | Until review, distribution is source repository only. There is no binary or web release, no app-store listing and no monetisation. | this file, `DATA-NOTICE.md` |
 | D4 | Visual or convenience refinements beyond the original are opt-in and off by default. Original Mode renders the original look by default. Each refinement is recorded in `docs/specification/clock-and-scheduler.md` §13 or `quirks.md`. Shipped refinements are audited against this rule in a follow-up. | this file |
+| D5 | **2026-09-30.** Phase 9 builds are private-device only. The owner, while still working on questions 1, 4 and 5, asked to start Phase 9 so they can test on their own Android devices, and iOS later. This satisfies the Phase 9 precondition for private builds only. CI builds but uploads no APK or IPA. There is no store listing, public download, branding or original artwork. It does not relax D3. | this file, ADR-0012, `.github/workflows/android.yml` |
 
 Notes on the question list, which inform the decisions without settling
 anything:
