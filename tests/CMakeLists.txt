@@ -83,6 +83,10 @@ add_executable(overlay_bridge_tests platform/overlay_bridge_tests.cpp)
 target_link_libraries(overlay_bridge_tests PRIVATE daggorath::platform daggorath::input daggorath::shell)
 add_test(NAME overlay_bridge_tests COMMAND overlay_bridge_tests)
 
+add_executable(storage_tests platform/storage_tests.cpp)
+target_link_libraries(storage_tests PRIVATE daggorath::platform)
+add_test(NAME storage_tests COMMAND storage_tests)
+
 # Phase 3 fight traces: regenerate from the committed script and require identity.
 set(PHASE3_TRACES ${CMAKE_SOURCE_DIR}/docs/archaeology/phase-3/traces)
 foreach(pair "fight-to-kill;300" "fight-to-death;1800")

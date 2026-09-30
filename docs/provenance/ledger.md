@@ -82,7 +82,7 @@ Files read for this phase, with hashes as fetched:
 | Tandy 1983 manual (archive.org OCR) | Contemporary documentation | Distinct ©1983 Tandy notice; paraphrase only, do not bundle | Not used for any fixture value this phase |
 | Hunerlach Linux/SDL port (`gondur/dungeons-of-daggorath` @ `4ab53f4`, 2016-04-16) | Secondary adaptation | No clear standalone grant for the port's C++/WAV code. Morgan grant text is copied in `license/license.txt`; SDL is LGPL-2.1 and the port authors say that covers the libraries only | **Not used in Phase 0b.** Read 2026-09-26 for [`../planning/port-comparison.md`](../planning/port-comparison.md). No source, WAV, or binary imported |
 | BlatantlyX SDL2 port (`BlatantlyX/DungeonsOfDaggorath` @ `8cd3ef8`, 2016-04-19; SDL2 switch `917410d`, 2015-06-05) | Secondary adaptation | Same C++ family as the gondur tree. SDL2 is zlib; the port authors say that covers SDL and SDL_mixer only | **Not used in Phase 0b.** Read 2026-09-26 for the port comparison. No source or WAV imported |
-| cognitivegears WebAssembly site (`DungeonsOfDaggorath/DungeonsOfDaggorath.github.io` @ `d37e0fb`, 2026-01-06) | Secondary adaptation | Website `LICENSE` is MIT and covers the Jekyll shell. The game is committed `index.wasm` (2,129,838 bytes). Submodule `cognitivegears/DungeonsOfDaggorath` @ `c2bce45`: see the next row (read 2026-09-27) | **Not used in Phase 0b.** The shell, manifest, and service worker were read 2026-09-26 for the port comparison. The submodule was not fetched on 2026-09-26 (read 2026-09-27, next row). No WASM or WAV imported |
+| cognitivegears WebAssembly site (`DungeonsOfDaggorath/DungeonsOfDaggorath.github.io` @ `d37e0fb`, 2026-01-06) | Secondary adaptation | Website `LICENSE` is MIT and covers the Jekyll shell. The game is committed `index.wasm` (2,129,838 bytes). Submodule `cognitivegears/DungeonsOfDaggorath` @ `c2bce45`: see the next row (read 2026-09-27) | **Not used in Phase 0b.** The shell, manifest, and service worker were read 2026-09-26 for the port comparison. The submodule was not fetched on 2026-09-26 (read 2026-09-27, next row). No WASM or WAV imported. 2026-09-28: named as the design model for ADR-0011's web build (a browser PWA exists; its `ccall('sendinput')` input pattern is rejected). Reference-only; nothing copied |
 | cognitivegears C++ (`cognitivegears/DungeonsOfDaggorath` @ `c2bce45`, the web build's source, submodule of the site repo) | Secondary adaptation | `license/license.txt` and `license/readme.txt` repeat the Morgan grant; `license/SDL2_LICENSE.txt` (zlib) covers SDL. Source headers credit the Hunerlach PC-Port and Morgan's copyright; no licence for the port's own code was found | **Reference-only.** Read 2026-09-27 on the owner's machine for the Phase 8 vector-rendering study (`src/viewer.*`, `dod.h`, `shader.cpp`, `enhanced.*`, `oslink.cpp`, `dodgame.cpp`, `player.cpp`, HTML shells, licence files). Summary in [`../planning/port-comparison.md`](../planning/port-comparison.md). The study report quotes port code and is not committed. No source imported; `index.wasm` not opened |
 | 3DS port | Secondary adaptation | GPL-3.0 | **Not consulted, not fetched** |
 
@@ -146,6 +146,27 @@ C++ core.
 Phase 2 added no fixture and no ROM. `docs/archaeology/phase-2/traces/idle-10min.trace`
 is `dcli` output from the core, not a capture. Creature delays were already in
 `fixtures/creatures.json` (`DTABAS.ASM` `CREXXX`).
+
+## 6. Web build (ADR-0011, 2026-09-28)
+
+Build dependencies only. None of their source enters the repository. The
+compiled output (`web/dist`, gitignored) contains the runtime pieces marked
+"ships", whose notices must travel with any copy of that output. Distribution
+of the output is governed by ADR-0011 decision 6 and `docs/licensing/README.md`.
+
+| Component | Version | Licence | Use |
+|---|---|---|---|
+| emsdk / Emscripten | 6.0.10 (`d6c521a7f054`), installed 2026-09-28 outside the tree (`~/coco-tools/emsdk`) | MIT / UIUC | compiler toolchain; its JS runtime (`dod.js`) **ships** |
+| SDL3 Emscripten port | 3.4.2 (`release-3.4.2`, fetched by emsdk 6.0.10's `tools/ports/sdl3.py`, SHA-512 `a17fe538…116bce`) | zlib | windowing, input, audio, WebGL renderer; **ships** in `dod.wasm` |
+| musl libc, libc++ / libc++abi (via Emscripten) | as bundled with emsdk 6.0.10 | MIT; Apache-2.0 WITH LLVM-exception | C/C++ runtime; **ships** in `dod.wasm` |
+| Pillow | 10.2.0 | MIT-CMU (HPND) | `tools/web/make_icons.py` draws the icons at build time |
+| Wrangler | 4.50.0 | MIT OR Apache-2.0 | local serving (`wrangler dev`); no deploy (ADR-0011 decision 6) |
+| GitHub Actions `actions/checkout@v4`, `mymindstorm/setup-emsdk@v14`, `actions/setup-node@v4` | pinned by commit SHA (`11d5960a`, `6ab9eb1b`, `49933ea5`) | MIT | `.github/workflows/web.yml` (build and storage test; no deploy) |
+| Google Chrome (runner image) and Node 22+ | as provided | proprietary browser; MIT | `make web-test` drives headless Chrome over CDP with no npm packages; nothing from either ships |
+
+`make web` writes `web/dist/THIRD_PARTY_NOTICES.txt` from emsdk's own copies
+of the Emscripten, SDL3, musl and LLVM licence texts, so the "ships" rows'
+notices travel with the output and no licence text is kept in this tree.
 
 ## Phase 5b strategy research (retrieved 2026-09-27)
 

@@ -42,6 +42,7 @@ Decisions that shape more than one phase are recorded as ADRs in
 | 10 | Mobile UX refinement | 9 | 9 | outline only (§4) |
 | 11 | Optional enhanced modes | 10 | 10, ADR-0007 | outline only (§4) |
 | R | ROM observation track (cross-cutting) | 1 | 1 | [`track-r-rom-observation.md`](../prompts/track-r-rom-observation.md) |
+| W | Web stopgap: WebAssembly PWA of the Phase 8 shell (outside the phase sequence; local only, not deployed before licensing Q1/Q2/Q4/Q5 or an access gate is recorded) | — | 8 | [ADR-0011](../adr/0011-web-stopgap-delivery.md) |
 
 Why this order (ADR-0001): each gameplay phase adds one family of foreground or
 creature tasks to the scheduler, so a divergence can be attributed to one

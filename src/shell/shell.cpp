@@ -1,6 +1,7 @@
 #include "daggorath/shell.hpp"
 
 #include <sstream>
+#include <utility>
 
 namespace dag::shell {
 
@@ -56,6 +57,15 @@ bool Shell::valid_snapshot(const std::string& bytes) {
     int version = 0;
     in >> magic >> version;
     return magic == "DAGSNAP" && version == 1;
+}
+
+bool Shell::put_slot(std::size_t slot, SnapshotSlot contents) {
+    if (!contents.occupied() || !valid_snapshot(contents.bytes)) return false;
+    Game trial;
+    trial.restore_snapshot(contents.bytes);
+    if (trial.snapshot() != contents.bytes) return false;  // truncated or altered
+    slots_.at(slot) = std::move(contents);
+    return true;
 }
 
 bool Shell::load_from_slot(std::size_t slot) const {

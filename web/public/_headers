@@ -1,0 +1,10 @@
+# Cloudflare Workers static-asset headers (ADR-0011).
+# The build is local-only until licensing allows a deployment (decision 6);
+# these keep any later, access-gated deployment out of search engines.
+/*
+  X-Robots-Tag: noindex, nofollow
+  X-Content-Type-Options: nosniff
+  Cache-Control: no-cache
+
+/dod.wasm
+  Content-Type: application/wasm

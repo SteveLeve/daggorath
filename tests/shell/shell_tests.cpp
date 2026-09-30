@@ -5,7 +5,7 @@
 // jiffies without pause, because pause only withholds jiffy delivery and
 // none is owed for the paused wall time (D-16). Slot round-trip (§5/§6):
 // save/load through Game::snapshot()/restore_snapshot(), plus the shell's
-// own validation of a bad or empty slot.
+// own validation of a bad or empty slot, and a slot put back from storage.
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -159,6 +159,47 @@ void test_hidden_slot_backgrounding() {
     check(!shell.has_hidden_slot(), "clear_hidden_slot empties it once play continues");
 }
 
+// A slot kept outside the process (ADR-0011) goes back into a fresh Shell on
+// a fresh Game and loads as if it had been saved there.
+void test_put_slot_from_outside() {
+    dag::Game first;
+    first.load_script(move_turn_look_script());
+    dag::shell::Shell saver(first);
+    saver.tick(40);
+    check(saver.save_to_slot(3), "slot 4 saves");
+    const dag::shell::SnapshotSlot kept = saver.slots()[3];
+    const auto jiffies_at_save = first.counters().total_jiffies;
+
+    dag::Game second;
+    dag::shell::Shell shell(second);
+    check(shell.put_slot(3, kept), "a valid snapshot is accepted into a slot");
+    check(shell.slots()[3].name == kept.name, "the slot keeps its display name");
+    check(second.counters().total_jiffies == 0, "putting a slot does not touch the game");
+    check(shell.load_from_slot(3), "the put slot loads");
+    check(second.counters().total_jiffies == jiffies_at_save,
+          "loading it restores the saved point");
+    check(second.snapshot() == kept.bytes, "the restored game matches the snapshot exactly");
+
+    check(!shell.put_slot(0, {"L1 00:00", "not a snapshot"}), "a corrupt snapshot is refused");
+    check(!shell.put_slot(1, {}), "an empty slot is refused");
+    check(!shell.put_slot(2, {kept.name, kept.bytes.substr(0, kept.bytes.size() / 2)}),
+          "a truncated snapshot is refused");
+    check(!shell.slots()[0].occupied() && !shell.slots()[1].occupied(),
+          "refused slots stay empty");
+
+    // A size field edited to an absurd value is refused, not allocated on
+    // (read_bounded_count). A fresh game's snapshot has no tapes, so its
+    // tape count is the "0" just before the retired D-12 field "100".
+    const std::string fresh = dag::Game().snapshot();
+    const auto at = fresh.find("\n0\n100\n");
+    check(at != std::string::npos, "tape count located in a fresh snapshot");
+    if (at != std::string::npos) {
+        std::string huge = fresh;
+        huge.replace(at, 3, "\n99999999999999999\n");
+        check(!shell.put_slot(4, {"L1 00:00", huge}), "an absurd tape count is refused");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -168,6 +209,7 @@ int main() {
     test_restart_and_quit_confirmation();
     test_empty_and_corrupt_slots_are_refused();
     test_hidden_slot_backgrounding();
+    test_put_slot_from_outside();
     std::cout << (g_failures == 0 ? "PASS" : "FAILED") << ": " << g_checks << " checks, "
               << g_failures << " failures\n";
     return g_failures == 0 ? 0 : 1;

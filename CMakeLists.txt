@@ -33,9 +33,11 @@ add_subdirectory(src/presentation)  # placeholder: vector/audio presentation sta
 add_subdirectory(src/input)         # gesture -> keystroke adapters (Phase 8.1)
 add_subdirectory(src/shell)          # headless system-menu shell (ADR-0009, Phase 8.2)
 add_subdirectory(src/platform)      # placeholder: SDL, storage, packaging
-add_subdirectory(src/app)           # dcli today; desktop app later
+if (NOT EMSCRIPTEN)
+  add_subdirectory(src/app)         # dcli, route, dplan: native tools only
+endif()
 
-if (DAGGORATH_BUILD_TESTS)
+if (DAGGORATH_BUILD_TESTS AND NOT EMSCRIPTEN)  # the tests drive dcli, a native tool
   enable_testing()
   add_subdirectory(tests)
 endif()
