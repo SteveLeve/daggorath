@@ -1,10 +1,13 @@
 # The agentic development story
 
-*A companion to the [project case study](case-study.md). That study deliberately used only the
-public repository. This one reconstructs how the work was actually driven, from the private
-record: the originating ChatGPT conversation, Cursor transcripts, local Claude Code and Codex
-session logs, and the daily session-memory notes. Snapshot: `main` at `b8afeb8`, written
-1 October 2026. Times are US Central.*
+*A case study for software engineers who use agentic development tools. It combines the public
+record (charter, specifications, reconciliations, ADRs, Git history and PR discussions through
+#54) with the private record of how the work was driven: the originating ChatGPT conversation,
+Cursor transcripts, local Claude Code and Codex session logs, the Claude Code cloud sessions and
+the daily session-memory notes. Snapshot: `main` at
+[`b8afeb8`](https://github.com/SteveLeve/daggorath/commit/b8afeb869436fee80e05ee3e5b9b10fdaf46466e),
+written 1 October 2026. Times are US Central. This document absorbs the earlier
+`docs/case-study.md`.*
 
 ## Summary
 
@@ -31,6 +34,23 @@ sessions the typical instruction is one or two sentences. What the owner did sup
 decisions, hand tests, and a steady insistence that each agent write the *next* agent's
 instructions. The techniques below are ranked by how much of the result they explain.
 
+## What was built
+
+The project aims to bring the 1983 *Dungeons of Daggorath* to modern devices while retaining its original rules, command language, timing, maps, difficulty, and quirks. The [charter](project-instructions.md) makes preservation the product requirement and orders the work from archaeology through a headless simulation, presentation, desktop play, touch input, and mobile packaging. At this snapshot, the core and desktop application exist; a web build is local-only; Android has a private debug build and an owner-reported device run; iOS packaging and several acceptance gates remain open. The [README state table](../README.md#state), [web decision](adr/0011-web-stopgap-delivery.md), and [Android packaging decision](adr/0012-mobile-packaging.md) record the intended boundaries. The later [PR #54](https://github.com/SteveLeve/daggorath/pull/54) updates the Android observation beyond the still-stale “not yet run” line in `android/README.md`.
+
+The central development technique was to turn uncertain historical behavior into small, reviewable claims. The reconstructed assembly listing at a pinned revision supplied primary implementation evidence; extracted fixtures, a written scheduler model, and selected ROM captures supplied different kinds of checks. The team used phase prompts, architecture decisions, a deterministic C++ core, GitHub PR reviews, and short discovery loops to advance the implementation. Those mechanisms accelerated work, but they did not make a green test suite equivalent to historical fidelity or a working user interface. [Provenance ledger](provenance/ledger.md), [phase prompts](prompts/README.md), [review checklist](planning/review-checklist.md).
+
+### Where the project stands at `b8afeb8`
+
+| Claim | Support at `b8afeb8` | Limit |
+|---|---|---|
+| Native desktop build and registered tests | Independently ran `make build && make test`: SDL `dod` built; 26/26 CTest cases passed, including the honest-playthrough verifier. | These tests do not replay every ROM state or substitute for live screen/audio/device use. |
+| Fixture integrity | Independently ran `make verify`: Phase 0b 18, Phase 6 vector 16, and Phase 6 text 22 fixtures; zero reported problems. | A clean manifest checks recorded artifacts, not the correctness of every historical interpretation. |
+| Original Mode victory | The committed Phase 5b script and registered verifier passed here. | Deterministic core behavior under recorded deviations; no full ROM playthrough equivalence claim. [Phase 5 reconciliation](archaeology/phase-5/reconciliation.md#playthrough-status). |
+| Web and Android | Public PRs report a local browser build and tests, a CI debug APK, and a later owner-observed Android device layout/tap check. | No browser, Android device or emulator, Android conformance suite or iOS build was run for this document. [PR #48](https://github.com/SteveLeve/daggorath/pull/48), [PR #52](https://github.com/SteveLeve/daggorath/pull/52), [PR #54](https://github.com/SteveLeve/daggorath/pull/54). |
+
+The remaining preservation work is concrete: Track R still has unresolved scheduling, attack-outcome, visual, and animation-timing questions; Phase 9 still needs Android conformance and lifecycle/save recovery on device, plus iOS packaging and validation. Public distribution remains bounded by the licensing decisions. [Capture backlog](planning/capture-backlog.md), [Phase 9 prompt](prompts/phase-9-mobile-packaging.md), [licensing questions](licensing/README.md).
+
 ## Sources and their limits
 
 | Source | What it holds | Limit |
@@ -47,6 +67,8 @@ instructions. The techniques below are ranked by how much of the result they exp
 
 What could not be recovered is listed under [Gaps](#gaps-and-what-would-close-them); the
 largest item is the first drafting of the Phase 0 report.
+
+The evidence sections use the public repository: the charter and specifications, dated reconciliations and ADRs, tracked code and tests, Git history, and merged PR descriptions and discussions through #54. It surveys the full merged PR sequence and examines the turning points below at their owning revisions. A PR body is an author's report; a review comment can contain an independent check, but its result applies to the stated commit and environment. The checks run for this document are identified in “Where the project stands.” On its own, the public record establishes some Claude Code and Cursor involvement through PR signatures and branch history, but it cannot measure total agent work, subscription use, or every human/tool handoff. [Planning PR #12](https://github.com/SteveLeve/daggorath/pull/12), [gameplay PRs #16–20](https://github.com/SteveLeve/daggorath/pull/16), [review checklist](planning/review-checklist.md).
 
 Token and tool counts below are measurements of the local logs. They are not costs, and they
 do not compare tools fairly: the products log different things.
@@ -90,7 +112,7 @@ a screen or a ROM capture.
 | ChatGPT | Framing: licence reading, stack choice, charter, first prompt | The shared conversation |
 | Claude (desktop, CLI, cloud) | Planning and ADRs; harness setup; unblocking; loops; Phase 8, Track R, web, licensing, Android; review | 35 interactive local sessions; 5 cloud sessions behind 10 PRs; 28 commits authored as `Claude` |
 | Cursor | Bulk implementation of phases 1–7 under `/goal`; cloud review of its own stack | 129 commits with a Cursor co-author trailer; 11 `cursor/` branches |
-| Codex | Phase 5b search; two targeted fixes; independent PR reviews, including the planning PR #12; the case study | 32 sessions; two stored review goals; the owner's "based on codex review" instruction in the #12 cloud session |
+| Codex | Phase 5b search; two targeted fixes; independent PR reviews, including the planning PR #12; the first, public-record draft of this case study | 32 sessions; two stored review goals; the owner's "based on codex review" instruction in the #12 cloud session |
 | GitHub Copilot | PR review on 6 PRs; `AGENTS.md`; one conflict-resolution plan | Review records on #15, #32, #36, #41, #50, #52; a second #52 review refused for quota |
 | Gemini | Research only: CoCo firmware sources, web-delivery options | Pasted into Claude prompts on 25 and 28 Sept |
 
@@ -229,7 +251,7 @@ with a one-line instruction pointing at a file:
 
 The effect is that the expensive thinking happened at the end of a session, when the agent had
 full context, and the cheap instruction happened at the start of the next, when it had none.
-The case study describes these prompts as transferable task contracts. The private record adds
+[Use documents as transferable task contracts](#use-documents-as-transferable-task-contracts) describes these prompts from the public record. The private record adds
 that they were mostly written by an agent that had just done the preceding work, and that this
 was asked for explicitly each time.
 
@@ -343,7 +365,7 @@ result:
 - two read-only audit agents, `evidence-auditor` and `boundary-checker`;
 - skills for fixture changes and phase checks.
 
-The case study notes that the agents' existence "does not prove they ran on every change". The
+The public record alone cannot show that the agents ran on every change. The
 local logs give a count: `evidence-auditor` was invoked 55 times and `boundary-checker` 27
 times from Claude Code sessions. The daily notes show audits finding real problems, such as
 citations pointing at the wrong deviation number and append-only reconciliation files being
@@ -476,6 +498,48 @@ and start a new branch". "I agree, mark it deferred."
 **Resources.** Firmware, the cartridge image, the phone, other ports cloned for comparison,
 and a choice of which tool had allowance left.
 
+## Evidence techniques from the public record
+
+### make the source inspectable before reproducing it
+
+The project did not translate the assembly mechanically and call the result faithful. Phase 0b recorded which readings came directly from the listing, which were inferred, and which remained open. It corrected four earlier archaeology claims instead of silently replacing the report: for example, the `PLAYER` routine drains buffered keys within a turn, the source's direction token is `BACK` rather than `BACKWARD`, and an overflowing 32-character line dispatches without a return. Fixtures carry source locations and extraction methods; the manifest verifier detects missing or altered entries. These are useful controls because a test derived from a mistaken interpretation can faithfully preserve that mistake. [Phase 0b reconciliation](archaeology/phase-0b/reconciliation.md), [fixture policy](provenance/ledger.md), [quirks specification](specification/quirks.md).
+
+Phase 1 shows how an external check changed the model. The first implementation was explicitly reviewed as software-complete and ROM-unverified. Once the team assembled the pinned listing and ran the cartridge under MAME, the opening trace diverged at its initial clock: the ROM had counted 377 interrupts during level construction. The owner made that a recorded Original Mode decision, the core and reference traces changed with a documented reason, and the PR retained narrower labels for captures that had not been rerun. The assembled listing's byte match to catalog 26-3093 strengthens its provenance, but individual behavior still needs an applicable capture. [Initial review](https://github.com/SteveLeve/daggorath/pull/1#issuecomment-5834875583), [first ROM captures](https://github.com/SteveLeve/daggorath/pull/1#issuecomment-5840073801), [Phase 1 PR](https://github.com/SteveLeve/daggorath/pull/1), [Phase 1 reconciliation](archaeology/phase-1/reconciliation.md).
+
+This became a repeatable evidence rule: `source-proven`, `ROM-observed`, `inferred`, and `unresolved` describe different levels of support. Track R can gather ROM observations without blocking every gameplay phase. It also records failed captures. For C-09, an early PR treated a six-jiffy offset as confirmation of creature queue timing; the current reconciliation explains why the chosen anchor was already downstream of queue insertion and leaves that timing unresolved. In C-11, a ten-minute idle capture found substantially different task-dispatch counts between core and ROM. In C-10, moving a keystroke to an apparent tie changed the ROM schedule and did not reproduce the tie. Each observation remains scoped to what was measured; the project did not adjust the core to fit a conjectured mechanism. [C-09 reconciliation](archaeology/track-r/reconciliation.md#c-09--first-creature-move-after-level-entry), [PR #36](https://github.com/SteveLeve/daggorath/pull/36), [PR #41](https://github.com/SteveLeve/daggorath/pull/41), [PR #44](https://github.com/SteveLeve/daggorath/pull/44), [capture backlog](planning/capture-backlog.md).
+
+### use documents as transferable task contracts
+
+Planning PR #12 split the headless game into movement, combat, objects, and progression, then separated presentation, SDL, touch, mobile packaging, and ROM observation. Each phase prompt named prerequisites, expected artifacts, an evidence rule, exclusions, and an executable completion gate. Planned routine descriptions were hypotheses for the implementer to verify against the listing, not independent behavioral evidence. ADRs handled decisions that crossed phase boundaries, such as scheduler order, the presentation contract, save formats, and later the shell's pause. This made tasks portable across agents and sessions while keeping their authority below the primary sources. [PR #12](https://github.com/SteveLeve/daggorath/pull/12), [roadmap](planning/roadmap.md), [prompt conventions](prompts/README.md).
+
+The planning package itself received a consequential review. Before implementation, the reviewer found that save-format wording could put a modern header into the historical payload, that presentation ownership could reverse the inward dependency, and that a prohibition on player-selected seeds might accidentally forbid deterministic test construction. The documents were revised before those ambiguities propagated to later phases. This is a practical role for design review: finding decisions hidden in apparently harmless prose. [Planning review](https://github.com/SteveLeve/daggorath/pull/12), [module boundaries](architecture/module-boundaries.md).
+
+The public PR trail also shows the handoff mechanism, without supplying a complete tool ledger. PR #12 identifies Claude Code on the planning package; the gameplay stack uses `cursor/` branches and PR #20 includes a Cursor cloud-agent review; later PRs show Copilot reviews of ROM-capture and Android work and a Codex review of web storage. The shared prompt, ADR, reconciliation, and test files carried decisions across those sessions. This is evidence of roles visible in the public workflow, not a measurement of how much code any one tool wrote. [PR #12](https://github.com/SteveLeve/daggorath/pull/12), [PR #20 review](https://github.com/SteveLeve/daggorath/pull/20#issuecomment-5842499950), [PR #50](https://github.com/SteveLeve/daggorath/pull/50), [PR #48 review](https://github.com/SteveLeve/daggorath/pull/48#issuecomment-5902997329), [PR #52](https://github.com/SteveLeve/daggorath/pull/52).
+
+The architecture supplied a second contract. `src/core` owns simulated time, scheduling, RNG, rules, and timing-coupled display flags; it links no SDL or platform library. Presentation derives view state; input adapters convert touch or keyboard actions to the command/keystroke path; the shell handles pause and snapshots; the platform draws, plays sound, and stores files. Timestamped keystrokes let `dcli`, desktop SDL, touch input, and tests drive the same core. A continuous passage of host time becomes discrete jiffies in core, so the simulation cannot skip intervening interrupts just because a frame arrived late. [Module boundaries](architecture/module-boundaries.md), [clock specification](specification/clock-and-scheduler.md), [touch architecture](architecture/touch-input.md).
+
+### check requirements at the branch that owns them
+
+PRs #16–20 formed a dependency stack from combat to the SDL window. Their passing check counts climbed as later branches gained work, but a later tip's success did not satisfy an earlier PR's acceptance criteria. At PR #16, the branch's combat tests read only the 88 scaling fixture rows; damage and attack rows were first consumed later. PR #17's `INCANT` path could index beyond its 18-row object table; the seven special rows arrived on PR #20. PR #18 called a narrow historical save payload a complete suspend snapshot until later documentation corrected the claim. Reviewers recorded these as branch-specific gaps even when the downstream tip contained a fix. [PR #16](https://github.com/SteveLeve/daggorath/pull/16), [Phase 3 branch review](https://github.com/SteveLeve/daggorath/pull/16#issuecomment-5842652969), [PR #17](https://github.com/SteveLeve/daggorath/pull/17), [Phase 4 branch review](https://github.com/SteveLeve/daggorath/pull/17#issuecomment-5842656645), [PR #18](https://github.com/SteveLeve/daggorath/pull/18), [PR #20](https://github.com/SteveLeve/daggorath/pull/20).
+
+The stack was merged in dependency order after the high-severity inherited defect was fixed on the later branch, while some medium-severity phase requirements remained recorded as open. The lesson is about evidence ownership: a passing suite describes the checks present at one revision, while an issue or phase gate describes a larger obligation. A PR review needs to name the exact commit, the requirements checked there, where later fixes landed, and what remains. The project's [review checklist](planning/review-checklist.md) and read-only [evidence](../.claude/agents/evidence-auditor.md) and [boundary](../.claude/agents/boundary-checker.md) agents formalize part of that discipline; their existence does not prove they ran on every change. [Merge-ready review of PR #20](https://github.com/SteveLeve/daggorath/pull/20#issuecomment-5842670889), [PR #20](https://github.com/SteveLeve/daggorath/pull/20).
+
+### make discovery and recovery reproducible
+
+Automated comparisons served different purposes. Source-extracted tables check translation; committed traces catch regressions; two identical core replays establish repeatability; a ROM capture tests only its sampled behavior; and a live screen or device test checks the actual input and presentation path. The project repeatedly had to restore these distinctions. The first SDL build and headless parity did not reveal a dark window missing status and command text, lowercase keyboard input, real-time pacing problems, absent audio routing, or carried objects drawn as floor objects. The subsequent desktop repair was driven by playing the game. [Phase 7 PR](https://github.com/SteveLeve/daggorath/pull/20), [desktop repair PR](https://github.com/SteveLeve/daggorath/pull/21), [Phase 7 reconciliation](archaeology/phase-7/reconciliation.md).
+
+The refinement process turned those discoveries into bounded experiments. Its per-run prompt directs an agent to take one to three targets, read the listing and current code, classify each difference as a bug, deviation, quirk, or open question, add a source-cited regression for a real bug, run the full gate, and log findings. The touch loop used mockups, offscreen scripted taps and screenshots, and a run log to close UI gaps found in a human hand test. A save/load regression later required an even more representative route: the test loaded a snapshot through `Shell`, then sent Move and Attack taps through `OverlayBridge`, reproducing the stale input timeline that made controls unresponsive. [Refinement loop](planning/refinement-loop.md), [touch loop](planning/touch-overlay-loop.md), [touch wiring PR](https://github.com/SteveLeve/daggorath/pull/32), [save/load fix PR](https://github.com/SteveLeve/daggorath/pull/42).
+
+The victory replay is the clearest correction of an acceptance claim. The original automated route reached `WINNER` with `FUDGE` directives that reduced incoming damage and forced recovery. A later ring-charge correction invalidated that route. Phase 5b searched for a new path and committed 179,036 timestamped keys: eight typed saves, six deaths followed by a keypress restart and typed `ZLOAD`, and one `WINNER`. Its verifier rejects harness directives, runs two fresh default core replays, checks the event sequence, and compares a digest. The registered test was run at `b8afeb8` for this document. The result supports an unassisted *core replay under documented deviations*; it does not establish ROM-equivalent combat or an interactive desktop death/load check. [Phase 5 reconciliation](archaeology/phase-5/reconciliation.md#playthrough-status), [Phase 5b PR](https://github.com/SteveLeve/daggorath/pull/33), [search log](planning/phase-5b-search-log.md).
+
+### reuse the shell, test each platform at its boundary
+
+Phase 8 first built headless gesture, menu-shell, crisp-geometry, touch-overlay, and replay-equivalence pieces. Its initial reconciliation explicitly recorded that SDL was unavailable in that environment and that on-screen evaluation was still missing. When SDL became available, workstream 8.6 wired those pieces into the actual window, used offscreen scripted key/tap screenshots in both layouts, and responded to an owner hand test. The phase record keeps the earlier obstacle as history and adds a dated correction. Later crisp shading similarly records a reversal of the earlier dotted-dimness decision instead of rewriting that decision away. [Phase 8 reconciliation](archaeology/phase-8/reconciliation.md), [PR #30](https://github.com/SteveLeve/daggorath/pull/30), [PR #32](https://github.com/SteveLeve/daggorath/pull/32), [PR #38](https://github.com/SteveLeve/daggorath/pull/38).
+
+The web build reused the SDL shell through WebAssembly rather than introducing a second game engine. A review found that its first IndexedDB path could report an in-game save as stored when synchronization had failed. The response moved web saves to a synchronous storage API, reported failures to the player, added forced quota/read-error browser tests, and later persisted the touch menu's save slots too. A follow-up review checked the corrected head and kept real mobile browser, offline installation, and audio-on-first-tap checks open. This is a concrete case where a platform failure changed an interface and its tests, not the simulation rules. [Web ADR](adr/0011-web-stopgap-delivery.md), [blocking review](https://github.com/SteveLeve/daggorath/pull/48#issuecomment-5902997329), [follow-up review](https://github.com/SteveLeve/daggorath/pull/48#issuecomment-5917217785).
+
+Licensing was treated as an engineering constraint. The project licensed its own work separately from copied historical data, identified copied tables and generated headers, and restricted builds carrying those data. The web build remains local-only. The owner's D5 decision permits private Android builds while rights and branding questions remain open; CI builds an APK without uploading it. PR #52 reported a successful CI APK build and left device execution, Android conformance, background-process save recovery, and iOS open. A review caught a background-time accumulator problem; the PR fixed the host-time conversion path but still had no device resume test. PR #54 subsequently reports an owner-observed Samsung run of the safe-area layout and crisp movement/turn visuals. That is meaningful device evidence for those specific interactions, while the PR itself leaves orientation changes, web rebuild, iOS, and some visual details untested. The current README and Android README still contain older “no device run” wording; this document uses the later PR for that narrow observation. [Licensing decisions](licensing/README.md), [PR #46](https://github.com/SteveLeve/daggorath/pull/46), [PR #52 and review](https://github.com/SteveLeve/daggorath/pull/52), [PR #54](https://github.com/SteveLeve/daggorath/pull/54).
+
 ## Other techniques worth recording
 
 - **Issues as phase gates.** Each phase became a GitHub issue with a definition of done; goals
@@ -515,8 +579,8 @@ and a choice of which tool had allowance left.
 ## What did not work
 
 - **A goal with an unsatisfiable gate loops.** Phase 1 without firmware is the example.
-- **Stacked PRs made in one run blur ownership.** The case study's Technique 3 covers the
-  consequences; the cause was a single goal spanning five phases.
+- **Stacked PRs made in one run blur ownership.** [Check requirements at the branch that owns them](#check-requirements-at-the-branch-that-owns-them)
+  covers the consequences; the cause was a single goal spanning five phases.
 - **Green tests hid a blank window.** Phases 6 and 7 passed their gates and the first hand
   test showed a black screen with no sound.
 - **An assisted acceptance test.** The first "winning playthrough" used `FUDGE` directives.
@@ -552,3 +616,13 @@ and a choice of which tool had allowance left.
 6. Have a different model review, restricted to reporting, and feed its report back verbatim.
 7. Run lanes in separate worktrees and send hardware-free work to the cloud.
 8. Spend human attention on decisions and on looking at the running program.
+
+From the public record:
+
+1. **Write the evidence boundary into every task.** A source reading, a self-generated fixture, a ROM capture, and a device observation answer different questions. Require each claim to say which one supports it.
+2. **Review acceptance criteria at their owning revision.** A passing downstream stack can contain fixes while an earlier PR still lacks its own tests, docs, or safe behavior. Record the commit and the remaining obligation.
+3. **Keep the simulation repeatable, then test the outer path.** Headless replays made regressions cheap; actual keyboard, tap, storage, sound, and device checks found separate failures.
+4. **Make long-running agent work inspectable.** Phase prompts, bounded per-run loops, dated logs, audit agents, and explicit stop conditions let contributors resume work and challenge its claims without relying on an agent's narration. [Prompt conventions](prompts/README.md), [refinement loop](planning/refinement-loop.md), [Phase 5b loop](planning/phase-5b-loop.md).
+5. **Preserve corrections and unfinished work.** The Phase 0b report corrections, retired `FUDGE` baseline, narrowed ROM observations, and browser-storage review show why a recorded change of mind is more useful than a seamless story of progress.
+
+The project demonstrates a productive way to use agents on a source-driven reconstruction: give them small contracts and executable checks, then make humans and reviewers test the claims those checks cannot reach. Its strongest result is a working, deterministic core and an increasingly usable shell with a visible trail of evidence and limits—not a claim that preservation is finished.
