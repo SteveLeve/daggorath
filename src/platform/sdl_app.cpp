@@ -422,9 +422,14 @@ void draw_button(SDL_Renderer* renderer, const dag::input::Rect& rect, char labe
 void draw_text_line(SDL_Renderer* renderer, double x, double y, const std::string& text,
                     float scale = 1.0f) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    // The render scale also multiplies the viewport's origin (set by
+    // fit_to_window when the safe area is inset, #53), so that offset is
+    // taken back out here; it is zero everywhere else.
+    SDL_Rect view{};
+    SDL_GetRenderViewport(renderer, &view);
     SDL_SetRenderScale(renderer, scale, scale);
-    SDL_RenderDebugText(renderer, static_cast<float>(x) / scale, static_cast<float>(y) / scale,
-                        text.c_str());
+    SDL_RenderDebugText(renderer, (static_cast<float>(x) + view.x) / scale - view.x,
+                        (static_cast<float>(y) + view.y) / scale - view.y, text.c_str());
     SDL_SetRenderScale(renderer, 1.0f, 1.0f);
 }
 
@@ -486,7 +491,12 @@ void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int sc
 // its fixed window, unchanged. No SDL_WINDOW_HIGH_PIXEL_DENSITY: with it,
 // SDL 3.4 writes inline CSS sizes onto the canvas (and a 1x1 one when the
 // WebGL renderer recreates the window), overriding the page's sizing.
-#if DAG_FITS_WINDOW
+// Android and iOS also ask for a fullscreen window, which is what makes
+// SDLActivity hide the system navigation bar (immersive mode) rather than
+// leave it drawn over the game (#53).
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+constexpr SDL_WindowFlags kWindowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_FULLSCREEN;
+#elif DAG_FITS_WINDOW
 constexpr SDL_WindowFlags kWindowFlags = SDL_WINDOW_RESIZABLE;
 #else
 constexpr SDL_WindowFlags kWindowFlags = 0;
@@ -495,8 +505,34 @@ constexpr SDL_WindowFlags kWindowFlags = 0;
 void fit_to_window([[maybe_unused]] SDL_Renderer* renderer, [[maybe_unused]] double w,
                    [[maybe_unused]] double h) {
 #if DAG_FITS_WINDOW
+    // #53: the system may keep part of the window for itself -- a navigation
+    // bar on the left or right edge in landscape, a display cutout, iOS's
+    // home indicator. The game's w x h is then letterboxed into the safe
+    // area instead of the whole window: the logical size grows to the
+    // window's size at the safe area's scale, and a viewport places the
+    // game's coordinates inside it. SDL_ConvertEventToRenderCoordinates
+    // undoes both, so pointer and touch events still arrive in game
+    // coordinates.
+    SDL_Window* window = SDL_GetRenderWindow(renderer);
+    int win_w = 0;
+    int win_h = 0;
+    SDL_Rect safe{};
+    if (window != nullptr && SDL_GetWindowSize(window, &win_w, &win_h) &&
+        SDL_GetWindowSafeArea(window, &safe) && safe.w > 0 && safe.h > 0 &&
+        (safe.x != 0 || safe.y != 0 || safe.w != win_w || safe.h != win_h)) {
+        const double scale = std::min(safe.w / w, safe.h / h);  // window units per game unit
+        SDL_SetRenderLogicalPresentation(renderer, static_cast<int>(win_w / scale),
+                                         static_cast<int>(win_h / scale),
+                                         SDL_LOGICAL_PRESENTATION_LETTERBOX);
+        const SDL_Rect view{static_cast<int>((safe.x + (safe.w - w * scale) / 2.0) / scale),
+                            static_cast<int>((safe.y + (safe.h - h * scale) / 2.0) / scale),
+                            static_cast<int>(w), static_cast<int>(h)};
+        SDL_SetRenderViewport(renderer, &view);
+        return;
+    }
     SDL_SetRenderLogicalPresentation(renderer, static_cast<int>(w), static_cast<int>(h),
                                      SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    SDL_SetRenderViewport(renderer, nullptr);
 #endif
 }
 
@@ -856,6 +892,12 @@ int main(int argc, char** argv) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
 #if DAG_FITS_WINDOW
+            // #53: the safe area moves when the device is flipped to the
+            // other landscape or the system bars come and go.
+            if (event.type == SDL_EVENT_WINDOW_SAFE_AREA_CHANGED ||
+                event.type == SDL_EVENT_WINDOW_RESIZED ||
+                event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
+                fit_to_window(renderer, window_w, window_h);
             SDL_ConvertEventToRenderCoordinates(renderer, &event);
 #endif
             if (event.type == SDL_EVENT_QUIT) running = false;
