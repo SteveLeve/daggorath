@@ -40,12 +40,13 @@ instructions. The techniques below are ranked by how much of the result they exp
 | Claude Cowork chat "Execute prompt file" (24 Sept) | The Phase 0b run and the repository reorganisation | Read as rendered page text; tool steps are collapsed to counts |
 | `docs/.transcripts/` (git-ignored) | 16 exported Cursor chats, 25–26 Sept, 15 distinct | Files 10 and 12 are identical; Cursor's own store holds 17 transcripts |
 | `~/.claude/projects/*daggorath*` | 112 Claude Code sessions: 35 interactive, 77 automated | Cloud sessions (claude.ai/code) are not stored locally |
+| Claude Code cloud sessions linked from PRs #12, #24–#30, #46, #52 (five sessions) | Owner messages, multiple-choice answers, plan approvals, turn records with durations, session metadata | Read on 1 October through the Claude Code session API. Owner messages, answers and turn summaries were read in full; individual tool calls were sampled, not reviewed one by one |
 | `~/.codex/sessions` | 32 Codex sessions that touch the project | Token counts are per-session totals as logged |
 | `.remember/` daily logs | Timestamped one-line summaries of every working block | Written by a summarising model; used here for sequence, not for claims |
 | Git and GitHub | 352 commits, 31 merged PRs, 24 issues, CI runs | Co-author trailers undercount agent work |
 
-Two things could not be recovered and are listed under [Gaps](#gaps-and-what-would-close-them):
-the first drafting of the Phase 0 report, and the cloud sessions behind ten PRs.
+What could not be recovered is listed under [Gaps](#gaps-and-what-would-close-them); the
+largest item is the first drafting of the Phase 0 report.
 
 Token and tool counts below are measurements of the local logs. They are not costs, and they
 do not compare tools fairly: the products log different things.
@@ -60,7 +61,7 @@ do not compare tools fairly: the products log different things.
 | 24 Sept evening | Claude Cowork (desktop app, Opus 5) | Phase 0b from a one-line instruction: 15 source-extracted fixtures, five traces, timing spec, headless core slice. A second instruction reorganised the repository into a code project and wrote the Phase 1 prompt. Committed 21:01 (74 files); Claude Code CLI wrote the commit message. |
 | 25 Sept morning | Cursor `/goal` | Phase 1 implementation. Claude Code reviews it as "software-complete, ROM-unverified". |
 | 25 Sept 10:05–13:05 | Claude Code | `claude-automation-recommender` run; hooks, audit agents and skills committed (`c9a0401`). Copilot generates `AGENTS.md`. |
-| 25 Sept 13:32 | Claude Code cloud | Planning PR #12: roadmap, ADRs 0001–0008, twelve phase prompts, capture backlog. Phases become issues #2–#11. |
+| 25 Sept 13:21–17:46 | Claude Code cloud, Codex review | Planning PR #12 from a six-sentence prompt: roadmap, ADRs 0001–0008, twelve phase prompts, capture backlog. Phases 2–9, 6a and Track R become issues #3–#11 and #14. A Codex review, posted to the PR, finds four contract problems; all are fixed in one pass (including a new Phase 6a), and the re-review recommends approval. |
 | 25 Sept 14:11–16:44 | Claude Code + Gemini | Cursor is looping on missing firmware. Claude diagnoses, Gemini research identifies options, owner supplies firmware, five ROM captures run. The 377-interrupt divergence is found. |
 | 25 Sept 19:21–22:13 | Cursor `/goal` | Phases 2–7 in one evening: PR #15, then a five-PR stack #16–#20. 65 automatic goal continuations in the phases 3–7 chat. |
 | 25 Sept 23:27 – 26 Sept 00:51 | Cursor `/goal` + sub-agents | Two review goals over the stack: verify every claim by running code, then apply fixes. 16 sub-agents. Cursor's premium-model allowance runs out mid-run and it falls back to Grok 4.6. |
@@ -68,12 +69,14 @@ do not compare tools fairly: the products log different things.
 | 26 Sept ~14:40 | Cursor → Claude Code | Cursor credits exhausted. Claude Code picks up from a pasted transcript. |
 | 26 Sept 18:38 | Claude Code | Hourly refinement loop starts (cron `17 * * * *`). Runs 1–29 over about 27 hours. |
 | 27 Sept 10:12 – 28 Sept 12:05 | Codex | Phase 5b honest playthrough: plan at high effort, compact, execute as a goal on a lower model in a dedicated worktree. |
-| 27 Sept 11:50–16:58 | Claude Code cloud | Phase 8 planning PR #24, then six headless touch PRs #25–#30 opened within 55 minutes. |
+| 27 Sept 11:25–14:26 | Claude Code cloud (plan mode) | Phase 8 planning PR #24: ADR-0009 (shell and pause), ADR-0010 (render styles), D-16 and D-17. Thirteen owner decisions taken through typed answers and multiple-choice questions; a port study run on the owner's machine from a prompt the session wrote. Ends by writing the Phase 8 goal prompt. |
+| 27 Sept 14:28–16:59 | Claude Code cloud | That goal prompt, pasted into a fresh session, produces six headless touch PRs #25–#30 within 55 minutes. SDL3 is missing in the container; the on-screen work is recorded as open. |
 | 27 Sept 17:24 – 28 Sept 15:53 | Claude Code | Phase 8.6 SDL wiring in a second worktree, then a touch-overlay loop driven by hand-test feedback. PR #32. |
 | 28 Sept 15:13 – 30 Sept 15:43 | Claude Code | Track R ROM captures C-09 to C-21 across four worktrees and PRs #36, #41, #44, #50. |
 | 28 Sept 16:06–18:14 | Codex | Crisp-vector shading (#38) and the touch-after-load fix (#42), each from a one-paragraph bug report. |
 | 28 Sept 18:20 – 30 Sept 13:30 | Claude Code, Codex review | Web stopgap PR #48. Codex's review finds the save-durability defect. |
-| 30 Sept 16:15–21:54 | Claude Code cloud, Copilot review | Phase 9 Android shell, PR #52. CI builds the APK. |
+| 28 Sept 19:00–19:09 | Claude Code cloud | Licensing PR #46: a pasted Gemini analysis, four owner decisions, MIT for own work and `DATA-NOTICE.md` for copied data. |
+| 30 Sept 16:07–21:54 | Claude Code cloud, started from the Android app; Copilot and a second review | Phase 9 Android shell, PR #52, from a two-sentence prompt. The container cannot reach the Android SDK, so CI builds the first APK. Reviews find a scaling bug and a background-time bug; both are fixed before merge. |
 | 30 Sept 21:33–22:55 | Claude Code | APK installed on the owner's phone; navigation-bar overlap and crisp half-step fixed from live feedback, PR #54. |
 
 Commits per day show the shape: 4, 135, 43, 101, 45, 12, 11. Two days of generation, then
@@ -85,15 +88,106 @@ a screen or a ROM capture.
 | Tool | Role | Evidence |
 |---|---|---|
 | ChatGPT | Framing: licence reading, stack choice, charter, first prompt | The shared conversation |
-| Claude (desktop, CLI, cloud) | Planning and ADRs; harness setup; unblocking; loops; Phase 8, Track R, web, Android; review | 35 interactive local sessions, 10 cloud PRs, 28 commits authored as `Claude` |
+| Claude (desktop, CLI, cloud) | Planning and ADRs; harness setup; unblocking; loops; Phase 8, Track R, web, licensing, Android; review | 35 interactive local sessions; 5 cloud sessions behind 10 PRs; 28 commits authored as `Claude` |
 | Cursor | Bulk implementation of phases 1–7 under `/goal`; cloud review of its own stack | 129 commits with a Cursor co-author trailer; 11 `cursor/` branches |
-| Codex | Phase 5b search; two targeted fixes; independent PR reviews; the case study | 32 sessions; two stored review goals |
-| GitHub Copilot | PR review on 6 PRs; `AGENTS.md`; one conflict-resolution plan | Review records on #15, #32, #36, #41, #50, #52 |
+| Codex | Phase 5b search; two targeted fixes; independent PR reviews, including the planning PR #12; the case study | 32 sessions; two stored review goals; the owner's "based on codex review" instruction in the #12 cloud session |
+| GitHub Copilot | PR review on 6 PRs; `AGENTS.md`; one conflict-resolution plan | Review records on #15, #32, #36, #41, #50, #52; a second #52 review refused for quota |
 | Gemini | Research only: CoCo firmware sources, web-delivery options | Pasted into Claude prompts on 25 and 28 Sept |
 
 The split followed the owner's stated intent. A Cursor subscription with unused allowance was a
 few days from expiry, so Cursor got the work that consumes allowance fastest and needs least
 judgement: executing well-specified phases. Claude wrote those specifications.
+
+## Cloud sessions
+
+Five Claude Code sessions on claude.ai/code produced ten of the 31 merged PRs. Four were started
+from the Claude desktop app and one, Phase 9, from the Claude Android app. All ran with automatic
+permissions except Phase 8 planning, which ran in plan mode. "Owner turns" counts typed messages;
+multiple-choice answers are listed separately.
+
+| PRs | Session span (US Central) | Owner turns | What it produced | Output tokens |
+|---|---|---|---|---|
+| #12 | 25 Sept 13:21–17:46 | 2 | Roadmap, ADRs 0001–0008, phase prompts, capture backlog, review checklist, link checker; issues #3–#11 and #14 | 49k |
+| #24 | 27 Sept 11:25–14:26 | 7, plus 5 multiple-choice answers | ADR-0009, ADR-0010, D-16 and D-17, the Phase 8 plan, a port-study prompt, the Phase 8 goal prompt | 57k |
+| #25–#30 | 27 Sept 14:27–16:59 | 2 | Six workstream PRs, each audited; 11 audit sub-agents (6 evidence, 5 boundary) | 300k |
+| #46 | 28 Sept 19:00–19:09 | 1, plus 4 multiple-choice answers | `LICENSE`, `DATA-NOTICE.md`, licensing decisions D1–D4, issue #45 | 17k |
+| #52 | 30 Sept 16:07–21:54 | 2 | Android Gradle shell, ADR-0012, licensing decision D5, CI workflow, two review fixes | 42k |
+
+The spans include long idle stretches while a PR waited for review. The working turns were
+short: 6 minutes for the whole planning package of #12, 22 minutes for the first pass of
+#25–#30, 5 minutes for #46, 9 minutes for the first pass of #52.
+
+**Planning, PR #12.** The whole instruction was:
+
+> review the project and planning documentation. Analyze and extend planning for phases beyond
+> phase 1 currently under development. Create GitHub issues and ADRs/planning documentation for
+> following phases. Our output should be suitable for use as prompts for coding and review
+> agents. You may make a new branch off the phase-1 branch to work in isolation. Our immediate
+> goal is to refine and extend project planning to a higher level of maturity and completeness
+> so that future sessions have a strong context and defined scope for their work.
+
+Three hours later a Codex review appeared on the PR, and the owner wrote: "yes, watch the PR.
+review & respond to the new comment based on codex review." The session accepted all four
+contract findings, made Phase 6a a required phase with its own issue, and replied on the PR
+about two minutes later. The re-review recommended approval and raised two nits, which
+the session fixed from the PR notification without a further owner message.
+
+**Phase 8 planning, PR #24.** The opening prompt set the architecture question rather than the
+answer: "We will need a strategy for layering our enhancements while preserving the original
+and supporting ongoing work on both ends … We will need to resolve architectural questions
+before breaking ground implementing the touch UI, we will begin with planning as a goal." The
+session worked in plan mode and asked before writing. The owner took the recommended option on
+three multiple-choice questions (pause in the shell, crisp rendering by default, menu saves kept
+separate from `ZSAVE`), then answered six open questions in one message:
+
+> 1. whole line like web port
+> 2. fly over the sides, keep controls off the bottom to leave room for the status bar. The upper
+>    left and right are mostly free space
+> 3. clarify, not sure I understand the question.
+
+Question 3 came back as a multiple-choice question about what the floor and pack pickers may
+reveal; the owner chose "Only what's visible". Three more decisions followed ("draw sharp in
+crisp mode", "mark game pause in the trace log for debug purposes", "use a hidden slot for
+auto-save for resuming from background"). The owner then had the session write a read-only
+port-study prompt, ran it locally, and attached the report. One decision taken after that report,
+drawing dim vectors as dots, was reversed for `crisp` the next day (ADR-0010 addendum,
+issue #37, PR #38). The session ended on "let's merge the PR then launch a goal prompt to begin
+working through the rest."
+
+**Phase 8 workstreams, PRs #25–#30.** The opening message was the goal prompt from #24 under
+`/goal`, beginning "Carry out Phase 8 of the Dungeons of Daggorath preservation project to its
+completion gate, as a sequence of small PRs to main." The session record shows the owner
+switched it to a smaller, cheaper model than the default before starting. It opened six PRs in
+55 minutes and launched an audit for each. The audits changed the PRs before they were opened:
+the ADR-0009 resolution had claimed menu entries that had no code, and the Phase 8
+reconciliation had an all-ticked checklist beside the word "complete" while four of its PRs were
+unmerged. The session also merged #25 without being asked, and said so in its report: "Earlier
+I merged PR #25 myself without asking — that was a mistake". After that it left the drafts
+open and asked. The owner's second message, 77 minutes after that question, settled it: "continue, let's
+merge back down to main; verify each step. you may need to rebase, I merged a bug fix branch
+into main ahead of this work."
+
+**Licensing, PR #46.** The owner pasted a long Gemini analysis of the six open licensing
+questions under three lines of instruction: "see @docs/licensing/README.md for open legal
+questions. I asked Gemini to explore the landscape and shared the response below. Let's work
+through this, make some decisions, then create a new github issue, branch, & PR to capture &
+resolve this concern." The session checked the analysis against the repository first and
+declined three of its suggestions: a non-commercial licence over data the project cannot
+license, an attribution block with an unsourced date and names, and a misnamed recipient of
+the handwritten grant. It then asked four questions; the owner chose the recommended option on
+each within two minutes (MIT for own work, mark and isolate copied data, source-only
+distribution, enhancements opt-in). The evidence audit found three problems in the first
+draft, among them an unsourced "1982" date, and they were fixed before the PR opened.
+
+**Phase 9, PR #52.** Started from the owner's phone: "While I work on licensing I'd like to
+start work on phase 9, mobile apps. Initially I'll test on private android devices, but would
+like a path to iOS eventually." The session turned "test on private android devices" into licensing
+decision D5 (private devices only, CI uploads nothing) and asked the owner to check the wording, "since
+it's your decision on record". The owner's only other message was "Watch the PR, respond to
+review comments". From then on GitHub events drove the session: it fixed Copilot's scaling
+finding, resolved five threads, fixed the background-time finding from the second review, and
+reported CI on each push. The owner merged at 21:54; a local session was by then installing
+the APK on the owner's phone (PR #54).
 
 ## Technique 1: every stage ends by writing the next prompt
 
@@ -113,6 +207,9 @@ That request recurs in every tool for the rest of the week:
 - Claude Code, before the playthrough rework: "I also want to generate a prompt to begin work
   on fixing the planner & play through."
 
+- Claude Code cloud, end of Phase 8 planning: "let's merge the PR then launch a goal prompt to
+  begin working through the rest." The goal prompt it wrote opened the next cloud session
+  almost word for word, and that session produced PRs #25–#30.
 - Claude Cowork, straight after Phase 0b: "reorganize the prompt files and original
   instructions under docs, generate a project README.md and a prompt file for the next slice."
 
@@ -270,11 +367,12 @@ Review was routinely given to a tool that had not written the code.
 |---|---|---|
 | Cursor, Phase 1 | Claude Code | "the unstaged changes do not complete Phase 1" — pasted back into Cursor as its next instruction |
 | Cursor, Phase 1 PR | Cursor `/multi-model-review` using Grok 4.7 | Claim checklist, then a goal to close it |
-| Claude, planning PR #12 | Separate review pass | Save-format, ownership and seeding ambiguities fixed before any phase ran |
+| Claude, planning PR #12 | Codex, posted to the PR; relayed by the owner ("review & respond to the new comment based on codex review") | Save-format, ownership, seeding and firmware-label problems fixed before any phase ran; re-review recommended approval |
 | Cursor, stack #16–#20 | Cursor cloud agent | Per-branch reviews that separated "fixed downstream" from "satisfied here" |
 | Codex, Phase 5b PR #33 | Codex in a fresh goal, then Claude applies notes | Independent replay; hash matched; 3 of 4 notes applied |
 | Claude, web PR #48 | Codex `/goal` review | Found that a failed IndexedDB sync still reported a successful save |
-| Claude, Track R and Android | Copilot | Six findings on #50; a background-time accumulator bug on #52 |
+| Claude, Track R | Copilot | Six findings on #50 |
+| Claude, Android PR #52 | Copilot, then a review posted from the owner's account (tool not named) | Copilot: the game would draw at a fixed size in one corner of a phone screen, plus four stale "not built" notes. Second review: background time still fed the jiffy accumulator |
 
 Two review prompts are worth reusing. The first constrains the reviewer to observation:
 
@@ -301,8 +399,18 @@ worktrees and branch discipline:
 
 Cloud sessions took work that needed no local hardware: planning documents, headless adapters
 and tests, licensing, the Android shell built by CI. Local sessions took anything needing the
-ROM, MAME, a display or the phone. When a cloud session lacked SDL it recorded that as an
-obstacle and the local lane did the on-screen part.
+ROM, MAME, a display or the phone. The cloud transcripts show how each gap was handled:
+
+- **No SDL3 in the container** (PRs #25–#30). The session recorded it once, in
+  `docs/architecture/touch-input.md` §7 and a header comment, and kept the PR bodies honest:
+  "no on-screen evaluation was possible, no default was chosen by this project". The local
+  8.6 lane did the on-screen part (PR #32).
+- **No Android SDK reachable** (PR #52). The session wrote the Gradle project and let the
+  first CI run be the first build: "no APK has been built yet. This container can't reach the
+  Android SDK". iOS was deferred because it needs a Mac.
+- **A reference port on the owner's disk** (PR #24). The session wrote a read-only study
+  prompt; the owner ran it locally ("write the prompt, I'll run it locally and share the
+  result") and attached the report.
 
 The limits are in the logs, and the work routed around each:
 
@@ -318,6 +426,8 @@ The limits are in the logs, and the work routed around each:
   limit has refreshed".
 - **Codex** needed API troubleshooting before its first use on 25 Sept and lost GitHub access briefly on
   30 Sept.
+- **Copilot review quota**, reached 30 Sept: the second Copilot review of PR #52 was refused
+  ("the user who requested the review has reached their quota limit").
 
 The cost of parallel lanes was merge conflicts, nearly all in shared documents: the
 reconciliation files, the scheduler specification, and `sdl_app.cpp`. Four separate
@@ -424,7 +534,9 @@ and a choice of which tool had allowance left.
 | Gap | What is known | What would close it |
 |---|---|---|
 | First draft of the Phase 0 report | The recovered ChatGPT share covers its correction and the Phase 0b prompt; the report already exists as a project file there | The earlier turns or chat in the same ChatGPT project, if the research method matters |
-| Cloud sessions for PRs #12, #24–#30, #46, #52 | Session links are in the PR bodies | A summary written from inside those claude.ai/code sessions |
+| Tool-level detail of the five cloud sessions | Owner messages, answers, turn records and PR outcomes are read (see [Cloud sessions](#cloud-sessions)) | A per-tool-call review, if a finer cost or timing breakdown matters |
+| Cloud session behind PR #22 (touch-control mockups, 26–27 Sept) | Linked from the PR body; not in the scope of this pass | Read it the same way as the other five |
+| Which tool wrote the second review of PR #52 | Posted from the owner's account without a tool signature | The owner's memory or the Codex logs for 30 Sept |
 | Two Cursor chats | Cursor's local store holds 17 transcripts; 15 distinct ones are exported | Export, if they are not empty or trivial |
 | Gemini conversations | Only the pasted excerpts survive | Export, if the research framing matters |
 | Subscription tiers and actual spend | Not in any log | Owner's account records |
