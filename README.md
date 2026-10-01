@@ -1,5 +1,8 @@
 # Dungeons of Daggorath — preservation project
 
+<img width="2552" height="1284" alt="Screenshot from 2026-10-01 16-00-10" src="https://github.com/user-attachments/assets/3540c931-2d28-49e6-affa-52b62cc3f7f6" />
+
+
 A faithful modern implementation of the 1983 TRS-80 Color Computer game, built
 from the original assembly listing as the specification. Original Mode is a
 historical reproduction: the same five fixed maps, the same 60 Hz timing, the same
