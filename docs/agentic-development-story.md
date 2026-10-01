@@ -24,15 +24,15 @@ instructions. The techniques below are ranked by how much of the result they exp
 | Source | What it holds | Limit |
 |---|---|---|
 | ChatGPT shared conversation, "Plan mobile remake licensing tech stack" (24 Sept) | Opening request, licensing and stack analysis, the generated charter and Phase 0 prompt | Read from the share page's embedded data; reasoning summaries only partly present |
-| `docs/.transcripts/` (git-ignored) | 10 exported Cursor chats, 25–26 Sept | Files 01 and 02 are identical; there is no file 08; Cursor's own store holds 17 transcripts, so about 7 are not exported |
+| Claude Cowork chat "Execute prompt file" (24 Sept) | The Phase 0b run and the repository reorganisation | Read as rendered page text; tool steps are collapsed to counts |
+| `docs/.transcripts/` (git-ignored) | 16 exported Cursor chats, 25–26 Sept, 15 distinct | Files 10 and 12 are identical; Cursor's own store holds 17 transcripts |
 | `~/.claude/projects/*daggorath*` | 112 Claude Code sessions: 35 interactive, 77 automated | Cloud sessions (claude.ai/code) are not stored locally |
 | `~/.codex/sessions` | 32 Codex sessions that touch the project | Token counts are per-session totals as logged |
 | `.remember/` daily logs | Timestamped one-line summaries of every working block | Written by a summarising model; used here for sequence, not for claims |
 | Git and GitHub | 352 commits, 31 merged PRs, 24 issues, CI runs | Co-author trailers undercount agent work |
 
-Three things could not be recovered and are listed under [Gaps](#gaps-and-what-would-close-them):
-the session that produced the Phase 0 report, the session that built the Phase 0b core, and the
-cloud sessions behind ten PRs.
+Two things could not be recovered and are listed under [Gaps](#gaps-and-what-would-close-them):
+the session that produced the Phase 0 report, and the cloud sessions behind ten PRs.
 
 Token and tool counts below are measurements of the local logs. They are not costs, and they
 do not compare tools fairly: the products log different things.
@@ -43,12 +43,13 @@ do not compare tools fairly: the products log different things.
 |---|---|---|
 | 24 Sept 12:11 | ChatGPT (GPT-5.6 Thinking) | Opening discussion: licence, stack, sequence. Output: project instructions and a Phase 0 archaeology prompt. |
 | 24 Sept 19:02 | — | Repository initialised with those two files, then the Phase 0 report and a 19-line Phase 0b prompt. |
-| 24 Sept 21:01 | Claude (session not recovered) | Phase 0b: 15 source-extracted fixtures, five traces, timing spec, headless core slice, 74 files. Claude Code CLI wrote the commit message. |
+| 24 Sept evening | Claude Cowork (desktop app, Opus 5) | Phase 0b from a one-line instruction: 15 source-extracted fixtures, five traces, timing spec, headless core slice. A second instruction reorganised the repository into a code project and wrote the Phase 1 prompt. Committed 21:01 (74 files); Claude Code CLI wrote the commit message. |
 | 25 Sept morning | Cursor `/goal` | Phase 1 implementation. Claude Code reviews it as "software-complete, ROM-unverified". |
 | 25 Sept 10:05–13:05 | Claude Code | `claude-automation-recommender` run; hooks, audit agents and skills committed (`c9a0401`). Copilot generates `AGENTS.md`. |
 | 25 Sept 13:32 | Claude Code cloud | Planning PR #12: roadmap, ADRs 0001–0008, twelve phase prompts, capture backlog. Phases become issues #2–#11. |
 | 25 Sept 14:11–16:44 | Claude Code + Gemini | Cursor is looping on missing firmware. Claude diagnoses, Gemini research identifies options, owner supplies firmware, five ROM captures run. The 377-interrupt divergence is found. |
 | 25 Sept 19:21–22:13 | Cursor `/goal` | Phases 2–7 in one evening: PR #15, then a five-PR stack #16–#20. 65 automatic goal continuations in the phases 3–7 chat. |
+| 25 Sept 23:27 – 26 Sept 00:51 | Cursor `/goal` + sub-agents | Two review goals over the stack: verify every claim by running code, then apply fixes. 16 sub-agents. Cursor's premium-model allowance runs out mid-run and it falls back to Grok 4.6. |
 | 26 Sept morning | Cursor | Desktop demo, first hand test ("I see only a black screen"), play-bug plan and fixes, port comparison report. |
 | 26 Sept ~14:40 | Cursor → Claude Code | Cursor credits exhausted. Claude Code picks up from a pasted transcript. |
 | 26 Sept 18:38 | Claude Code | Hourly refinement loop starts (cron `17 * * * *`). Runs 1–29 over about 27 hours. |
@@ -98,6 +99,18 @@ That request recurs in every tool for the rest of the week:
 - Claude Code, before the playthrough rework: "I also want to generate a prompt to begin work
   on fixing the planner & play through."
 
+- Claude Cowork, straight after Phase 0b: "reorganize the prompt files and original
+  instructions under docs, generate a project README.md and a prompt file for the next slice."
+
+The Phase 0b run shows how little the owner had to type once a prompt file existed. The whole
+instruction was "read and execute the prompt in file: phase-0b-prompt.md", and the prompt file
+itself is 19 lines. The session cloned the pinned listing, extracted fixtures, wrote the
+scheduler specification and a C++20 slice with 68 passing checks, and reported four Phase 0
+statements the source contradicts. It also stated plainly what it had not done: "Verified
+against a retail ROM: nothing." That sentence became Phase 1's first task. The follow-up
+reorganisation made the licensing rule mechanical by git-ignoring `*.rom`, `*.ccc`,
+`captures/` and `third_party/`.
+
 The prompts were committed, which is why `docs/prompts/` has 18 files. The next session started
 with a one-line instruction pointing at a file:
 
@@ -138,9 +151,11 @@ The same mechanism was used in Codex (`/goal` with a handoff file) and Claude Co
 (`/goal continue working through the remaining tracks (C-12 through C-16, …) until complete or
 blocked`).
 
-The failure mode also appeared on day one. Cursor's Phase 1 goal required ROM captures, the
-machine had no CoCo firmware, and the agent looped, re-reporting the same blocker. The owner
-had Cursor summarise its state into a troubleshooting prompt and handed that to Claude Code.
+The failure mode also appeared on day one. Cursor's Phase 1 capture goal required ROM captures
+and the machine had no CoCo firmware. The goal re-prompted the agent 134 times in that chat,
+each time ending on the same blocker. The owner broke the loop by hand: "we seem to be stuck,
+summarize what has been done and what's blocked in a troublehsooting prompt". That summary went
+to Claude Code.
 The fix went into the standing rules as "An obstacle is recorded once, in one place, with its
 reason. Do not re-check or restate it every turn; mark the item 'not run: <reason>' and move
 on." Later goals say "until complete or blocked", and later review goals say "'untested' is a
@@ -277,6 +292,9 @@ obstacle and the local lane did the on-screen part.
 
 The limits are in the logs, and the work routed around each:
 
+- **Cursor premium-model allowance**, exhausted late on 25 Sept during the stack review
+  ("Switched to grok-4.6 after reaching Other Models usage limit"). The owner resumed on the
+  cheaper model and added "use lower power models for sub agents".
 - **Cursor monthly allowance**, exhausted 26 Sept about 14:40. Claude Code resumed from a
   pasted transcript within minutes.
 - **Claude monthly spend limit**, hit 27 Sept 23:59 and again 28 Sept 12:01. The Codex lane
@@ -313,6 +331,10 @@ fix.
 **Pushing on a diagnosis.** "I'd think that a faithful adaptation would land in the same place
 with integrer math, I don't understnad the cause of the drift." That led to the HSLOW healing
 constant.
+
+**Correcting drift.** During the stack review Cursor began writing "Related to #8. Does not
+close it." The owner stopped that in one message: "These PRs are isometric with the issues. The
+PR MUST close the Issue."
 
 **Scope control.** "this PR is getting pretty big … it might be good to mege this back to main
 and start a new branch". "I agree, mark it deferred."
@@ -352,7 +374,9 @@ and a choice of which tool had allowance left.
 | Claude Code output tokens (local sessions) | 5.0 million |
 | Codex Phase 5b session | 26 hours, 1,675 tool calls, 10 compactions, 4 models |
 | Cursor phases 3–7 chat | 917 tool calls, 65 goal continuations |
-| Exported Cursor chats, total tool calls | about 2,200 |
+| Cursor Phase 1 capture chat (the stuck goal) | 303 tool calls, 134 goal continuations |
+| Cursor stack-review chat | 479 tool calls, 16 sub-agents |
+| Exported Cursor chats (15 distinct), total tool calls | about 3,400 |
 
 ## What did not work
 
@@ -362,7 +386,10 @@ and a choice of which tool had allowance left.
 - **Green tests hid a blank window.** Phases 6 and 7 passed their gates and the first hand
   test showed a black screen with no sound.
 - **An assisted acceptance test.** The first "winning playthrough" used `FUDGE` directives.
-  It took a later bug fix to break it and a separate phase to replace it honestly.
+  This was the owner's call, made past midnight during the stack review: "we might need to
+  introduce a 'fudge factor' to enable proof of winning conditions. it may not be practical to
+  generate a play through script without cheats." It took a later bug fix to break that route
+  and a separate phase, with the opposite instruction, to replace it honestly.
 - **Baseline regeneration beyond approval.** One loop run regenerated the Phase 0b traces
   when only Phase 3 baselines had been approved; the daily note records it as such.
 - **Audits lagging commits** when a limit or a blocked sub-agent interrupted a run.
@@ -372,10 +399,9 @@ and a choice of which tool had allowance left.
 
 | Gap | What is known | What would close it |
 |---|---|---|
-| Phase 0 archaeology report | Committed 24 Sept 19:02 with a "Research snapshot" date; no local session produced it | Export of the chat that ran the Phase 0 prompt (ChatGPT project or Claude) |
-| Phase 0b evidence pack and core slice | 74 files committed 21:01; the earliest local Claude Code session only writes the commit message | Export of the Claude desktop session from the evening of 24 Sept |
-| Cloud sessions for PRs #12, #24–#30, #46, #52 | Session links are in the PR bodies | Export of those claude.ai/code sessions |
-| Seven Cursor chats | Present in Cursor's local store, not in `docs/.transcripts/` | Export, including the missing file 08 and the "Gameplay issues and fixes" chat |
+| Phase 0 archaeology report | Committed 24 Sept 19:02 with a "Research snapshot" date. The recovered Cowork chat starts at Phase 0b, with the report already in the folder | Export of the chat that ran the Phase 0 prompt |
+| Cloud sessions for PRs #12, #24–#30, #46, #52 | Session links are in the PR bodies | A summary written from inside those claude.ai/code sessions |
+| Two Cursor chats | Cursor's local store holds 17 transcripts; 15 distinct ones are exported | Export, if they are not empty or trivial |
 | Gemini conversations | Only the pasted excerpts survive | Export, if the research framing matters |
 | Subscription tiers and actual spend | Not in any log | Owner's account records |
 
