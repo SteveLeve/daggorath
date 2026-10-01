@@ -14,6 +14,18 @@ six and a half days (24 September 12:11 to 30 September 22:55). The work used or
 subscriptions to ChatGPT/Codex, Claude, Cursor and GitHub Copilot, plus Gemini for research. No
 agent framework was written.
 
+This is written for software engineers who use agentic development tools. The project was a
+deliberate experiment in taking the hands off the wheel: let agents do most of the work while
+the owner guides. A video game made that reasonable, because the blast radius of a mistake is
+small. It was also a test of the major vendors' coding harnesses, on two questions: how well
+they turn an idea into a detailed plan, and how well they turn a detailed plan into working
+software with little human intervention.
+
+The owner's own summary of the result is that larger tracks of long-running work could run in
+parallel, with less context switching between terminals, leaving attention for design and
+specification. Most of the project's goals are met at this checkpoint. Licensing, not
+engineering, is the largest obstacle to public deployment.
+
 The owner wrote almost no code and very few long prompts. Across roughly 110 interactive
 sessions the typical instruction is one or two sentences. What the owner did supply was
 decisions, hand tests, and a steady insistence that each agent write the *next* agent's
