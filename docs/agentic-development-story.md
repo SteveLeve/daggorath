@@ -16,8 +16,8 @@ plan into working software with little human intervention.
 By the owner's assessment, most of the project's goals are met at this checkpoint. One person
 took the 1983 *Dungeons of Daggorath* from a planning chat to a deterministic C++20 core, an
 SDL3 desktop build, a local WebAssembly PWA and a debug Android APK running on a phone in about
-six and a half days (24 September 12:11 to 30 September 22:55). The work used ordinary subscriptions to ChatGPT/Codex, Claude, Cursor
-and GitHub Copilot, plus Gemini for research. No agent framework was written. Licensing, not
+six and a half days (24 September 12:11 to 30 September 22:55). The work used ordinary
+subscriptions to ChatGPT/Codex, Claude, Cursor and GitHub Copilot, plus Gemini for research. No agent framework was written. Licensing, not
 engineering, is the main obstacle to public deployment.
 
 The owner wrote almost no code and very few long prompts. Across roughly 110 interactive
@@ -62,7 +62,7 @@ model and selected ROM captures supply different kinds of check
 
 | Claim | Support at `b8afeb8` | Limit |
 |---|---|---|
-| Native build and registered tests | The first draft of this case study records a run of `make build && make test` with SDL3: `dod` built and 26/26 CTest cases passed. Re-run for this revision on 1 Oct in a cloud container without SDL3 (the non-`docs/` tree is identical to `b8afeb8`): desktop target skipped, 24/24 passed | These tests do not replay every ROM state or stand in for live screen, audio or device use |
+| Native build and registered tests | The Codex session that wrote the first draft of this case study (30 Sept, 22:57) records a run of `make build && make test` with SDL3: `dod` built and 26/26 CTest cases passed. Re-run for this revision on 1 Oct in a cloud container without SDL3 (the non-`docs/` tree is identical to `b8afeb8`): desktop target skipped, 24/24 passed | These tests do not replay every ROM state or stand in for live screen, audio or device use |
 | Fixture integrity | `make verify`, both runs: Phase 0b 18, Phase 6 vector 16 and Phase 6 text 22 fixtures, 0 problems | A clean manifest checks recorded artifacts, not the correctness of every historical interpretation |
 | Original Mode victory | The committed Phase 5b script and its verifier (`playthrough_power_on_to_winner`) passed in both runs | Deterministic core behaviour under recorded deviations; no claim of ROM-equivalent play ([Phase 5 reconciliation](archaeology/phase-5/reconciliation.md#playthrough-status)) |
 | Web | [#48] reports a local browser build and forced-failure storage tests | Local only ([ADR-0011](adr/0011-web-stopgap-delivery.md)). No browser was run for this document; real mobile browsers, offline install and first-tap audio stay open |
@@ -105,23 +105,28 @@ compare tools fairly: the products log different things.
 | 24 Sept evening | Claude Cowork (desktop app, Opus 5) | Phase 0b from a one-line instruction: 15 source-extracted fixtures, five traces, timing spec, headless core slice. A second instruction reorganised the repository into a code project and wrote the Phase 1 prompt. Committed 21:01 (74 files); Claude Code CLI wrote the commit message. |
 | 25 Sept morning | Cursor `/goal` | Phase 1 implementation ([#1]). Claude Code reviews it as "software-complete, ROM-unverified". |
 | 25 Sept 10:05–13:05 | Claude Code | `claude-automation-recommender` run; hooks, audit agents and skills committed (`c9a0401`). Copilot generates `AGENTS.md`. |
-| 25 Sept 13:21–17:46 | Claude Code cloud, Codex review | Planning [#12] from a six-sentence prompt: roadmap, ADRs 0001–0008, twelve phase prompts, capture backlog. Phases 2–9, 6a and Track R become issues [#3]–[#11] and [#14]. A Codex review, posted to the PR, finds four contract problems; all are fixed in one pass (including a new Phase 6a), and the re-review recommends approval. |
+| 25 Sept 13:21–17:46 | Claude Code cloud, Codex review | Planning [#12] from a six-sentence prompt: roadmap, ADRs 0001–0008, twelve phase prompts, capture backlog. Phases 2–9, 6a and Track R become issues [#3]–[#11] and [#14]. A Codex review, posted to the PR at 16:41, finds four contract problems; all are fixed in one pass (including a new Phase 6a), and the re-review at 16:54 recommends approval. The review came from the ChatGPT project chat "Review PR Recommendations", not a local Codex session. |
 | 25 Sept 14:11–16:44 | Claude Code + Gemini | Cursor is looping on missing firmware. Claude diagnoses, Gemini research identifies options, owner supplies firmware, five ROM captures run. The 377-interrupt divergence is found ([#13]). |
+| 25 Sept 17:44 | ChatGPT project | The chat "Discuss Issue 13 Implications" works through counting the 377 build interrupts, records the decision on [#13] and posts its consequences and the rejected alternative. |
+| 25 Sept 18:07–18:47 | Codex | Four attempts to review Phase 1 ([#1]) end in interrupted `/review` runs or API 401 errors, an `auth` request is interrupted, and a sixth session only checks connectivity. No review is produced. |
 | 25 Sept 19:21–22:13 | Cursor `/goal` | Phases 2–7 in one evening: [#15], then a five-PR stack [#16]–[#20]. 65 automatic goal continuations in the phases 3–7 chat. |
 | 25 Sept 23:27 – 26 Sept 00:51 | Cursor `/goal` + sub-agents | Two review goals over the stack: verify every claim by running code, then apply fixes. 16 sub-agents. Cursor's premium-model allowance runs out mid-run and it falls back to Grok 4.6. |
 | 26 Sept morning | Cursor | Desktop demo, first hand test ("I see only a black screen"), play-bug plan and fixes ([#21]), port comparison report. |
+| 26 Sept 08:07, 11:11 | Codex | Two reviews of the `HSLOW` rounding change find no regression; both note the manifest check still blocked by an unlisted text fixture. |
+| 26 Sept (date inferred) | ChatGPT project | The chat "Review Daggorath Cursor workflow" writes a retrospective of the work so far: phase prompts as contracts, acceptance checked on the owning branch, an assisted victory as regression evidence only. Its record gives no date; its 14-test count matches the repository on 26 Sept. It changed nothing in the repository. |
 | 26 Sept ~14:40 | Cursor → Claude Code | Cursor credits exhausted. Claude Code picks up from a pasted transcript. |
 | 26 Sept 18:38 | Claude Code | Hourly refinement loop starts (cron `17 * * * *`). Runs 1–29 over about 27 hours ([#23], [#31]). |
-| 27 Sept 10:12 – 28 Sept 12:05 | Codex | Phase 5b honest playthrough ([#33]): plan at high effort, compact, execute as a goal on a lower model in a dedicated worktree. |
+| 27 Sept 10:12 – 28 Sept 12:05 | Codex | Phase 5b honest playthrough ([#33]): plan at high effort, compact, execute as a goal on a lower model in a dedicated worktree. Eight companion sessions on 27 Sept smoke-test the custom review roles and review the prompt, the recovery code, the planner and the verifier; on 28 Sept at 11:53 three audit roles check `6b5abe6`. The final review was never posted to the PR. |
 | 27 Sept 11:25–14:26 | Claude Code cloud (plan mode) | Phase 8 planning [#24]: ADR-0009 (shell and pause), ADR-0010 (render styles), D-16 and D-17. Thirteen owner decisions taken through typed answers and multiple-choice questions; a port study run on the owner's machine from a prompt the session wrote. Ends by writing the Phase 8 goal prompt. |
 | 27 Sept 14:28–16:59 | Claude Code cloud | That goal prompt, pasted into a fresh session, produces six headless touch PRs [#25]–[#30] within 55 minutes. SDL3 is missing in the container; the on-screen work is recorded as open. |
 | 27 Sept 17:24 – 28 Sept 15:53 | Claude Code | Phase 8.6 SDL wiring in a second worktree, then a touch-overlay loop driven by hand-test feedback ([#32]). |
 | 28 Sept 15:13 – 30 Sept 15:43 | Claude Code | Track R ROM captures C-09 to C-21 across four worktrees: [#36], [#41], [#44], [#50]. |
-| 28 Sept 16:06–18:14 | Codex | Crisp-vector shading ([#38]) and the touch-after-load fix ([#42]), each from a one-paragraph bug report. |
-| 28 Sept 18:20 – 30 Sept 13:30 | Claude Code, Codex review | Web stopgap [#48]. Codex's review finds the save-durability defect. |
+| 28 Sept 15:57–18:14 | Codex | Crisp-vector shading ([#37], [#38]) and the touch-after-load fix ([#40], [#42]), each from a one-paragraph bug report. Shading took a planning session, an implementation session that opened the issue, worked in a new worktree and opened the PR, and two audit sessions; the touch fix took one session doing the same. |
+| 28 Sept 18:20 – 30 Sept 13:30 | Claude Code, Codex review | Web stopgap [#48]. Codex's review (29 Sept 15:01) finds the save-durability defect; its second review confirms the fix. |
 | 28 Sept 19:00–19:09 | Claude Code cloud | Licensing [#46]: a pasted Gemini analysis, four owner decisions, MIT for own work and `DATA-NOTICE.md` for copied data. |
-| 30 Sept 16:07–21:54 | Claude Code cloud, started from the Android app; Copilot and a second review | Phase 9 Android shell [#52], from a two-sentence prompt. The container cannot reach the Android SDK, so CI builds the first APK. Reviews find a scaling bug and a background-time bug; both are fixed before merge. |
+| 30 Sept 16:07–21:54 | Claude Code cloud, started from the Android app; Copilot and Codex reviews | Phase 9 Android shell [#52], from a two-sentence prompt. The container cannot reach the Android SDK, so CI builds the first APK. Copilot finds a scaling bug. Codex finds a background-time bug at 17:38 without GitHub access; a second Codex session that started at 17:34 checks the Copilot threads and posts the review at 17:47. Both bugs are fixed before merge. |
 | 30 Sept 21:33–22:55 | Claude Code | APK installed on the owner's phone; navigation-bar overlap and crisp half-step fixed from live feedback ([#54]). |
+| 30 Sept 22:57 | Codex | Surveys the history, PRs and documentation and writes the public-record case study, the first draft of this document. |
 
 Commits per day show the shape: 4, 135, 43, 101, 45, 12, 11. Two days of generation, then
 progressively slower, more deliberate work as the remaining problems needed a human looking at
@@ -132,10 +137,10 @@ continuous working time.
 
 | Tool | Role | Evidence |
 |---|---|---|
-| ChatGPT | Framing: licence reading, stack choice, charter, first prompt | The shared conversation |
+| ChatGPT | Framing: licence reading, stack choice, charter, first prompt; in the same project, the [#12] review, the [#13] decision analysis and a workflow retrospective | The shared conversations; the owner's report on five project chats |
 | Claude (desktop, CLI, cloud) | Planning and ADRs; harness setup; unblocking; loops; Phase 8, Track R, web, licensing, Android; review | 35 interactive local sessions; 5 cloud sessions behind 10 PRs; 28 commits authored as `Claude` |
 | Cursor | Bulk implementation of phases 1–7 under `/goal`; cloud review of its own stack | 129 commits with a Cursor co-author trailer; 11 `cursor/` branches |
-| Codex | Phase 5b search; two targeted fixes; independent PR reviews, including planning [#12]; the first, public-record draft of this case study | 32 sessions; two stored review goals; the owner's "based on codex review" instruction in the [#12] cloud session |
+| Codex | Phase 5b search; two targeted fixes; independent PR reviews of [#33], [#48] and [#52] (and [#12] from a ChatGPT project chat); the first, public-record draft of this case study | 30 local sessions, 25–30 Sept; two stored review goals; the owner's "based on codex review" instruction in the [#12] cloud session |
 | GitHub Copilot | PR review on 6 PRs; `AGENTS.md`; one conflict-resolution plan | Review records on [#15], [#32], [#36], [#41], [#50], [#52]; a second [#52] review refused for quota |
 | Gemini | Research only: CoCo firmware sources, web-delivery options, the licensing landscape | Pasted into Claude prompts on 25 and 28 Sept |
 
@@ -232,8 +237,8 @@ like a path to iOS eventually." The session turned "test on private android devi
 licensing decision D5 (private devices only, CI uploads nothing) and asked the owner to check
 the wording, "since it's your decision on record". The owner's only other message was "Watch
 the PR, respond to review comments". From then on GitHub events drove the session: it fixed
-Copilot's scaling finding, resolved five threads, fixed the background-time finding from the
-second review, and reported CI on each push. The owner merged at 21:54; a local session was by
+Copilot's scaling finding, resolved five threads, fixed the background-time finding from Codex's
+review, and reported CI on each push. The owner merged at 21:54; a local session was by
 then installing the APK on the owner's phone ([#54]).
 
 ## Techniques
@@ -464,10 +469,10 @@ Review was routinely given to a tool that had not written the code.
 | Cursor, Phase 1 PR | Cursor `/multi-model-review` using Grok 4.7 | Claim checklist, then a goal to close it |
 | Claude, planning [#12] | Codex, posted to the PR; relayed by the owner ("review & respond to the new comment based on codex review") | Save-format, ownership, seeding and firmware-label problems fixed before any phase ran; re-review recommended approval |
 | Cursor, stack [#16]–[#20] | Cursor cloud agent | Per-branch reviews that separated "fixed downstream" from "satisfied here" |
-| Codex, Phase 5b [#33] | Codex in a fresh goal, then Claude applies notes | Independent replay; hash matched; 3 of 4 notes applied |
+| Codex, Phase 5b [#33] | Codex in a fresh goal, plus three Codex audit roles; then Claude applies notes | Independent replay; hash matched; 3 of 4 notes applied. The review lives in the session log, not on the PR: the automatic approval check rejected posting it |
 | Claude, web [#48] | Codex `/goal` review | Found that a failed IndexedDB sync still reported a successful save |
 | Claude, Track R | Copilot | Six findings on [#50] |
-| Claude, Android [#52] | Copilot, then a review posted from the owner's account (tool not named) | Copilot: the game would draw at a fixed size in one corner of a phone screen, plus four stale "not built" notes. Second review: background time still fed the jiffy accumulator |
+| Claude, Android [#52] | Copilot, then Codex | Copilot: the game would draw at a fixed size in one corner of a phone screen, plus four stale "not built" notes. Codex: background time still fed the jiffy accumulator. One Codex session found it without GitHub access; another checked the Copilot threads and posted the review |
 
 The planning review is the clearest case of a reviewer finding decisions hidden in harmless
 prose. Before any phase ran, it found that save-format wording could put a modern header into
@@ -624,8 +629,12 @@ The limits are in the logs, and the work routed around each:
   limit. defer the next run until 3:30 pm" and queued the feedback for that run.
 - **Claude session limit**, hit 29 Sept 16:02, resetting 19:40. Resumed with "resume work, my
   limit has refreshed".
-- **Codex** needed API troubleshooting before its first use on 25 Sept and lost GitHub access
-  briefly on 30 Sept.
+- **Codex**'s first sessions, Phase 1 review attempts on 25 Sept, ended interrupted or with API
+  401 errors.
+  On 30 Sept one review session had no GitHub access, so a separate session diagnosed the CLI
+  token and another posted the review.
+- **Automatic approval** blocked Codex from posting its [#33] review, so that review exists only
+  in the session log.
 - **Copilot review quota**, reached 30 Sept: the second Copilot review of [#52] was refused
   ("the user who requested the review has reached their quota limit").
 
@@ -747,7 +756,8 @@ and a choice of which tool had allowance left.
 | `docs/.transcripts/` (git-ignored) | 16 exported Cursor chats, 25–26 Sept, 15 distinct | Files 10 and 12 are identical; Cursor's own store holds 17 transcripts |
 | `~/.claude/projects/*daggorath*` | 112 Claude Code sessions: 35 interactive, 77 automated | Cloud sessions (claude.ai/code) are not stored locally |
 | Claude Code cloud sessions linked from [#12], [#24]–[#30], [#46], [#52] (five sessions) | Owner messages, multiple-choice answers, plan approvals, turn records with durations, session metadata | Read on 1 October through the Claude Code session API. Owner messages, answers and turn summaries were read in full; individual tool calls were sampled, not reviewed one by one |
-| `~/.codex/sessions` | 32 Codex sessions that touch the project | Token counts are per-session totals as logged |
+| `~/.codex/sessions`, with the owner's Codex session inventory (not committed) | 30 Codex sessions, 25–30 Sept, whose working directory was this repository or the Phase 5b worktree; each listed by ID with its recorded result | The inventory labels start times UTC, but they are US Central: the timestamps embedded in the session IDs are five hours later. It reports what each log says and reruns nothing. An earlier count of 32 was not reproduced and is replaced by this rule. Token counts are per-session totals as logged |
+| The owner's report on five ChatGPT project chats (not committed) | Summaries of the planning and archaeology chats, the [#12] review, the [#13] discussion and a workflow retrospective | Model-written summaries without timestamps; the last three chats have not been read directly. Times above come from the matching GitHub comments |
 | `.remember/` daily logs | Timestamped one-line summaries of every working block | Written by a summarising model; used here for sequence, not for claims |
 | Git and GitHub | 352 commits, 31 merged PRs, 24 issues, CI runs, PR descriptions and review threads through [#54] | Co-author trailers undercount agent work |
 
@@ -760,10 +770,10 @@ their original spelling.
 
 | Gap | What is known | What would close it |
 |---|---|---|
+| Codex review of PR [#12] | Not in the local Codex logs, which show only the failed Phase 1 review attempts and a connectivity check on 25 Sept. The owner's report on the ChatGPT project names the chat "Review PR Recommendations" as its source; otherwise it is known only from its PR comments | Reading that chat directly |
 | First draft of the Phase 0 report | The recovered ChatGPT share covers its correction and the Phase 0b prompt; the report already exists as a project file there | The earlier turns or chat in the same ChatGPT project, if the research method matters |
 | Tool-level detail of the five cloud sessions | Owner messages, answers, turn records and PR outcomes are read (see [Cloud sessions](#cloud-sessions)) | A per-tool-call review, if a finer cost or timing breakdown matters |
 | Cloud session behind [#22] (touch-control mockups, 26–27 Sept) | Linked from the PR body; not in the scope of this pass | Read it the same way as the other five |
-| Which tool wrote the second review of [#52] | Posted from the owner's account without a tool signature | The owner's memory or the Codex logs for 30 Sept |
 | Two Cursor chats | Cursor's local store holds 17 transcripts; 15 distinct ones are exported | Export, if they are not empty or trivial |
 | Gemini conversations | Only the pasted excerpts survive | Export, if the research framing matters |
 | Subscription tiers and actual spend | Not in any log | Owner's account records |
@@ -791,6 +801,7 @@ their original spelling.
 [#36]: https://github.com/SteveLeve/daggorath/pull/36
 [#37]: https://github.com/SteveLeve/daggorath/issues/37
 [#38]: https://github.com/SteveLeve/daggorath/pull/38
+[#40]: https://github.com/SteveLeve/daggorath/issues/40
 [#41]: https://github.com/SteveLeve/daggorath/pull/41
 [#42]: https://github.com/SteveLeve/daggorath/pull/42
 [#44]: https://github.com/SteveLeve/daggorath/pull/44
