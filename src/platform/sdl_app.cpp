@@ -179,8 +179,8 @@ void persist_slot(std::size_t i, const dag::shell::Shell& shell, dag::platform::
 
 std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> turn_wipe(int bar_x) {
     // PTURN.ASM LRTURN/RLTURN: two horizontal lines and a vertical bar.
-    // The sweep is eight positions inside one foreground burst. One bar is
-    // what a single video frame can show.
+    // Draws one position of the sweep; the caller steps it through the
+    // eight (LRTU10/RLTU10).
     std::array<std::uint8_t, dag::kScreenWidth * dag::kScreenHeight> pixels{};
     auto plot = [&](int x, int y) {
         if (x < 0 || x >= dag::kScreenWidth || y < 0 || y >= dag::kViewportScanlineEnd) return;
@@ -1195,6 +1195,23 @@ int main(int argc, char** argv) {
             frame.fill(0);
             dag::paint_text_bands(frame.data(), dag::kScreenWidth, chrome, message, command_override);
         }
+        const auto crisp_view_shown = [&] {
+            return crisp_style && !game.player().dead && !game.player().fainted &&
+                   !game.preparing() && game.display_mode() != dag::DisplayMode::Examine;
+        };
+        const auto draw_crisp = [&](SDL_Renderer* r, const auto& view) {
+            // NLVL50 polarity, as present_frame's apply_vdginv gives the pixel style
+            // (source-proven for the view; the map screen is [INF], raster.hpp).
+            const std::uint8_t ink = dag::vdginv(game.polarity_level()) ? 0 : 255;
+            const std::uint8_t paper = static_cast<std::uint8_t>(255 - ink);
+            SDL_SetRenderDrawColor(r, paper, paper, paper, 255);
+            const SDL_FRect viewport_rect{static_cast<float>(game_x), 0,
+                                          static_cast<float>(kGameW),
+                                          static_cast<float>(dag::kViewportScanlineEnd * kScale)};
+            SDL_RenderFillRect(r, &viewport_rect);
+            if (map_up) draw_crisp_map(r, dag::map_snapshot_from(game), kScale, game_x, ink);
+            else draw_crisp_view(r, dag::project(view), kScale, game_x, ink, paper);
+        };
         if (half_scale != 0) {
             // PMOVE draws HLFSCL or BAKSCL on the cell being left, then the
             // standing view of the cell entered.
@@ -1205,7 +1222,12 @@ int main(int argc, char** argv) {
             leaving.scale = half_scale;
             auto midway = dag::rasterize(leaving);
             dag::paint_text_bands(midway.data(), dag::kScreenWidth, chrome, message, command_override);
-            present_frame(renderer, texture, midway, game.polarity_level(), game_x, kGameW, kGameH);
+            // In crisp the half-step is overdrawn in vector form too, or the
+            // pixel style's dotted lines flash before the standing view.
+            present_frame(renderer, texture, midway, game.polarity_level(), game_x, kGameW, kGameH,
+                          [&](SDL_Renderer* r) {
+                if (crisp_view_shown()) draw_crisp(r, leaving);
+            });
             SDL_Delay(12);
         } else if (sidestep_bar >= 0 ||
                    (turned && have_shown && snap.mode == 0 &&
@@ -1218,12 +1240,37 @@ int main(int argc, char** argv) {
             }
             // TURN AROUND sweeps RLTURN twice (PTURN.ASM PTUR20 -> PTUR22).
             const int sweeps = sidestep_bar < 0 && turn_loops >= 8 ? static_cast<int>(turn_loops / 8) : 1;
+            // LRTURN/RLTURN step the bar through eight positions, 32 apart
+            // ([SRC] PTURN.ASM:63-67, 76-79). The 33 ms hold per position is
+            // [INF]: the sweep is CPU-bound and unmeasured (D-13).
             for (int sweep = 0; sweep < sweeps; ++sweep) {
-                auto wipe = turn_wipe(bar);
-                dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
-                                      command_override);
-                present_frame(renderer, texture, wipe, game.polarity_level(), game_x, kGameW, kGameH);
-                SDL_Delay(12);
+                for (int position = 0; position < 8; ++position) {
+                    const int bar_at = bar == 8 ? 8 + 32 * position : 248 - 32 * position;
+                    auto wipe = turn_wipe(bar_at);
+                    dag::paint_text_bands(wipe.data(), dag::kScreenWidth, chrome, message,
+                                          command_override);
+                    present_frame(renderer, texture, wipe, game.polarity_level(), game_x, kGameW, kGameH,
+                                  [&](SDL_Renderer* r) {
+                        // Crisp draws the same two lines and bar (turn_wipe) as
+                        // device-scaled vectors over the blanked viewport.
+                        if (!crisp_view_shown() || map_up) return;
+                        const std::uint8_t ink = dag::vdginv(game.polarity_level()) ? 0 : 255;
+                        const std::uint8_t paper = static_cast<std::uint8_t>(255 - ink);
+                        SDL_SetRenderDrawColor(r, paper, paper, paper, 255);
+                        const SDL_FRect viewport_rect{static_cast<float>(game_x), 0,
+                                                      static_cast<float>(kGameW),
+                                                      static_cast<float>(dag::kViewportScanlineEnd * kScale)};
+                        SDL_RenderFillRect(r, &viewport_rect);
+                        SDL_SetRenderDrawColor(r, ink, ink, ink, 255);
+                        const float left = static_cast<float>(game_x);
+                        const float right = static_cast<float>(game_x + kGameW);
+                        const float bar_x = static_cast<float>(game_x + bar_at * kScale);
+                        SDL_RenderLine(r, left, 16.0f * kScale, right, 16.0f * kScale);
+                        SDL_RenderLine(r, left, 136.0f * kScale, right, 136.0f * kScale);
+                        SDL_RenderLine(r, bar_x, 17.0f * kScale, bar_x, 135.0f * kScale);
+                    });
+                    SDL_Delay(33);
+                }
             }
         }
         present_frame(renderer, texture, frame, game.polarity_level(), game_x, kGameW, kGameH,
@@ -1234,21 +1281,7 @@ int main(int argc, char** argv) {
             // presentation-only fades (D-14) this pass does not reproduce
             // in crisp form, and for PREPARE! and EXAMINE, which replace
             // the viewport with text crisp has no vector form of.
-            if (crisp_style && !game.player().dead &&
-                !game.player().fainted && !game.preparing() &&
-                game.display_mode() != dag::DisplayMode::Examine) {
-                // NLVL50 polarity, as present_frame's apply_vdginv gives the pixel style
-                // (source-proven for the view; the map screen is [INF], raster.hpp).
-                const std::uint8_t ink = dag::vdginv(game.polarity_level()) ? 0 : 255;
-                const std::uint8_t paper = static_cast<std::uint8_t>(255 - ink);
-                SDL_SetRenderDrawColor(r, paper, paper, paper, 255);
-                const SDL_FRect viewport_rect{static_cast<float>(game_x), 0,
-                                              static_cast<float>(kGameW),
-                                              static_cast<float>(dag::kViewportScanlineEnd * kScale)};
-                SDL_RenderFillRect(r, &viewport_rect);
-                if (map_up) draw_crisp_map(r, dag::map_snapshot_from(game), kScale, game_x, ink);
-                else draw_crisp_view(r, dag::project(snap), kScale, game_x, ink, paper);
-            }
+            if (crisp_view_shown()) draw_crisp(r, snap);
             if (shell->paused()) {
                 // 8.6.8: styled and hit-tested like the touch overlay's own
                 // pickers (Picker/Popup boards) -- a black-filled,
