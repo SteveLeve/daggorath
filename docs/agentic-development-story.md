@@ -24,6 +24,7 @@ instructions. The techniques below are ranked by how much of the result they exp
 | Source | What it holds | Limit |
 |---|---|---|
 | ChatGPT shared conversation, "Plan mobile remake licensing tech stack" (24 Sept) | Opening request, licensing and stack analysis, the generated charter and Phase 0 prompt | Read from the share page's embedded data; reasoning summaries only partly present |
+| ChatGPT shared conversation, "Archaeology Report Update" (24 Sept) | The owner's fixed-map correction to the Phase 0 report, and the generated Phase 0b prompt | The share shows the report being read and patched as a project file, not the run that first wrote it |
 | Claude Cowork chat "Execute prompt file" (24 Sept) | The Phase 0b run and the repository reorganisation | Read as rendered page text; tool steps are collapsed to counts |
 | `docs/.transcripts/` (git-ignored) | 16 exported Cursor chats, 25–26 Sept, 15 distinct | Files 10 and 12 are identical; Cursor's own store holds 17 transcripts |
 | `~/.claude/projects/*daggorath*` | 112 Claude Code sessions: 35 interactive, 77 automated | Cloud sessions (claude.ai/code) are not stored locally |
@@ -32,7 +33,7 @@ instructions. The techniques below are ranked by how much of the result they exp
 | Git and GitHub | 352 commits, 31 merged PRs, 24 issues, CI runs | Co-author trailers undercount agent work |
 
 Two things could not be recovered and are listed under [Gaps](#gaps-and-what-would-close-them):
-the session that produced the Phase 0 report, and the cloud sessions behind ten PRs.
+the first drafting of the Phase 0 report, and the cloud sessions behind ten PRs.
 
 Token and tool counts below are measurements of the local logs. They are not costs, and they
 do not compare tools fairly: the products log different things.
@@ -42,7 +43,8 @@ do not compare tools fairly: the products log different things.
 | When | Tool | What happened |
 |---|---|---|
 | 24 Sept 12:11 | ChatGPT (GPT-5.6 Thinking) | Opening discussion: licence, stack, sequence. Output: project instructions and a Phase 0 archaeology prompt. |
-| 24 Sept 19:02 | — | Repository initialised with those two files, then the Phase 0 report and a 19-line Phase 0b prompt. |
+| 24 Sept, before 19:02 | ChatGPT project | Phase 0 archaeology report. The owner corrects it (maps are fixed, not seeded); ChatGPT checks the assembly, patches the report and the instructions, then writes the Phase 0b prompt from the report's own "recommended next milestone". |
+| 24 Sept 19:02 | — | Repository initialised with the instructions and Phase 0 prompt, then the Phase 0 report and the 19-line Phase 0b prompt. |
 | 24 Sept evening | Claude Cowork (desktop app, Opus 5) | Phase 0b from a one-line instruction: 15 source-extracted fixtures, five traces, timing spec, headless core slice. A second instruction reorganised the repository into a code project and wrote the Phase 1 prompt. Committed 21:01 (74 files); Claude Code CLI wrote the commit message. |
 | 25 Sept morning | Cursor `/goal` | Phase 1 implementation. Claude Code reviews it as "software-complete, ROM-unverified". |
 | 25 Sept 10:05–13:05 | Claude Code | `claude-automation-recommender` run; hooks, audit agents and skills committed (`c9a0401`). Copilot generates `AGENTS.md`. |
@@ -314,6 +316,16 @@ cleaned up on 30 September.
 
 The owner's contribution is concentrated in a few kinds of message.
 
+**Domain knowledge, early.** The first Phase 0 report and the charter's examples treated the
+dungeon as freely seeded. The owner, who had played the original, objected before any code
+existed: "the original game had fixed maps and timed events such as creature spawning. A
+faithful reproduction should adopt the same maps and game sequence as the original even if we
+introduce randomness later." ChatGPT checked `DGNGEN.ASM`, confirmed that each level builds
+from a fixed seed and reads the clock only afterwards, and rewrote the report, the
+instructions and the test plan. The rule "Original Mode takes no player-supplied seed and
+generates no new maps" in today's `CLAUDE.md` descends from that one message, and the Phase 0b
+prompt opens with it as a "Preservation requirement".
+
 **Decisions with reasons.** "I've decided to apply the recommended resolution for issue #13
 counting the 377 interrrupts in order to preserve fidelity." "The basis is good enough - I do
 own a physical copy of the game, localize and use the ccc file but do not commit it to the
@@ -399,7 +411,7 @@ and a choice of which tool had allowance left.
 
 | Gap | What is known | What would close it |
 |---|---|---|
-| Phase 0 archaeology report | Committed 24 Sept 19:02 with a "Research snapshot" date. The recovered Cowork chat starts at Phase 0b, with the report already in the folder | Export of the chat that ran the Phase 0 prompt |
+| First draft of the Phase 0 report | The recovered ChatGPT share covers its correction and the Phase 0b prompt; the report already exists as a project file there | The earlier turns or chat in the same ChatGPT project, if the research method matters |
 | Cloud sessions for PRs #12, #24–#30, #46, #52 | Session links are in the PR bodies | A summary written from inside those claude.ai/code sessions |
 | Two Cursor chats | Cursor's local store holds 17 transcripts; 15 distinct ones are exported | Export, if they are not empty or trivial |
 | Gemini conversations | Only the pasted excerpts survive | Export, if the research framing matters |
