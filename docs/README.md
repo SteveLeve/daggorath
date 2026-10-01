@@ -6,6 +6,7 @@
 |---|---|
 | [`project-instructions.md`](project-instructions.md) | the charter: mission, principles, development sequence, licensing and agent rules |
 | [`../README.md`](../README.md) | project state, layout and build |
+| [`case-study.md`](case-study.md) | evidence-led project history, development methods, review outcomes and remaining gaps |
 
 ## Living documents
 
