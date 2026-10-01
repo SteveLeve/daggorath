@@ -6,8 +6,8 @@ historical reproduction: the same five fixed maps, the same 60 Hz timing, the sa
 command language, the same quirks. Optional enhanced modes may come later, attached
 at extension points, never by editing Original Mode.
 
-The simulation core is headless, deterministic and links nothing. Android and iOS
-are the eventual targets; neither is being built yet.
+The simulation core is headless, deterministic and links nothing. Android is being
+packaged for private devices (Phase 9); iOS follows through the same shell.
 
 ## State
 
@@ -24,7 +24,8 @@ are the eventual targets; neither is being built yet.
 | **Phase 5b** | complete — honest power-on `WINNER` playthrough: no `FUDGE`, real `ZSAVE`/`ZLOAD`, six recovered deaths; the playthrough ctest is re-enabled through the independent verifier; [prompt](docs/prompts/phase-5b-honest-playthrough.md), [status](docs/archaeology/phase-5/reconciliation.md) |
 | **Phase 7** | complete — SDL3 desktop window when SDL3 is installed; [reconciliation](docs/archaeology/phase-7/reconciliation.md) |
 | **Phase 8** | reopened — touch input layer: coverage table, gesture adapters (D-17), a headless system-menu shell (D-16, ADR-0009), `crisp` render-style geometry (ADR-0010), a headless touch overlay prototype, and a replay-equivalence test all landed and remain complete. SDL3 became available in the build environment after this phase was marked complete; workstream 8.6 wires the touch overlay, the shell's system menu (with a Save/Load/Restart/Quit on-screen list), and a `pixel`/`crisp` render-style toggle (F1) into `src/platform/sdl_app.cpp`, and evaluates both the `Tablet4x3` (default) and `PhoneLandscape` (`--layout=phone`) layouts on screen. Video/Controls menu entries, option-setting, and the OS-backgrounding hook remain open. [reconciliation](docs/archaeology/phase-8/reconciliation.md) |
-| **Phases 9–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
+| **Phase 9** | open — private-device builds only ([licensing D5](docs/licensing/README.md)). Android Gradle shell around the same SDL3 app (`make android`), backgrounding pauses via the system menu (D-16), CI build without upload; [ADR-0012](docs/adr/0012-mobile-packaging.md), [build notes](android/README.md). Open: a device/emulator run, the conformance suite on Android, hidden-slot persistence across process death, iOS. Phase 8's remaining menu items stay open alongside. |
+| **Phases 10–11** | planned — [roadmap](docs/planning/roadmap.md), [ADRs](docs/adr/README.md), prompts under [`docs/prompts/`](docs/prompts/README.md) |
 
 The pinned listing at `a94326f`, assembled with LWTOOLS 4.25, is byte-identical
 to the Tandy catalog 26-3093 cartridge image. MAME 0.264 `coco2b` has run that

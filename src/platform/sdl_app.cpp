@@ -17,8 +17,22 @@
 #include "daggorath/touch_overlay.hpp"
 
 #include <SDL3/SDL.h>
+// Android and iOS enter through SDL's own main (Phase 9, ADR-0012): the
+// header renames main() to SDL_main(), which SDLActivity / UIKit calls.
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+#include <SDL3/SDL_main.h>
+#endif
+// Where the platform, not the app, sizes the window (a browser canvas, a
+// phone or tablet screen), SDL letterboxes the fixed game coordinates into
+// it and maps pointer and touch events back (ADR-0011, ADR-0012).
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+#define DAG_FITS_WINDOW 1
+#else
+#define DAG_FITS_WINDOW 0
+#endif
 
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <fstream>
@@ -472,7 +486,7 @@ void draw_crisp_map(SDL_Renderer* renderer, const dag::MapSnapshot& snap, int sc
 // its fixed window, unchanged. No SDL_WINDOW_HIGH_PIXEL_DENSITY: with it,
 // SDL 3.4 writes inline CSS sizes onto the canvas (and a 1x1 one when the
 // WebGL renderer recreates the window), overriding the page's sizing.
-#ifdef __EMSCRIPTEN__
+#if DAG_FITS_WINDOW
 constexpr SDL_WindowFlags kWindowFlags = SDL_WINDOW_RESIZABLE;
 #else
 constexpr SDL_WindowFlags kWindowFlags = 0;
@@ -480,7 +494,7 @@ constexpr SDL_WindowFlags kWindowFlags = 0;
 
 void fit_to_window([[maybe_unused]] SDL_Renderer* renderer, [[maybe_unused]] double w,
                    [[maybe_unused]] double h) {
-#ifdef __EMSCRIPTEN__
+#if DAG_FITS_WINDOW
     SDL_SetRenderLogicalPresentation(renderer, static_cast<int>(w), static_cast<int>(h),
                                      SDL_LOGICAL_PRESENTATION_LETTERBOX);
 #endif
@@ -511,7 +525,25 @@ int main(int argc, char** argv) {
     std::vector<ShotStep> shots = shots_path.empty() ? std::vector<ShotStep>{} : load_shots(shots_path);
     std::size_t next_shot = 0;
     std::uint64_t shots_start_ms = 0;
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+    // Phase 9: phones and tablets run landscape only, full screen; the
+    // layout default follows the display's shape, as the web page's
+    // --default-layout does (ADR-0011).
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) return 1;
+#if defined(__ANDROID__) || defined(SDL_PLATFORM_IOS)
+    if (!default_layout) {
+        if (const SDL_DisplayMode* mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay())) {
+            const int long_side = std::max(mode->w, mode->h);
+            const int short_side = std::min(mode->w, mode->h);
+            if (short_side > 0)
+                default_layout = long_side * 3 > short_side * 5  // wider than 5:3
+                                     ? dag::input::OverlayLayout::PhoneLandscape
+                                     : dag::input::OverlayLayout::Tablet4x3;
+        }
+    }
+#endif
     std::string save_dir = "saved";
     if (char* pref = SDL_GetPrefPath("daggorath", "dod")) {
         save_dir = pref;
@@ -565,8 +597,9 @@ int main(int argc, char** argv) {
         game_x = (window_w - kGameW) / 2.0;
         viewport_w = window_w;
         overlay.set_layout(layout);
-#ifdef __EMSCRIPTEN__
-        // The page sizes the canvas; only the letterboxed logical size changes.
+#if DAG_FITS_WINDOW
+        // The page or the screen sizes the window; only the letterboxed
+        // logical size changes.
         fit_to_window(renderer, window_w, window_h);
         return;
 #endif
@@ -822,10 +855,19 @@ int main(int argc, char** argv) {
         }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-#ifdef __EMSCRIPTEN__
+#if DAG_FITS_WINDOW
             SDL_ConvertEventToRenderCoordinates(renderer, &event);
 #endif
             if (event.type == SDL_EVENT_QUIT) running = false;
+            // D-16 / ADR-0012: the OS backgrounding the app opens the
+            // system menu, which pauses; no jiffy is owed for the time away
+            // and play resumes only when the player leaves the menu.
+            if (event.type == SDL_EVENT_WILL_ENTER_BACKGROUND && !shell->paused())
+                pause_or_back_out();
+            // Restart host-time accounting on return, so the time away is
+            // never converted into jiffies, even if a queued menu dismissal
+            // later in this batch resumes play before the next tick.
+            if (event.type == SDL_EVENT_DID_ENTER_FOREGROUND) last_ns = SDL_GetTicksNS();
             if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                 event.button.button == SDL_BUTTON_LEFT) {
                 const double mx = event.button.x;
@@ -877,7 +919,7 @@ int main(int argc, char** argv) {
             }
             if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) continue;
             const SDL_Keycode key = event.key.key;
-            if (key == SDLK_ESCAPE) {
+            if (key == SDLK_ESCAPE || key == SDLK_AC_BACK) {  // AC_BACK: Android back
                 pause_or_back_out();
                 continue;
             }
@@ -933,7 +975,10 @@ int main(int argc, char** argv) {
         const std::uint64_t now_ns = SDL_GetTicksNS();
         const std::uint64_t elapsed_us = now_ns > last_ns ? (now_ns - last_ns) / 1000 : 0;
         last_ns = now_ns;
-        const int steps = dag::jiffies_due(elapsed_us, owed);
+        // D-16: paused wall time is not converted at all (converting and
+        // then discarding it would loop once per missed jiffy after a long
+        // suspension).
+        const int steps = shell->paused() ? 0 : dag::jiffies_due(elapsed_us, owed);
         // shell->tick is a no-op while paused (D-16: no jiffy owed for
         // paused wall time), replacing the direct advance_jiffies call --
         // ADR-0009's pause-invariance test (tests/shell/shell_tests.cpp)

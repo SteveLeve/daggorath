@@ -20,3 +20,4 @@ and adds a dated "Resolution" section; it does not rewrite the original text.
 | [0009](0009-layering-and-shell.md) | Layering: the pure port, the shell, and parallel work | Proposed | Phase 8 (8.2) |
 | [0010](0010-render-styles.md) | Render styles: crisp vectors and the exact raster | Proposed | Phase 8 (8.3) |
 | [0011](0011-web-stopgap-delivery.md) | Web stopgap: WebAssembly PWA build (local only) | Accepted | — |
+| [0012](0012-mobile-packaging.md) | Mobile packaging: Android first, iOS through the same shell | Proposed | Phase 9 |

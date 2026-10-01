@@ -32,6 +32,27 @@ if (EMSCRIPTEN)
   return()
 endif()
 
+# The Android build (Phase 9, ADR-0012) compiles the same window as
+# libmain.so, the name SDL's Java SDLActivity loads, against SDL3 built from
+# the pinned source tree tools/android/fetch-sdl.sh puts in third_party/
+# (never committed). Saves live under SDL_GetPrefPath, which on Android is
+# the app's private internal storage.
+if (ANDROID)
+  set(DAGGORATH_SDL3_SOURCE "${PROJECT_SOURCE_DIR}/third_party/SDL3" CACHE PATH
+      "SDL3 source tree for the Android build (tools/android/fetch-sdl.sh)")
+  if (NOT EXISTS "${DAGGORATH_SDL3_SOURCE}/CMakeLists.txt")
+    message(FATAL_ERROR "SDL3 source not found at ${DAGGORATH_SDL3_SOURCE}; run tools/android/fetch-sdl.sh")
+  endif()
+  set(SDL_SHARED ON CACHE BOOL "" FORCE)
+  set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+  set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+  add_subdirectory("${DAGGORATH_SDL3_SOURCE}" "${CMAKE_BINARY_DIR}/SDL3" EXCLUDE_FROM_ALL)
+  add_library(main SHARED sdl_app.cpp)
+  target_link_libraries(main PRIVATE SDL3::SDL3 daggorath::core daggorath::presentation
+                                      daggorath::platform daggorath::shell)
+  return()
+endif()
+
 # The desktop window is built only when SDL3 is installed. The core, the
 # offscreen rasterizer and the overlay bridge do not link it.
 find_package(SDL3 QUIET)

@@ -1,0 +1,60 @@
+// The app is the same sdl_app.cpp the desktop and web builds use, compiled by
+// the repository's root CMakeLists.txt as libmain.so. SDL's Java activity
+// comes from the pinned SDL3 tree (tools/android/fetch-sdl.sh), never copied.
+plugins {
+    id 'com.android.application'
+}
+
+def sdlJava = file("${rootDir}/../third_party/SDL3/android-project/app/src/main/java")
+if (!sdlJava.exists()) {
+    throw new GradleException("SDL3 source missing: run tools/android/fetch-sdl.sh")
+}
+
+android {
+    namespace = "org.daggorath.dod"
+    compileSdk = 35
+    ndkVersion = "28.2.13676358"
+
+    defaultConfig {
+        // Not a store identifier: private builds only (docs/licensing/README.md D5).
+        applicationId = "org.daggorath.dod.dev"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 1
+        versionName = "0.1.0-private"
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_static", "-DDAGGORATH_BUILD_TESTS=OFF"
+                targets "main", "SDL3-shared"
+            }
+        }
+        ndk {
+            // arm64 for devices, x86_64 for the emulator (Phase 9 prompt step 1).
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = false
+        }
+    }
+
+    sourceSets.main.java.srcDirs += sdlJava
+
+    externalNativeBuild {
+        cmake {
+            path = file("../../CMakeLists.txt")
+            version = "3.22.1+"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError = false
+    }
+}
