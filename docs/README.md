@@ -6,7 +6,7 @@
 |---|---|
 | [`project-instructions.md`](project-instructions.md) | the charter: mission, principles, development sequence, licensing and agent rules |
 | [`../README.md`](../README.md) | project state, layout and build |
-| [`case-study.md`](case-study.md) | evidence-led project history, development methods, review outcomes and remaining gaps |
+| [`agentic-development-story.md`](agentic-development-story.md) | case study: how agents built the project, the evidence techniques that kept it honest, what worked and what did not |
 
 ## Living documents
 
